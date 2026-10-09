@@ -6,19 +6,20 @@ SQL pod BigQuery (eksport GA4) do kalkulatorów testów A/B na pmdata.pl. Scenar
 
 | # | Kiedy | Plik | Wynik → pole kalkulatora |
 |---|---|---|---|
-| 1 | przed testem | [`sql/01_przed_testem_tygodniowo.sql`](sql/01_przed_testem_tygodniowo.sql) | wiersz ŚREDNIA → [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/): Użytkownicy w tygodniu, Konwertujący w tygodniu |
-| 2 | przed testem, gdy test ma trwać 2+ tygodnie | [`sql/02_przed_testem_okno_testu.sql`](sql/02_przed_testem_okno_testu.sql) | to samo, z poprawką na powracających użytkowników |
-| 3 | przed testem | kalkulator | ustawiasz pola z tabeli [„Pola bez SQL”](#pola-bez-sql--ustawiasz-w-kalkulatorze) |
-| 4 | w trakcie | — | nie zaglądasz do wyniku |
-| 5 | po teście | [`sql/03_po_tescie_warianty.sql`](sql/03_po_tescie_warianty.sql) | [Po teście](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/): Użytkownicy i Konwertujący A/B |
-| 6 | po teście | [`sql/04_po_tescie_przychod_miesieczny.sql`](sql/04_po_tescie_przychod_miesieczny.sql) | Po teście: Miesięczny przychód ze strony testowej |
+| 1 | przed testem | [`sql/01_przed_testem.sql`](sql/01_przed_testem.sql) | wiersz z planowaną liczbą tygodni → [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/): Użytkownicy w tygodniu, Konwertujący w tygodniu |
+| 2 | przed testem | kalkulator | ustawiasz pola z tabeli [„Pola bez SQL”](#pola-bez-sql--ustawiasz-w-kalkulatorze); gdy kalkulator policzy inny czas testu — weź wiersz z tym czasem |
+| 3 | w trakcie | — | nie zaglądasz do wyniku |
+| 4 | po teście | [`sql/02_po_tescie_warianty.sql`](sql/02_po_tescie_warianty.sql) | [Po teście](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/): Użytkownicy i Konwertujący A/B |
+| 5 | po teście | [`sql/03_po_tescie_przychod_miesieczny.sql`](sql/03_po_tescie_przychod_miesieczny.sql) | Po teście: Miesięczny przychód ze strony testowej |
+
+Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają. W oknie 4 tygodni unikalnych użytkowników jest mniej niż 4 × tydzień (test zbiera ich wolniej), a CR wyższy (więcej czasu na zakup). Oba efekty działają w przeciwne strony, więc liczysz je na danych, w oknie tak długim jak test.
 
 ## Definicje metryk
 
 | Metryka | Definicja | Kolumna |
 |---|---|---|
-| Użytkownicy | unikalni `user_pseudo_id` od pierwszego `view_item` (przed testem) albo pierwszego przypisania do wariantu (po teście). Nie sesje: test losuje ludzi, a sesje jednej osoby nie są niezależne | `users_weekly`, `users` |
-| Konwertujący | użytkownicy z `purchase` po pierwszym wejściu. Osoby, nie zamówienia; zakup sprzed wejścia nie zależał od wariantu | `converters_weekly`, `converters` |
+| Użytkownicy | unikalni `user_pseudo_id` od pierwszego `view_item` w oknie (przed testem; `_eff` = okno / liczba tygodni) albo pierwszego przypisania do wariantu (po teście). Nie sesje: test losuje ludzi, a sesje jednej osoby nie są niezależne | `users_weekly_eff`, `users` |
+| Konwertujący | użytkownicy z `purchase` po pierwszym wejściu. Osoby, nie zamówienia; zakup sprzed wejścia nie zależał od wariantu | `converters_weekly_eff`, `converters` |
 | CR | konwertujący / użytkownicy | `cr_pct` |
 | Przychód miesięczny | przychód z `purchase` po pierwszym `view_item`, 30 dni przed testem | `monthly_revenue` |
 | Wielokrotnie przypisani | użytkownicy z 2+ wariantami (wyczyszczone cookies, błąd w tagu); wykluczeni. Powyżej ~1% — szukaj błędu | `users_in_many_variants` |

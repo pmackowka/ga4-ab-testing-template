@@ -1,5 +1,5 @@
 /*
- 03 · PO TEŚCIE — dane do kalkulatora „Po teście A/B”
+ 02 · PO TEŚCIE — dane do kalkulatora „Po teście A/B”
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
 
  Użytkownicy i konwertujący na wariant, od pierwszego przypisania w teście:
