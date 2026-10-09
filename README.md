@@ -1,6 +1,6 @@
 # ab-test-bigquery
 
-SQL pod BigQuery (eksport GA4) do kalkulatorów testów A/B na pmdata.pl. Scenariusz: e-commerce testuje kartę produktu; wejście do testu to `view_item`, konwersja to `purchase`. Każde zapytanie kończy się przykładową tabelą wyniku.
+SQL pod BigQuery (eksport GA4) do kalkulatorów testów A/B na pmdata.pl. Scenariusz: e-commerce testuje kartę produktu; wejście do testu to `view_item`, konwersja to `purchase`. Każde zapytanie zwraca tylko kolumny do wpisania w kalkulator; opis i przykład wyniku stoją tuż nad końcowym `SELECT`.
 
 ## Kroki
 
@@ -18,11 +18,11 @@ Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają.
 
 | Metryka | Definicja | Kolumna |
 |---|---|---|
-| Użytkownicy | unikalni `user_pseudo_id` od pierwszego `view_item` w oknie (przed testem; `_eff` = okno / liczba tygodni) albo pierwszego przypisania do wariantu (po teście). Nie sesje: test losuje ludzi, a sesje jednej osoby nie są niezależne | `users_weekly_eff`, `users` |
-| Konwertujący | użytkownicy z `purchase` po pierwszym wejściu. Osoby, nie zamówienia; zakup sprzed wejścia nie zależał od wariantu | `converters_weekly_eff`, `converters` |
-| CR | konwertujący / użytkownicy | `cr_pct` |
+| Użytkownicy | unikalni `user_pseudo_id` od pierwszego `view_item` w oknie (przed testem; na tydzień = okno / liczba tygodni) albo pierwszego przypisania do wariantu (po teście). Nie sesje: test losuje ludzi, a sesje jednej osoby nie są niezależne | `users_per_week`, `users` |
+| Konwertujący | użytkownicy z `purchase` po pierwszym wejściu. Osoby, nie zamówienia; zakup sprzed wejścia nie zależał od wariantu | `converters_per_week`, `converters` |
+| CR | konwertujący / użytkownicy | — (liczy kalkulator) |
 | Przychód miesięczny | przychód z `purchase` po pierwszym `view_item`, 30 dni przed testem | `monthly_revenue` |
-| Wielokrotnie przypisani | użytkownicy z 2+ wariantami (wyczyszczone cookies, błąd w tagu); wykluczeni. Powyżej ~1% — szukaj błędu | `users_in_many_variants` |
+| Wielokrotnie przypisani | użytkownicy z 2+ wariantami (wyczyszczone cookies, błąd w tagu); wykluczeni z wyniku `02` | — |
 
 ## Pola bez SQL — ustawiasz w kalkulatorze
 
