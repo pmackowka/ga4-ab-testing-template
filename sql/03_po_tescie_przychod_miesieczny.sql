@@ -1,11 +1,7 @@
 /*
- 03 · PO TEŚCIE — przychód do przeliczenia wzrostu na złotówki
+ 03 · PO TEŚCIE → kalkulator „Po teście A/B”, pole przychodu
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
-
- Przychód z 30 dni przed testem od użytkowników, którzy obejrzeli kartę
- produktu — z zakupów PO pierwszym view_item:
-   monthly_revenue → Miesięczny przychód ze strony testowej
- Kalkulator mnoży go przez zakres wzrostu, nie przez jedną liczbę.
+ Test karty produktu: wejście = view_item, przychód z purchase.
 */
 
 DECLARE window_end DATE DEFAULT DATE '2020-12-06';  -- dzień przed startem testu
@@ -49,22 +45,22 @@ purchases AS (
   WHERE p.event_name = 'purchase'
 )
 
+/*
+ ─── WYNIK ────────────────────────────────────────────────────────────────
+ monthly_revenue → kalkulator: Miesięczny przychód ze strony testowej
+
+ Przychód z 30 dni przed testem od użytkowników, którzy obejrzeli kartę
+ produktu — tylko z zakupów PO pierwszym view_item. Kalkulator mnoży go
+ przez zakres wzrostu, nie przez jedną liczbę.
+
+ Przykład (liczby poglądowe):
+ monthly_revenue
+ ---------------
+         500 000
+
+ → kalkulator, przy domyślnym wyniku testu: od +23 055 zł do +127 965 zł
+   miesięcznie, najbardziej prawdopodobnie +75 510 zł.
+*/
 SELECT
-  window_days AS days,
-  (SELECT COUNT(*) FROM exposed) AS users_on_test_page,
-  COUNT(DISTINCT user_pseudo_id) AS buyers,
-  COUNT(*) AS purchases,
   CAST(ROUND(IFNULL(SUM(revenue), 0)) AS INT64) AS monthly_revenue
 FROM purchases;
-
-/*
- Przykładowy wynik (liczby poglądowe):
-
- days | users_on_test_page | buyers | purchases | monthly_revenue
- -----+--------------------+--------+-----------+----------------
-   30 |             80 000 |  1 600 |     1 840 |         500 000
-
- → kalkulator: Miesięczny przychód ze strony testowej = 500 000.
-   Przy domyślnym wyniku testu: od +23 055 zł do +127 965 zł miesięcznie,
-   najbardziej prawdopodobnie +75 510 zł.
-*/
