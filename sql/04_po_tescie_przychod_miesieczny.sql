@@ -1,57 +1,22 @@
 /*
-================================================================================
  04 · PO TEŚCIE — przychód do przeliczenia wzrostu na złotówki
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
-================================================================================
 
- SCENARIUSZ: test karty produktu (view_item → purchase).
-
- CO LICZY: przychód z 30 dni przed testem od użytkowników, którzy obejrzeli
- kartę produktu — z zakupów PO pierwszym view_item. To baza, od której
- kalkulator liczy wpływ wzrostu CR na przychód.
-
- ─── Pole kalkulatora, które wypełnia to zapytanie ───────────────────────────
-
- „Miesięczny przychód ze strony testowej (zł)”   ← kolumna monthly_revenue
-   Przychód od użytkowników, którzy weszli na stronę objętą testem; pozwala
-   przeliczyć wzrost na złotówki.
-
- Kalkulator mnoży ten przychód przez ZAKRES wzrostu (przedział ufności), nie
- przez jedną liczbę: „od +23 055 zł do +127 965 zł”, a nie „+75 510 zł”.
- Prognoza z jednego punktu obiecuje wzrost, który leży gdzieś w przedziale,
- czasem blisko zera.
-
- ─── Założenia, które warto znać ────────────────────────────────────────────
-
- • Liczymy przychód sprzed testu (stan „jak jest”), bo wzrost odnosi się do
-   kontroli, czyli do obecnej wersji strony.
- • Przeliczenie zakłada, że wartość zamówienia się nie zmienia — test mierzył
-   CR, nie przychód na użytkownika. Jeśli wariant zmienia też koszyk, mierz
-   przychód na użytkownika osobnym testem.
- • 30 dni, nie miesiąc kalendarzowy — miesiące mają różną liczbę dni i weekendów.
-
- ─── Kolumna przychodu ──────────────────────────────────────────────────────
-
- Publiczny przykładowy eksport ma przychód w USD: ecommerce.purchase_revenue_in_usd.
- W Twoim eksporcie GA4 użyj ecommerce.purchase_revenue (waluta sklepu, np. PLN)
- — podmień nazwę kolumny w CTE `purchases`.
-================================================================================
+ Przychód z 30 dni przed testem od użytkowników, którzy obejrzeli kartę
+ produktu — z zakupów PO pierwszym view_item:
+   monthly_revenue → Miesięczny przychód ze strony testowej
+ Kalkulator mnoży go przez zakres wzrostu, nie przez jedną liczbę.
 */
 
--- ─── Parametry ────────────────────────────────────────────────────────────────
-
--- ostatni dzień okna (dzień przed startem testu)
-DECLARE window_end DATE DEFAULT DATE '2020-12-06';
+DECLARE window_end DATE DEFAULT DATE '2020-12-06';  -- dzień przed startem testu
 DECLARE window_days INT64 DEFAULT 30;
-
--- ─── Zapytanie ────────────────────────────────────────────────────────────────
 
 WITH events AS (
   SELECT
     user_pseudo_id,
     event_name,
     event_timestamp,
-    -- przykładowy eksport: USD; własny eksport: ecommerce.purchase_revenue
+    -- przykładowy eksport ma USD; własny eksport: ecommerce.purchase_revenue
     ecommerce.purchase_revenue_in_usd AS revenue
   FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`
   WHERE
@@ -89,6 +54,17 @@ SELECT
   (SELECT COUNT(*) FROM exposed) AS users_on_test_page,
   COUNT(DISTINCT user_pseudo_id) AS buyers,
   COUNT(*) AS purchases,
-  -- „Miesięczny przychód ze strony testowej” → wpisz do kalkulatora
   CAST(ROUND(IFNULL(SUM(revenue), 0)) AS INT64) AS monthly_revenue
 FROM purchases;
+
+/*
+ Przykładowy wynik (liczby poglądowe):
+
+ days | users_on_test_page | buyers | purchases | monthly_revenue
+ -----+--------------------+--------+-----------+----------------
+   30 |             80 000 |  1 600 |     1 840 |         500 000
+
+ → kalkulator: Miesięczny przychód ze strony testowej = 500 000.
+   Przy domyślnym wyniku testu: od +23 055 zł do +127 965 zł miesięcznie,
+   najbardziej prawdopodobnie +75 510 zł.
+*/
