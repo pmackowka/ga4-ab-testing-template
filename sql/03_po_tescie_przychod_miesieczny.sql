@@ -1,5 +1,5 @@
 /*
- 04 · PO TEŚCIE — przychód do przeliczenia wzrostu na złotówki
+ 03 · PO TEŚCIE — przychód do przeliczenia wzrostu na złotówki
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
 
  Przychód z 30 dni przed testem od użytkowników, którzy obejrzeli kartę
