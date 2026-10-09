@@ -6,8 +6,8 @@
    users      → Użytkownicy A (kontrola) / Użytkownicy B (wariant)
    converters → Konwertujący A / Konwertujący B
  Wariant: zdarzenie GA4 experience_impression, parametr exp_variant_string
- w formacie NARZĘDZIE-TEST-WARIANT, np. „abt-pdp_redesign-B”
- (developers.google.com/analytics/devguides/collection/ga4/integration).
+ w formacie NARZĘDZIE-TEST-WARIANT, np. „abt-pdp_redesign-B”:
+ https://developers.google.com/analytics/devguides/collection/ga4/integration
  demo_mode = TRUE: przykładowy eksport GA4 nie ma testu, więc wariant
  pochodzi z hasha user_pseudo_id. Na własnych danych ustaw FALSE.
 */
