@@ -4,9 +4,11 @@
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
 ================================================================================
 
- Co liczy: przychód z ostatnich 30 dni od użytkowników, którzy weszli na stronę
- objętą testem — z zakupów PO pierwszym wejściu. To baza, od której kalkulator
- liczy wpływ wzrostu CR na przychód.
+ SCENARIUSZ: test karty produktu (view_item → purchase).
+
+ CO LICZY: przychód z 30 dni przed testem od użytkowników, którzy obejrzeli
+ kartę produktu — z zakupów PO pierwszym view_item. To baza, od której
+ kalkulator liczy wpływ wzrostu CR na przychód.
 
  ─── Pole kalkulatora, które wypełnia to zapytanie ───────────────────────────
 
@@ -41,7 +43,6 @@
 -- ostatni dzień okna (dzień przed startem testu)
 DECLARE window_end DATE DEFAULT DATE '2020-12-06';
 DECLARE window_days INT64 DEFAULT 30;
-DECLARE exposure_event STRING DEFAULT 'view_item';
 
 -- ─── Zapytanie ────────────────────────────────────────────────────────────────
 
@@ -59,27 +60,27 @@ WITH events AS (
         DATE_SUB(window_end, INTERVAL window_days - 1 DAY)
       )
       AND FORMAT_DATE('%Y%m%d', window_end)
-    AND event_name IN (exposure_event, 'purchase')
+    AND event_name IN ('view_item', 'purchase')
 ),
 
 exposed AS (
   SELECT
     user_pseudo_id,
-    MIN(event_timestamp) AS first_exposure_ts
+    MIN(event_timestamp) AS first_view_ts
   FROM events
-  WHERE event_name = exposure_event
+  WHERE event_name = 'view_item'
   GROUP BY user_pseudo_id
 ),
 
 purchases AS (
-  -- tylko zakupy po pierwszym wejściu na stronę testową
+  -- tylko zakupy po pierwszym obejrzeniu karty produktu
   SELECT
     p.user_pseudo_id,
     p.revenue
   FROM events AS p
   JOIN exposed AS e
     ON e.user_pseudo_id = p.user_pseudo_id
-    AND p.event_timestamp > e.first_exposure_ts
+    AND p.event_timestamp > e.first_view_ts
   WHERE p.event_name = 'purchase'
 )
 
