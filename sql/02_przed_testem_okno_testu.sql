@@ -1,40 +1,16 @@
 /*
-================================================================================
  02 · PRZED TESTEM — poprawka dla testu dłuższego niż tydzień
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
-================================================================================
 
- SCENARIUSZ: test karty produktu (view_item → purchase), jak w 01.
-
- PO CO: kalkulator zakłada, że co tydzień przychodzą NOWI użytkownicy:
- 4 tygodnie = 4 × „Użytkownicy w tygodniu”. W praktyce część ludzi wraca na
- karty produktu, więc unikalnych w 4 tygodniach jest mniej. Za to CR rośnie,
- bo powracający mają więcej czasu na zakup. Zapytanie liczy oba zjawiska
- w oknie tak długim jak planowany test.
-
- ─── Kolumny ────────────────────────────────────────────────────────────────
-
- users_window                 unikalni z view_item w całym oknie
- users_sum_of_weeks           suma tygodniowych — tyle zakłada kalkulator
- overlap_factor               users_window / users_sum_of_weeks;
-                              0,80 = o 20% mniej ludzi, niż zakłada kalkulator
- converters_window            kupujący po pierwszym view_item w oknie
- cr_window_pct                CR z całego okna — zwykle wyższy niż tygodniowy
-
- ─── Pola kalkulatora z tego zapytania ──────────────────────────────────────
-
- Użytkownicy w tygodniu   ← users_weekly_effective   (users_window / test_weeks)
- Konwertujący w tygodniu  ← converters_weekly_effective
-   Wpisz zamiast wartości z 01, gdy test ma trwać 2+ tygodnie. Kalkulator
-   dostaje wtedy realną liczbę unikalnych użytkowników na tydzień testu i CR
-   z okna o długości testu. Jeśli czas wyjdzie dłuższy niż z 01 — wierz temu.
-================================================================================
+ Kalkulator zakłada, że co tydzień przychodzą nowi użytkownicy. Część wraca,
+ więc w oknie testu unikalnych jest mniej, a CR wyższy. Gdy test ma trwać
+ 2+ tygodnie, wpisz te wartości zamiast wyniku z 01:
+   users_weekly_effective      → Użytkownicy w tygodniu
+   converters_weekly_effective → Konwertujący w tygodniu
 */
 
--- poniedziałek — początek okna o długości planowanego testu
-DECLARE window_start DATE DEFAULT DATE '2020-11-02';
--- planowana długość testu w pełnych tygodniach
-DECLARE test_weeks INT64 DEFAULT 4;
+DECLARE window_start DATE DEFAULT DATE '2020-11-02';  -- poniedziałek
+DECLARE test_weeks INT64 DEFAULT 4;                   -- planowana długość testu
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
   AS 'window_start musi być poniedziałkiem';
@@ -55,7 +31,7 @@ WITH events AS (
     AND event_name IN ('view_item', 'purchase')
 ),
 
--- całe okno: każdy użytkownik raz, z pierwszym view_item w oknie
+-- całe okno: każdy użytkownik raz, z pierwszym view_item
 exposed_window AS (
   SELECT
     user_pseudo_id,
@@ -88,6 +64,7 @@ weekly_users AS (
 SELECT
   (SELECT COUNT(*) FROM exposed_window) AS users_window,
   (SELECT SUM(users_weekly) FROM weekly_users) AS users_sum_of_weeks,
+  -- 0.80 = w oknie o 20% mniej ludzi, niż zakłada kalkulator
   ROUND(
     SAFE_DIVIDE(
       (SELECT COUNT(*) FROM exposed_window),
@@ -103,8 +80,19 @@ SELECT
     ) * 100,
     2
   ) AS cr_window_pct,
-  -- do kalkulatora zamiast wartości z 01
   CAST(ROUND((SELECT COUNT(*) FROM exposed_window) / test_weeks) AS INT64)
     AS users_weekly_effective,
   CAST(ROUND((SELECT COUNT(*) FROM converted_window) / test_weeks) AS INT64)
     AS converters_weekly_effective;
+
+/*
+ Przykładowy wynik (liczby poglądowe):
+
+ users_window | users_sum_of_weeks | overlap_factor | converters_window | cr_window_pct | users_weekly_effective | converters_weekly_effective
+ -------------+--------------------+----------------+-------------------+---------------+------------------------+----------------------------
+       64 000 |             80 000 |           0.80 |             1 760 |          2.75 |                 16 000 |                         440
+
+ → w 4 tygodnie wraca 20% ludzi: kalkulator dostaje 16 000 zamiast 20 000
+   użytkowników w tygodniu i CR 2,75% zamiast 2%. Jeśli czas testu wyjdzie
+   inny niż z danymi z 01 — wierz temu wynikowi.
+*/
