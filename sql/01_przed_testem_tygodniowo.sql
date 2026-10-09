@@ -1,82 +1,101 @@
 /*
 ================================================================================
- 01 · PRZED TESTEM — dane do kalkulatora „Przed testem A/B”
+ 01 · PRZED TESTEM — kalkulator „Przed testem A/B”
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
 ================================================================================
 
- Co liczy: dla kilku pełnych tygodni przed testem — ilu unikalnych użytkowników
- weszło na stronę, którą chcesz testować, i ilu z nich wykonało konwersję PO tym
- wejściu. Na końcu wiersz ze średnią — to ją wpisujesz do kalkulatora.
+ SCENARIUSZ: sklep e-commerce testuje nową wersję KARTY PRODUKTU.
+ Zdarzenia rekomendowane GA4 (developers.google.com/analytics/devguides/
+ collection/ga4/reference/events):
+   view_item  — wyświetlenie karty produktu = wejście do testu
+   purchase   — zakup = konwersja
 
- ─── Pola kalkulatora, które wypełnia to zapytanie ───────────────────────────
+ CO LICZY: kilka pełnych tygodni przed testem — ilu unikalnych użytkowników
+ obejrzało kartę produktu i ilu z nich kupiło PO tym wejściu. Ostatni wiersz
+ (ŚREDNIA) wpisujesz do kalkulatora.
 
- „Użytkownicy w tygodniu”                     ← kolumna users_weekly (wiersz ŚREDNIA)
-   Unikalni użytkownicy, którzy w tygodniu weszli na stronę objętą testem
-   (np. kartę produktu), łącznie dla wszystkich wariantów; nie sesje.
-   Dlaczego użytkownicy, a nie sesje: narzędzie do testów losuje LUDZI
-   (cookie), a jedna osoba robi wiele sesji. Sesje tej samej osoby nie są
-   niezależne, więc liczone osobno zaniżają błąd standardowy i dają fałszywe
-   pozytywy.
+ ─── Pola kalkulatora z tego zapytania ──────────────────────────────────────
 
- „Konwertujący w tygodniu”                    ← kolumna converters_weekly (wiersz ŚREDNIA)
-   Ilu z tych użytkowników wykonało konwersję (zakup, telefon, formularz) po
-   wejściu na stronę testową; liczysz osoby, nie konwersje.
-   Dlaczego „po wejściu”: konwersja sprzed wejścia na stronę testową nie mogła
-   zależeć od wariantu, więc w teście też nie będzie się liczyć.
-   Dlaczego osoby, nie zamówienia: kalkulator porównuje odsetek ludzi, którzy
-   konwertowali (CR). Ktoś z trzema zamówieniami to jeden konwertujący.
+ Użytkownicy w tygodniu   ← users_weekly
+   Unikalni użytkownicy z view_item w tygodniu, łącznie dla wszystkich wariantów.
+   Użytkownicy, nie sesje: test losuje ludzi (cookie), a sesje tej samej osoby
+   nie są niezależne — liczone osobno zaniżają błąd i dają fałszywe pozytywy.
+   user_pseudo_id = przeglądarka: telefon i laptop jednej osoby to dwóch
+   użytkowników. Narzędzie do testów myli się tak samo, więc plan i wynik
+   zostają spójne.
 
- Kalkulator sam policzy z tych dwóch liczb CR (conversion rate):
-   CR = konwertujący / użytkownicy        ← kolumna cr_pct, tylko do kontroli
+ Konwertujący w tygodniu  ← converters_weekly
+   Ilu z nich kupiło PO pierwszym view_item w tym tygodniu. Osoby, nie
+   zamówienia: trzy zakupy jednej osoby to jeden konwertujący. Zakup sprzed
+   wejścia na kartę nie mógł zależeć od wariantu, więc się nie liczy.
 
- ─── Pola kalkulatora, których NIE da się policzyć z danych ──────────────────
+ CR (conversion rate)     ← cr_pct (kontrolnie — kalkulator liczy go sam)
+   CR = konwertujący / użytkownicy.
 
- Te ustawiasz sam — opis każdego w README.md, sekcja „Słownik”:
-   Najmniejszy wzrost do wykrycia (MDE, %), Liczba wariantów razem z kontrolą,
-   Poziom ufności, Moc testu, Rodzaj testu, Najdłużej możesz testować.
+ ─── Pola kalkulatora, których nie da się policzyć z danych ─────────────────
 
- ─── Dlaczego kilka tygodni, a nie jeden ────────────────────────────────────
+ Najmniejszy wzrost do wykrycia (MDE, %)
+   Najmniejszy wzrost CR, który ma znaczenie biznesowe — NIE wzrost, którego
+   się spodziewasz. Względnie: +15% przy CR 2% = CR wariantu 2,3% (+0,3 pp).
+   Najmocniej wpływa na długość testu: 2× mniejsze MDE = 4× więcej użytkowników.
+   Jak wybrać, gdy biznes nie wie:
+   1) z tabeli w kalkulatorze „jakie MDE wykryjesz po N tygodniach” — pytasz
+      biznes, czy zmiana realnie może tyle dać; jeśli nie, test nie ma sensu,
+   2) próg opłacalności: koszt zmiany / przychód ze strony w okresie zwrotu,
+   3) historia: typowy wzrost wygranych testów w firmie.
 
- Jeden tydzień może być nietypowy (promocja, święto, awaria). Kilka pełnych
- tygodni pokazuje, jak bardzo liczby się wahają. Jeśli tygodnie różnią się
- mocno, nie bierz średniej w ciemno — sprawdź, skąd ta różnica.
+ Liczba wariantów razem z kontrolą
+   A/B = 2. Przy k > 2 kalkulator dzieli próg α przez k − 1 (korekta
+   Bonferroniego), żeby więcej porównań nie dawało więcej fałszywych pozytywów.
+   Koszt: każdy wariant potrzebuje więcej użytkowników.
 
- ─── Ograniczenia ────────────────────────────────────────────────────────────
+ Poziom ufności (1 − α), zwykle 95%
+   Chroni przed FAŁSZYWYM POZYTYWEM (błąd I rodzaju): przy 95% w 1 teście na 20,
+   w którym zmiana nic nie daje, ogłosisz wzrost, którego nie ma.
 
- • user_pseudo_id to przeglądarka, nie człowiek: telefon i laptop tej samej
-   osoby to dwóch użytkowników. Narzędzie do testów losuje tak samo, więc plan
-   i wynik zostają spójne.
- • Konwersja liczona w obrębie tego samego tygodnia co wejście. Ktoś, kto wszedł
-   w niedzielę i kupił w poniedziałek, nie jest tu konwertującym.
- • Na dłuższy test patrz zapytanie 02 — unikalnych użytkowników w 4 tygodniach
-   jest mniej niż 4 × tydzień.
+ Moc testu (1 − β), zwykle 80%
+   Chroni przed FAŁSZYWYM NEGATYWEM (błąd II rodzaju): przy 80% realny wzrost
+   równy MDE wykryjesz w 4 testach na 5, w piątym go przeoczysz.
 
- Domyślnie zapytanie działa na publicznym przykładowym eksporcie GA4 (sklep
- Google Merchandise Store, 2020-11-01 – 2021-01-31), więc uruchomisz je bez
- własnych danych. Na swoich danych podmień nazwę tabeli w CTE `events`.
+     Macierz błędów      | wdrażasz B             | nie wdrażasz B
+     --------------------+------------------------+-----------------------
+     B naprawdę = A      | fałszywy pozytyw (α)   | trafnie
+     B naprawdę lepszy   | trafnie                | fałszywy negatyw (β)
+
+ Rodzaj testu
+   Dwustronny (domyślny) sprawdza wzrost i spadek. Jednostronny sprawdza tylko
+   wzrost — potrzebuje ~21% mniej użytkowników, ale nie wykryje, że karta
+   produktu szkodzi. Wybierasz przed testem, nie zmieniasz po wyniku.
+
+ Najdłużej możesz testować (tygodnie)
+   Ile tygodni karta, ceny i kampanie mogą zostać bez zmian. Zawsze pełne
+   tygodnie (w poniedziałek i w sobotę kupują inni ludzie). Powyżej ~6 tygodni
+   test psuje kasowanie cookies (ITP w Safari) i sezonowość.
+
+ ─── Dlaczego kilka tygodni, a nie jeden ───────────────────────────────────
+
+ Jeden tydzień bywa nietypowy (promocja, święto, awaria). Gdy tygodnie mocno
+ się różnią, nie bierz średniej w ciemno — sprawdź, skąd różnica.
+ Konwersja liczona w tym samym tygodniu co wejście; dla testu 2+ tygodnie
+ dokładniejsze jest zapytanie 02.
+
+ Dane: publiczny przykładowy eksport GA4 (Google Merchandise Store,
+ 2020-11-01 – 2021-01-31). Własny eksport: podmień nazwę tabeli w CTE events.
 ================================================================================
 */
 
--- ─── Parametry ────────────────────────────────────────────────────────────────
-
 -- poniedziałek, od którego liczymy pełne tygodnie
 DECLARE first_week_start DATE DEFAULT DATE '2020-11-02';
--- ile pełnych tygodni wstecz (zalecane: 4)
+-- ile pełnych tygodni (zalecane: 4)
 DECLARE weeks_count INT64 DEFAULT 4;
--- zdarzenie = wejście na stronę objętą testem (tu: karta produktu)
-DECLARE exposure_event STRING DEFAULT 'view_item';
--- zdarzenie = konwersja, którą mierzysz w teście
-DECLARE conversion_event STRING DEFAULT 'purchase';
 
--- tydzień liczymy od poniedziałku do niedzieli — inaczej tygodnie się przesuną
+-- tydzień = poniedziałek–niedziela; inaczej tygodnie się przesuną
 ASSERT EXTRACT(DAYOFWEEK FROM first_week_start) = 2
   AS 'first_week_start musi być poniedziałkiem';
 
--- ─── Zapytanie ────────────────────────────────────────────────────────────────
-
 WITH events AS (
-  -- tylko dwa potrzebne zdarzenia i tylko z wybranych tygodni;
-  -- filtr _TABLE_SUFFIX ogranicza skanowane dane (i koszt)
+  -- tylko karta produktu i zakup, tylko z wybranych tygodni;
+  -- _TABLE_SUFFIX ogranicza skanowane dane, a więc koszt zapytania
   SELECT
     user_pseudo_id,
     event_name,
@@ -89,33 +108,33 @@ WITH events AS (
         '%Y%m%d',
         DATE_ADD(first_week_start, INTERVAL weeks_count * 7 - 1 DAY)
       )
-    AND event_name IN (exposure_event, conversion_event)
+    AND event_name IN ('view_item', 'purchase')
 ),
 
 exposed AS (
-  -- „Użytkownicy w tygodniu”: każdy użytkownik raz na tydzień,
-  -- z momentem PIERWSZEGO wejścia na stronę testową w tym tygodniu
+  -- Użytkownicy w tygodniu: każdy raz na tydzień,
+  -- z momentem PIERWSZEGO wyświetlenia karty produktu
   SELECT
     week_start,
     user_pseudo_id,
-    MIN(event_timestamp) AS first_exposure_ts
+    MIN(event_timestamp) AS first_view_ts
   FROM events
-  WHERE event_name = exposure_event
+  WHERE event_name = 'view_item'
   GROUP BY week_start, user_pseudo_id
 ),
 
 converted AS (
-  -- „Konwertujący w tygodniu”: ci z `exposed`, którzy mieli konwersję
-  -- PO pierwszym wejściu, w tym samym tygodniu; DISTINCT = osoby, nie zamówienia
+  -- Konwertujący w tygodniu: zakup PO pierwszym view_item, w tym samym
+  -- tygodniu; DISTINCT = osoby, nie zamówienia
   SELECT DISTINCT
     e.week_start,
     e.user_pseudo_id
   FROM exposed AS e
-  JOIN events AS c
-    ON c.user_pseudo_id = e.user_pseudo_id
-    AND c.week_start = e.week_start
-    AND c.event_name = conversion_event
-    AND c.event_timestamp > e.first_exposure_ts
+  JOIN events AS p
+    ON p.user_pseudo_id = e.user_pseudo_id
+    AND p.week_start = e.week_start
+    AND p.event_name = 'purchase'
+    AND p.event_timestamp > e.first_view_ts
 ),
 
 per_week AS (
@@ -129,7 +148,7 @@ per_week AS (
   GROUP BY e.week_start
 )
 
--- wiersze tygodni — do sprawdzenia, czy tygodnie są podobne
+-- tygodnie — czy są do siebie podobne
 SELECT
   CAST(week_start AS STRING) AS week,
   users_weekly,
@@ -139,9 +158,9 @@ FROM per_week
 
 UNION ALL
 
--- wiersz do wpisania w kalkulator
+-- ten wiersz wpisujesz do kalkulatora
 SELECT
-  'ŚREDNIA → wpisz do kalkulatora' AS week,
+  'ŚREDNIA → do kalkulatora' AS week,
   CAST(ROUND(AVG(users_weekly)) AS INT64) AS users_weekly,
   CAST(ROUND(AVG(converters_weekly)) AS INT64) AS converters_weekly,
   ROUND(SAFE_DIVIDE(SUM(converters_weekly), SUM(users_weekly)) * 100, 2) AS cr_pct

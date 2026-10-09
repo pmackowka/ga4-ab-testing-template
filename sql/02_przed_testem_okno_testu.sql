@@ -1,54 +1,43 @@
 /*
 ================================================================================
- 02 · PRZED TESTEM — sprawdzenie dla testu dłuższego niż tydzień
+ 02 · PRZED TESTEM — poprawka dla testu dłuższego niż tydzień
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
 ================================================================================
 
- Po co: kalkulator liczy czas testu tak, jakby co tydzień przychodzili NOWI
- użytkownicy: 4 tygodnie = 4 × „Użytkownicy w tygodniu”. W praktyce część ludzi
- wraca, więc unikalnych użytkowników w 4 tygodniach jest mniej. Jednocześnie
- CR rośnie, bo powracający mają więcej czasu na konwersję.
+ SCENARIUSZ: test karty produktu (view_item → purchase), jak w 01.
 
- To zapytanie liczy oba zjawiska na Twoich danych, w oknie tak długim jak
- planowany test. Wynik mówi, o ile kalkulator jest optymistyczny co do czasu.
+ PO CO: kalkulator zakłada, że co tydzień przychodzą NOWI użytkownicy:
+ 4 tygodnie = 4 × „Użytkownicy w tygodniu”. W praktyce część ludzi wraca na
+ karty produktu, więc unikalnych w 4 tygodniach jest mniej. Za to CR rośnie,
+ bo powracający mają więcej czasu na zakup. Zapytanie liczy oba zjawiska
+ w oknie tak długim jak planowany test.
 
- ─── Jak czytać wynik ───────────────────────────────────────────────────────
+ ─── Kolumny ────────────────────────────────────────────────────────────────
 
- users_window              unikalni użytkownicy w całym oknie (np. 4 tygodnie)
- users_sum_of_weeks        suma użytkowników z kolejnych tygodni — tyle zakłada
-                           kalkulator
- overlap_factor            users_window / users_sum_of_weeks; 0,80 znaczy, że
-                           w oknie jest o 20% mniej ludzi, niż zakłada kalkulator
- converters_window         konwertujący w całym oknie (po pierwszym wejściu)
- cr_window_pct             CR liczony na całym oknie — zwykle wyższy niż tygodniowy
+ users_window                 unikalni z view_item w całym oknie
+ users_sum_of_weeks           suma tygodniowych — tyle zakłada kalkulator
+ overlap_factor               users_window / users_sum_of_weeks;
+                              0,80 = o 20% mniej ludzi, niż zakłada kalkulator
+ converters_window            kupujący po pierwszym view_item w oknie
+ cr_window_pct                CR z całego okna — zwykle wyższy niż tygodniowy
 
- ─── Co z tym zrobić w kalkulatorze ─────────────────────────────────────────
+ ─── Pola kalkulatora z tego zapytania ──────────────────────────────────────
 
- Najprościej: wpisz jako „Użytkownicy w tygodniu” wartość
-   users_window / test_weeks            ← kolumna users_weekly_effective
- a jako „Konwertujący w tygodniu”
-   converters_window / test_weeks       ← kolumna converters_weekly_effective
- Kalkulator dostanie wtedy realną liczbę unikalnych użytkowników na tydzień
- testu i CR z okna o długości testu. Jeśli wyjdzie inny czas niż przy danych
- z zapytania 01 — wierz temu.
-
- Domyślnie: publiczny przykładowy eksport GA4 (2020-11-01 – 2021-01-31).
+ Użytkownicy w tygodniu   ← users_weekly_effective   (users_window / test_weeks)
+ Konwertujący w tygodniu  ← converters_weekly_effective
+   Wpisz zamiast wartości z 01, gdy test ma trwać 2+ tygodnie. Kalkulator
+   dostaje wtedy realną liczbę unikalnych użytkowników na tydzień testu i CR
+   z okna o długości testu. Jeśli czas wyjdzie dłuższy niż z 01 — wierz temu.
 ================================================================================
 */
 
--- ─── Parametry ────────────────────────────────────────────────────────────────
-
 -- poniedziałek — początek okna o długości planowanego testu
 DECLARE window_start DATE DEFAULT DATE '2020-11-02';
--- planowana długość testu w pełnych tygodniach (pole „Najdłużej możesz testować”)
+-- planowana długość testu w pełnych tygodniach
 DECLARE test_weeks INT64 DEFAULT 4;
-DECLARE exposure_event STRING DEFAULT 'view_item';
-DECLARE conversion_event STRING DEFAULT 'purchase';
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
   AS 'window_start musi być poniedziałkiem';
-
--- ─── Zapytanie ────────────────────────────────────────────────────────────────
 
 WITH events AS (
   SELECT
@@ -63,35 +52,36 @@ WITH events AS (
         '%Y%m%d',
         DATE_ADD(window_start, INTERVAL test_weeks * 7 - 1 DAY)
       )
-    AND event_name IN (exposure_event, conversion_event)
+    AND event_name IN ('view_item', 'purchase')
 ),
 
--- całe okno: każdy użytkownik raz, z pierwszym wejściem w oknie
+-- całe okno: każdy użytkownik raz, z pierwszym view_item w oknie
 exposed_window AS (
   SELECT
     user_pseudo_id,
-    MIN(event_timestamp) AS first_exposure_ts
+    MIN(event_timestamp) AS first_view_ts
   FROM events
-  WHERE event_name = exposure_event
+  WHERE event_name = 'view_item'
   GROUP BY user_pseudo_id
 ),
 
+-- zakup po pierwszym view_item w oknie; osoby, nie zamówienia
 converted_window AS (
   SELECT DISTINCT e.user_pseudo_id
   FROM exposed_window AS e
-  JOIN events AS c
-    ON c.user_pseudo_id = e.user_pseudo_id
-    AND c.event_name = conversion_event
-    AND c.event_timestamp > e.first_exposure_ts
+  JOIN events AS p
+    ON p.user_pseudo_id = e.user_pseudo_id
+    AND p.event_name = 'purchase'
+    AND p.event_timestamp > e.first_view_ts
 ),
 
--- dla porównania: suma tygodniowych liczb, czyli założenie kalkulatora
+-- założenie kalkulatora: suma tygodniowych liczb
 weekly_users AS (
   SELECT
     week_start,
     COUNT(DISTINCT user_pseudo_id) AS users_weekly
   FROM events
-  WHERE event_name = exposure_event
+  WHERE event_name = 'view_item'
   GROUP BY week_start
 )
 
@@ -113,7 +103,7 @@ SELECT
     ) * 100,
     2
   ) AS cr_window_pct,
-  -- do wpisania w kalkulator zamiast wartości z zapytania 01
+  -- do kalkulatora zamiast wartości z 01
   CAST(ROUND((SELECT COUNT(*) FROM exposed_window) / test_weeks) AS INT64)
     AS users_weekly_effective,
   CAST(ROUND((SELECT COUNT(*) FROM converted_window) / test_weeks) AS INT64)
