@@ -6,12 +6,12 @@ SQL pod BigQuery (eksport GA4) do kalkulatorów testów A/B na pmdata.pl. Scenar
 
 | # | Kiedy | Plik | Wynik → pole kalkulatora |
 |---|---|---|---|
-| 1 | przed testem | `sql/01_przed_testem_tygodniowo.sql` | wiersz ŚREDNIA → [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/): Użytkownicy w tygodniu, Konwertujący w tygodniu |
-| 2 | przed testem, gdy test ma trwać 2+ tygodnie | `sql/02_przed_testem_okno_testu.sql` | to samo, z poprawką na powracających użytkowników |
-| 3 | przed testem | kalkulator | ustawiasz pola z tabeli „Pola bez SQL” |
+| 1 | przed testem | [`sql/01_przed_testem_tygodniowo.sql`](sql/01_przed_testem_tygodniowo.sql) | wiersz ŚREDNIA → [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/): Użytkownicy w tygodniu, Konwertujący w tygodniu |
+| 2 | przed testem, gdy test ma trwać 2+ tygodnie | [`sql/02_przed_testem_okno_testu.sql`](sql/02_przed_testem_okno_testu.sql) | to samo, z poprawką na powracających użytkowników |
+| 3 | przed testem | kalkulator | ustawiasz pola z tabeli [„Pola bez SQL”](#pola-bez-sql--ustawiasz-w-kalkulatorze) |
 | 4 | w trakcie | — | nie zaglądasz do wyniku |
-| 5 | po teście | `sql/03_po_tescie_warianty.sql` | [Po teście](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/): Użytkownicy i Konwertujący A/B |
-| 6 | po teście | `sql/04_po_tescie_przychod_miesieczny.sql` | Po teście: Miesięczny przychód ze strony testowej |
+| 5 | po teście | [`sql/03_po_tescie_warianty.sql`](sql/03_po_tescie_warianty.sql) | [Po teście](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/): Użytkownicy i Konwertujący A/B |
+| 6 | po teście | [`sql/04_po_tescie_przychod_miesieczny.sql`](sql/04_po_tescie_przychod_miesieczny.sql) | Po teście: Miesięczny przychód ze strony testowej |
 
 ## Definicje metryk
 
