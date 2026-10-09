@@ -1,17 +1,13 @@
 /*
- 02 · PO TEŚCIE — dane do kalkulatora „Po teście A/B”
+ 02 · PO TEŚCIE → kalkulator „Po teście A/B”
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
-
- Użytkownicy i konwertujący na wariant, od pierwszego przypisania w teście:
-   users      → Użytkownicy A (kontrola) / Użytkownicy B (wariant)
-   converters → Konwertujący A / Konwertujący B
  Wariant: zdarzenie GA4 experience_impression, parametr exp_variant_string
  w formacie NARZĘDZIE-TEST-WARIANT, np. „abt-pdp_redesign-B”:
  https://developers.google.com/analytics/devguides/collection/ga4/integration
- demo_mode = TRUE: przykładowy eksport GA4 nie ma testu, więc wariant
- pochodzi z hasha user_pseudo_id. Na własnych danych ustaw FALSE.
 */
 
+-- TRUE: przykładowy eksport GA4 nie ma testu, wariant z hasha user_pseudo_id;
+-- na własnych danych ustaw FALSE
 DECLARE demo_mode BOOL DEFAULT TRUE;
 DECLARE test_start DATE DEFAULT DATE '2020-12-07';   -- pełne tygodnie testu
 DECLARE test_end DATE DEFAULT DATE '2021-01-03';
@@ -84,6 +80,24 @@ converters AS (
     AND p.event_timestamp > u.first_assignment_ts
 )
 
+/*
+ ─── WYNIK ────────────────────────────────────────────────────────────────
+ calculator_field → który wiersz kalkulatora: A (kontrola) albo B (wariant)
+ users            → kalkulator: Użytkownicy A / Użytkownicy B
+ converters       → kalkulator: Konwertujący A / Konwertujący B
+
+ users: unikalni użytkownicy od pierwszego przypisania w okresie testu.
+ converters: ci z nich, którzy kupili PO pierwszym przypisaniu; osoby, nie
+ zamówienia. Przypisani do 2+ wariantów są wykluczeni (nie wiadomo, co widzieli).
+
+ Przykład (liczby poglądowe, zgodne z domyślnymi danymi kalkulatora):
+ calculator_field | users  | converters
+ -----------------+--------+-----------
+ A (kontrola)     | 36 700 |        734
+ B (wariant B)    | 36 750 |        846
+
+ → kalkulator: „Wdrażaj B”, p-value 0,0048, wzrost od +4,61% do +25,59%.
+*/
 SELECT
   IF(
     u.variant = control_variant,
@@ -91,25 +105,9 @@ SELECT
     CONCAT('B (wariant ', u.variant, ')')
   ) AS calculator_field,
   COUNT(*) AS users,
-  COUNT(c.user_pseudo_id) AS converters,
-  ROUND(SAFE_DIVIDE(COUNT(c.user_pseudo_id), COUNT(*)) * 100, 4) AS cr_pct,
-  -- powyżej ~1% użytkowników: szukaj błędu w przypisaniu
-  (SELECT COUNTIF(variants_seen > 1) FROM users_assigned) AS users_in_many_variants
+  COUNT(c.user_pseudo_id) AS converters
 FROM clean_users AS u
 LEFT JOIN converters AS c
   USING (user_pseudo_id)
 GROUP BY u.variant
 ORDER BY u.variant = control_variant DESC, u.variant;
-
-/*
- Przykładowy wynik (liczby poglądowe, zgodne z domyślnymi danymi kalkulatora):
-
- calculator_field | users  | converters | cr_pct | users_in_many_variants
- -----------------+--------+------------+--------+-----------------------
- A (kontrola)     | 36 700 |        734 | 2.0000 |                    112
- B (wariant B)    | 36 750 |        846 | 2.3020 |                    112
-
- → kalkulator: A = 36 700 / 734, B = 36 750 / 846.
-   Wynik: „Wdrażaj B”, p-value 0,0048, wzrost od +4,61% do +25,59%.
-   112 wykluczonych to 0,15% użytkowników — w normie.
-*/

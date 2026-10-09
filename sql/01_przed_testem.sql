@@ -1,20 +1,11 @@
 /*
- 01 · PRZED TESTEM — dane do kalkulatora „Przed testem A/B”
+ 01 · PRZED TESTEM → kalkulator „Przed testem A/B”
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
-
  Test karty produktu: wejście = view_item, konwersja = purchase.
- Okna narastające od 1 do 8 tygodni — tak liczy się wynik testu: każdy
- użytkownik raz, od pierwszego wejścia, zakup w całym oknie. Ludzie wracają,
- więc unikalnych przybywa coraz wolniej, a CR rośnie z długością okna.
-
- Jak użyć: wpisz do kalkulatora wiersz z liczbą tygodni, którą planujesz
-   users_weekly_eff      → Użytkownicy w tygodniu
-   converters_weekly_eff → Konwertujący w tygodniu
- Jeśli kalkulator policzy inny czas testu — weź wiersz z tym czasem.
- week_users i week_cr_pct: sam ten tydzień — sprawdź, czy tygodnie są podobne.
 */
 
-DECLARE window_start DATE DEFAULT DATE '2020-11-02';  -- poniedziałek
+-- poniedziałek: początek 8 pełnych tygodni PRZED testem (bez bieżącego tygodnia)
+DECLARE window_start DATE DEFAULT DATE '2020-11-02';
 DECLARE max_weeks INT64 DEFAULT 8;
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
@@ -39,7 +30,7 @@ WITH events AS (
 ),
 
 first_view AS (
-  -- pierwsze wejście w całym oknie: moment i numer tygodnia
+  -- pierwsze wejście na kartę produktu: moment i numer tygodnia
   SELECT
     user_pseudo_id,
     MIN(event_timestamp) AS first_view_ts,
@@ -62,7 +53,7 @@ first_purchase AS (
   GROUP BY f.user_pseudo_id
 ),
 
-cumulative AS (
+windows AS (
   -- okno k tygodni: weszli w tygodniach 1..k, kupili do końca tygodnia k
   SELECT
     w AS weeks,
@@ -73,74 +64,41 @@ cumulative AS (
   LEFT JOIN first_purchase AS fp
     ON fp.user_pseudo_id = f.user_pseudo_id
   GROUP BY w
-),
-
-week_entries AS (
-  -- kontrola tygodni: pierwsze wejście w obrębie jednego tygodnia
-  SELECT
-    week_no,
-    user_pseudo_id,
-    MIN(event_timestamp) AS first_view_ts
-  FROM events
-  WHERE event_name = 'view_item'
-  GROUP BY week_no, user_pseudo_id
-),
-
-week_converted AS (
-  -- zakup PO pierwszym wejściu, w tym samym tygodniu; DISTINCT = osoby
-  SELECT DISTINCT
-    e.week_no,
-    e.user_pseudo_id
-  FROM week_entries AS e
-  JOIN events AS p
-    ON p.user_pseudo_id = e.user_pseudo_id
-    AND p.week_no = e.week_no
-    AND p.event_name = 'purchase'
-    AND p.event_timestamp > e.first_view_ts
-),
-
-week_alone AS (
-  -- sam ten tydzień: użytkownicy i konwertujący
-  SELECT
-    e.week_no,
-    COUNT(*) AS week_users,
-    COUNT(c.user_pseudo_id) AS week_converters
-  FROM week_entries AS e
-  LEFT JOIN week_converted AS c
-    USING (week_no, user_pseudo_id)
-  GROUP BY e.week_no
 )
 
-SELECT
-  c.weeks,
-  c.users_unique,
-  c.converters,
-  ROUND(SAFE_DIVIDE(c.converters, c.users_unique) * 100, 2) AS cr_pct,
-  CAST(ROUND(c.users_unique / c.weeks) AS INT64) AS users_weekly_eff,
-  CAST(ROUND(c.converters / c.weeks) AS INT64) AS converters_weekly_eff,
-  wa.week_users,
-  ROUND(SAFE_DIVIDE(wa.week_converters, wa.week_users) * 100, 2) AS week_cr_pct
-FROM cumulative AS c
-LEFT JOIN week_alone AS wa
-  ON wa.week_no = c.weeks
-ORDER BY c.weeks;
-
 /*
- Przykładowy wynik (liczby poglądowe, wiersz 1 = domyślne dane kalkulatora):
+ ─── WYNIK ────────────────────────────────────────────────────────────────
+ weeks               → planowana długość testu w tygodniach
+ users_per_week      → kalkulator: Użytkownicy w tygodniu
+ converters_per_week → kalkulator: Konwertujący w tygodniu
 
- weeks | users_unique | converters | cr_pct | users_weekly_eff | converters_weekly_eff | week_users | week_cr_pct
- ------+--------------+------------+--------+------------------+-----------------------+------------+------------
-     1 |       20 000 |        400 |   2.00 |           20 000 |                   400 |     20 000 |        2.00
-     2 |       36 000 |        830 |   2.31 |           18 000 |                   415 |     19 850 |        1.98
-     3 |       50 500 |      1 300 |   2.57 |           16 833 |                   433 |     20 410 |        2.02
-     4 |       64 000 |      1 760 |   2.75 |           16 000 |                   440 |     19 630 |        2.04
-     5 |       76 500 |      2 200 |   2.88 |           15 300 |                   440 |     20 110 |        1.99
-     6 |       88 000 |      2 620 |   2.98 |           14 667 |                   437 |     19 900 |        2.01
-     7 |       99 000 |      3 020 |   3.05 |           14 143 |                   431 |     20 050 |        1.97
-     8 |      109 500 |      3 400 |   3.11 |           13 688 |                   425 |     20 200 |        2.00
+ Jak użyć: wpisz wiersz z liczbą tygodni, którą planujesz. Kalkulator
+ policzył inny czas testu? Weź wiersz z tym czasem i przelicz jeszcze raz —
+ koniec, gdy czas z kalkulatora zgadza się z wierszem.
 
- → plan na 4 tygodnie: Użytkownicy w tygodniu = 16 000, Konwertujący = 440.
-   Kalkulator (MDE +15%): 26 466 na wariant, 3,31 tyg. → 4 tygodnie — zgodne
-   z wierszem, więc koniec. Gdyby wyszło 6 tygodni, przelicz z wiersza 6.
-   week_users ~20 000 i week_cr_pct ~2% co tydzień: tygodnie są podobne.
+ Dlaczego okna, a nie jeden tydzień: każdy użytkownik liczy się raz, od
+ pierwszego wejścia, z zakupem do końca okna — tak jak w wyniku testu.
+ Ludzie wracają, więc w dłuższym oknie jest mniej unikalnych na tydzień
+ (test zbiera ich wolniej), a CR jest wyższy (więcej czasu na zakup).
+
+ Przykład (liczby poglądowe):
+ weeks | users_per_week | converters_per_week
+ ------+----------------+--------------------
+     1 |         20 000 |                 400
+     2 |         18 000 |                 415
+     3 |         16 833 |                 433
+     4 |         16 000 |                 440
+     5 |         15 300 |                 440
+     6 |         14 667 |                 437
+     7 |         14 143 |                 431
+     8 |         13 688 |                 425
+
+ → plan 5 tygodni: 15 300 / 440 → kalkulator (MDE +15%) liczy 4 tygodnie
+   → wiersz 4: 16 000 / 440 → kalkulator liczy 4 tygodnie. Zgodne, koniec.
 */
+SELECT
+  weeks,
+  CAST(ROUND(users_unique / weeks) AS INT64) AS users_per_week,
+  CAST(ROUND(converters / weeks) AS INT64) AS converters_per_week
+FROM windows
+ORDER BY weeks;
