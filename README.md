@@ -31,37 +31,124 @@ Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01
 | # | Kiedy | Plik | Wynik → pole kalkulatora |
 |---|---|---|---|
 | 1 | przed testem | [`sql/01_przed_testem.sql`](sql/01_przed_testem.sql) | wiersz z planowaną liczbą tygodni → Przed testem: Użytkownicy w tygodniu, Konwertujący w tygodniu |
-| 2 | przed testem | kalkulator | ustawiasz pola bez SQL; gdy kalkulator policzy inny czas testu — wracasz do wyniku `01` i bierzesz wiersz z tym czasem |
+| 2 | przed testem | kalkulator | ustawiasz pozostałe pola ([opis](#kalkulator-przed-testem)); gdy kalkulator policzy inny czas testu — wracasz do wyniku `01` i bierzesz wiersz z tym czasem |
 | 3 | w trakcie | — | nie zaglądasz do wyniku |
 | 4 | po teście | [`sql/02_po_tescie_warianty.sql`](sql/02_po_tescie_warianty.sql) | Po teście: Użytkownicy A/B, Konwertujący A/B |
 | 5 | po teście | [`sql/03_po_tescie_przychod_miesieczny.sql`](sql/03_po_tescie_przychod_miesieczny.sql) | Po teście: Miesięczny przychód ze strony testowej |
 
 Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają. Każdy użytkownik liczy się w oknie raz, więc w oknie 4 tygodni unikalnych jest mniej niż 4 × tydzień — wartość „na tydzień” (okno / liczba tygodni) spada z długością okna. CR rośnie, bo użytkownik ma więcej czasu na zakup. Oba efekty działają w przeciwne strony, więc liczysz je na danych, w oknie tak długim jak test.
 
-## Kalkulator Przed testem — pola
+## Kalkulator Przed testem
 
-| Pole | Skąd | Co znaczy | Typowo / uwaga |
+[pmdata.pl/kalkulatory/wielkosc-proby-test-ab](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/) odpowiada na dwa pytania: ilu użytkowników potrzebuje test i ile tygodni potrwa przy Twoim ruchu. Nazwy poniżej są dokładnie takie jak na stronie, w tej samej kolejności.
+
+Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno pole jest puste, nad wynikiem stoi „Przykładowe dane — wpisz swoje, a wynik przeliczy się od razu.”
+
+### Pola
+
+| # | Pole | Przykład | Skąd | Co znaczy |
+|---|---|---|---|---|
+| 1 | **Użytkownicy w tygodniu** | 20 000 | `01` → `users_per_week` | Unikalni użytkownicy, którzy w tygodniu weszli na stronę objętą testem, łącznie dla wszystkich wariantów. Nie sesje: test losuje ludzi, a kilka sesji jednej osoby to nie są niezależne obserwacje. Bierzesz wiersz z planowaną liczbą tygodni, bo powracający użytkownicy liczą się w oknie raz — wartość „na tydzień” spada z długością okna. |
+| 2 | **Konwertujący w tygodniu** | 400 | `01` → `converters_per_week` (ten sam wiersz) | Ilu z tych użytkowników wykonało konwersję po wejściu na stronę testową. Osoby, nie zamówienia: ktoś, kto kupił dwa razy, liczy się raz. Pod polem kalkulator pokazuje CR (konwersja, *conversion rate*) = konwertujący / użytkownicy, np. „CR = 2% (400 z 20 000 użytkowników)”. CR liczony z dwóch liczb, nie wpisywany ręcznie, wymusza tę samą populację w planie i w ocenie. |
+| 3 | **Najmniejszy wzrost do wykrycia (MDE, %)** | 15 | decyzja | Patrz [MDE](#mde--najmniejszy-wzrost-do-wykrycia) niżej. Wzrost względny: +15% przy CR 2% to CR wariantu 2,3%, czyli +0,30 pp — kalkulator pokazuje to pod polem. |
+| 4 | **Liczba wariantów razem z kontrolą** | 2 | decyzja | A/B = 2, A/B/C = 3. Każde dodatkowe porównanie z kontrolą to kolejna szansa na fałszywy pozytyw, więc przy 3+ kalkulator zaostrza próg p-value (korekta Bonferroniego): α dzielone przez liczbę porównań, k − 1. Przy 3 wariantach i 95% ufności próg to 0,05 / 2 = 0,025 — i potrzeba więcej użytkowników. |
+| 5 | **Poziom ufności** | 95% | decyzja | Chroni przed fałszywym pozytywem (błąd I rodzaju, α = 1 − poziom ufności). Przy 95% w 1 teście na 20, w którym wariant nic nie zmienia, ogłosisz wzrost, którego nie ma. 99% = mniej fałszywych alarmów, ale dłuższy test; 90% = odwrotnie. |
+| 6 | **Moc testu** | 80% | decyzja | Chroni przed fałszywym negatywem (błąd II rodzaju, β = 1 − moc). Przy 80% realny wzrost równy MDE wykryjesz w 4 testach na 5, a w piątym go przeoczysz. 90% = rzadziej przeoczysz, ale test dłuższy. |
+| 7 | **Rodzaj testu** | dwustronny (wzrost i spadek) | decyzja | Dwustronny sprawdza wzrost i spadek. Jednostronny (tylko wzrost) wymaga ~21% mniej użytkowników, ale spadku nie sprawdza: wariant, który szkodzi, pokaże jako „brak efektu”. Kalkulator ostrzega o tym pod polem. Wybierasz przed testem — zmiana po zobaczeniu wyniku to naginanie wyniku. |
+| 8 | **Najdłużej możesz testować (tygodnie)** | 4 | decyzja | Ile pełnych tygodni strona, ceny i kampanie mogą zostać bez zmian. Pełne tygodnie, bo w poniedziałek i w sobotę kupują inni ludzie. Powyżej ~6 tygodni wynik psują kasowanie cookies (ten sam człowiek wraca jako nowy użytkownik) i sezonowość. |
+
+### MDE — najmniejszy wzrost do wykrycia
+
+MDE to skrót od *minimum detectable effect*, po polsku najmniejszy wykrywalny efekt. To najmniejszy wzrost CR, który test ma wykryć z wybraną mocą.
+
+- **MDE to próg biznesowy, nie prognoza.** Wpisujesz wzrost, poniżej którego zmiana nie jest warta wdrożenia (koszt, praca zespołu), a nie wzrost, którego się spodziewasz. Optymizm w tym polu skraca test, a potem test nie wykrywa realnego, mniejszego wzrostu.
+- **MDE decyduje o długości testu bardziej niż cokolwiek innego.** Liczba użytkowników rośnie z odwrotnością kwadratu MDE: 2× mniejsze MDE = ok. 4× więcej użytkowników. Przy CR 2%: +15% → 36 693 na wariant, +10% → 80 682, +5% → 315 206.
+- **Względne, nie w punktach procentowych.** +15% przy CR 2% to +0,30 pp (2% → 2,3%). Punkty procentowe (pp) to różnica dwóch procentów; tabela pokazuje obie jednostki.
+- **Nie wiesz, ile wpisać?** Zacznij od tabeli: pokazuje, jakie MDE wykryjesz po każdym tygodniu. Jeśli w Twoim limicie wykryjesz najwyżej +25%, a zmiana realnie może dać +5%, test niczego nie rozstrzygnie — lepiej testować na stronie z większym ruchem albo odważniejszą zmianę.
+
+### Wynik: Plan testu
+
+Kolejność jak na stronie.
+
+| # | Element | Co pokazuje | Jak czytać |
 |---|---|---|---|
-| Użytkownicy w tygodniu | `01` → `users_per_week` | unikalni użytkownicy, którzy weszli na stronę objętą testem, łącznie dla wszystkich wariantów | nie sesje — test losuje ludzi |
-| Konwertujący w tygodniu | `01` → `converters_per_week` (ten sam wiersz) | ilu z nich kupiło po wejściu; osoby, nie zamówienia | CR liczy kalkulator z obu pól, żeby plan i ocena miały tę samą populację |
-| Najmniejszy wzrost do wykrycia (MDE) | decyzja | najmniejszy względny wzrost CR, który ma znaczenie biznesowe — nie ten, którego się spodziewasz | +10–20%; 2× mniejsze MDE = ~4× więcej użytkowników |
-| Liczba wariantów razem z kontrolą | decyzja | przy 3+ próg α dzielony przez k − 1 (korekta Bonferroniego) | 2 |
-| Poziom ufności (1 − α) | decyzja | chroni przed fałszywym pozytywem: przy 95% w 1 teście na 20 ogłosisz wzrost, którego nie ma | 95% |
-| Moc testu (1 − β) | decyzja | chroni przed fałszywym negatywem: przy 80% realny wzrost równy MDE wykryjesz w 4 testach na 5 | 80% |
-| Rodzaj testu | decyzja | dwustronny sprawdza wzrost i spadek, jednostronny tylko wzrost | dwustronny; jednostronny skraca test o ~21%, ale szkodę pokaże jako „brak efektu” |
-| Najdłużej możesz testować | decyzja | pełne tygodnie, w których strona, ceny i kampanie się nie zmienią | 2–6 tyg.; dłużej psują kasowanie cookies i sezonowość |
+| 1 | **Stan planu** (ramka z ikoną) | ✓ **Plan wykonalny** · ! **Plan ryzykowny** · ✕ **Plan niewykonalny** | Wykonalny: test mieści się w limicie tygodni (gdy wystarczy mniej niż 2 tygodnie, kalkulator i tak radzi pełne 2). Ryzykowny: test potrwa ponad 6 tygodni — wynik zaburzą cookies i sezonowość; rozważ większe MDE. Niewykonalny: test potrzebuje więcej tygodni niż limit; kalkulator podaje MDE, które wykryjesz w limicie. |
+| 2 | **Zdanie wyniku** | „Przy CR 2% i MDE +15% potrzebujesz 36 693 użytkowników na wariant (73 386 łącznie). Przy 20 000 użytkowników w tygodniu test potrwa 3,67 tyg., czyli 4 tygodnie.” | Liczba użytkowników zależy od CR, MDE, ufności, mocy i rodzaju testu. Ruch w tygodniu zmienia tylko czas. |
+| 3 | **Kopiuj link do wyniku** | link z wpisanymi liczbami | Otwiera kalkulator z tymi samymi danymi. Liczby siedzą w części adresu po `#`, której przeglądarka nie wysyła na serwer — ale każdy, kto dostanie link, je zobaczy. |
+| 4 | **Zdanie o limicie** | „W ciągu 4 tygodni wykryjesz MDE od +14,35% (+0,29 pp).” | Najmniejszy wzrost, jaki wykryjesz, jeśli test potrwa tyle, ile wpisałeś w „Najdłużej możesz testować”. |
+| 5 | **Tabela MDE po tygodniach** | kolumny: **Tydzień**, **Użytkownicy na wariant**, **MDE (%)**, **MDE (pp)** | Wiersz = „gdybyś zakończył test po tym tygodniu”. Użytkownicy na wariant = ruch × tygodnie / liczba wariantów. MDE (%) i MDE (pp) = najmniejszy wzrost wykrywalny przy tej liczbie użytkowników, względnie i w punktach procentowych. Wiersz „(najdłużej)” to Twój limit. „poza zasięgiem” = przy tej liczbie użytkowników nie wykryjesz realistycznego wzrostu. Tabela ma zawsze co najmniej 8 tygodni, żeby było widać, co da dłuższy test. Ruch na tydzień jest stały, więc przy dłuższych oknach tabela trochę przeszacowuje użytkowników — dla dokładnego wiersza weź liczby z `01` dla tej długości. |
+| 6 | **Czas trwania** | „3,67 tyg. → 4 tygodnie” | Tyle tygodni zbierasz użytkowników łącznie, zaokrąglone w górę do pełnych tygodni. |
+| 7 | **Użytkownicy na wariant** | 36 693 | Tylu użytkowników musi trafić do każdego wariantu. Tę liczbę wpisujesz potem w „Po teście” jako dane z planu. |
+| 8 | **Użytkownicy łącznie** | 73 386 | Użytkownicy na wariant × liczba wariantów. Ruch w tygodniu decyduje tylko, jak szybko ich zbierzesz. |
+| 9 | **CR wariantu przy wzroście równym MDE** | 2,30% | Tyle musi osiągnąć wariant, żeby wzrost był równy MDE. |
+| 10 | **Próg p-value (α)** | 0,05 | Poniżej tej wartości wynik w „Po teście” uznasz za istotny. Przy 3+ wariantach zaostrzony, np. „0,05 / 2 = 0,025”. |
 
-Wynik: użytkownicy na wariant i łącznie, czas w pełnych tygodniach, ocena planu (wykonalny / ryzykowny / niewykonalny) oraz tabela MDE wykrywalnego po każdym tygodniu. Gdy plan jest niewykonalny, kalkulator podaje MDE, które wykryjesz w swoim limicie tygodni.
+Plan zapisuje się w tej karcie przeglądarki (`sessionStorage`) po pierwszej zmianie pola. Strona „Po teście” w tej samej karcie odczyta go przyciskiem „Wstaw z planu”.
 
-## Kalkulator Po teście — pola
+## Kalkulator Po teście
 
-| Pole | Skąd | Co znaczy | Uwaga |
+[pmdata.pl/kalkulatory/istotnosc-testu-ab](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/) odpowiada na pytanie: co zrobić z wariantem B. Wynik ma dwie warstwy — na górze decyzja i jej skutek w złotówkach, na dole statystyka dla analityka.
+
+### Pola
+
+| # | Pole | Przykład | Skąd | Co znaczy |
+|---|---|---|---|---|
+| 1 | **Użytkownicy A (kontrola)** | 36 700 | `02` → `users` (wiersz A) | Unikalni użytkownicy od pierwszego przypisania do wariantu A. Nie sesje. Osoby przypisane do 2+ wariantów zapytanie wyklucza. |
+| 2 | **Konwertujący A** | 734 | `02` → `converters` (wiersz A) | Użytkownicy z konwersją po pierwszym przypisaniu. Osoby, nie konwersje. Zakup sprzed przypisania nie zależał od wariantu, więc się nie liczy. |
+| 3 | **Użytkownicy B (wariant)** | 36 750 | `02` → `users` (wiersz B) | Liczeni tak samo jak w A. |
+| 4 | **Konwertujący B** | 846 | `02` → `converters` (wiersz B) | Liczeni tak samo jak w A. |
+| 5 | **Liczba wariantów razem z kontrolą** | 2 | z planu | Ta sama co w planie. Przy 3+ zaostrza próg p-value tak samo jak w „Przed testem”. |
+| 6 | **Poziom ufności** | 95% | z planu | Ten sam co w planie. |
+| 7 | **Rodzaj testu** | dwustronny (wzrost i spadek) | z planu | Ten sam co w planie. Zmiana po zobaczeniu wyniku to naginanie wyniku: test jednostronny zrobi z p-value 0,09 wynik 0,045. |
+| 8 | **Dane z planu testu — opcjonalnie** | — | kalkulator Przed testem | Grupa dwóch pól: **Użytkownicy na wariant** (wynik „Użytkownicy na wariant” z planu) i **MDE (%)** (MDE wpisane w planie). Przycisk **Wstaw z planu** przenosi oba z „Przed testem”, jeśli liczyłeś plan w tej samej karcie przeglądarki; inaczej przepisz je ręcznie. Po co — niżej. |
+| 9 | **Miesięczny przychód ze strony testowej (zł)** — opcjonalnie | 500 000 | `03` → `monthly_revenue` | Przychód od użytkowników, którzy weszli na stronę objętą testem. Kalkulator przelicza na nim zakres wzrostu na złotówki. Bez tego pola blok „Wpływ na przychód miesięcznie” się nie pokazuje. |
+
+### Dane z planu testu — po co
+
+Wynik testu policzysz bez nich. Bez nich werdykt zależy jednak tylko od p-value, a p-value najłatwiej oszukać, zaglądając do wyniku w trakcie testu. Dane z planu włączają trzy kontrole:
+
+| Sytuacja | Bez planu | Z planem |
+|---|---|---|
+| Test zatrzymany przy 70% zaplanowanych użytkowników, bo wynik akurat był istotny | „Wdrażaj B” | „Wstrzymaj decyzję” — wynik sprzed końca testu częściej daje fałszywy pozytyw |
+| Test przedłużany ponad plan (> 125% użytkowników), aż wynik wyjdzie istotny | „Wdrażaj B” | „Wstrzymaj decyzję” — ryzyko fałszywego pozytywu wyższe niż wybrane α |
+| Istotny wzrost +4%, a plan zakładał MDE +15% | „Wdrażaj B” | „Wdrażaj B, ale licz na mniej, niż zmierzono” — przy wzroście mniejszym niż MDE test miał słabą moc, a istotne wyniki takich testów zawyżają wzrost (*winner's curse*, klątwa zwycięzcy) |
+| Ręcznie wpisane liczby z planu do siebie nie pasują (rozjazd > 25%) | — | ostrzeżenie „Dane z planu wyglądają na niespójne” — pomyłka albo plan liczony z inną mocą lub innym CR |
+
+Progi: mniej niż 95% planu = za mało (każdy brakujący użytkownik to mniejsza moc), ponad 125% = za dużo (lekki nadmiar jest normalny, bo test kończy się w pełnym tygodniu). Plan wstawiony przyciskiem jest spójny z definicji — kontrola spójności dotyczy tylko liczb wpisanych ręcznie.
+
+### Wynik testu
+
+Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole.
+
+| # | Element | Co pokazuje | Jak czytać |
 |---|---|---|---|
-| Użytkownicy A / B | `02` → `users` | unikalni użytkownicy od pierwszego przypisania do wariantu | osoby przypisane do 2+ wariantów zapytanie wyklucza |
-| Konwertujący A / B | `02` → `converters` | użytkownicy z `purchase` po pierwszym przypisaniu | zakup sprzed przypisania nie zależał od wariantu, więc się nie liczy |
-| Liczba wariantów, poziom ufności, rodzaj testu | z planu | te same co w kalkulatorze Przed testem | zmiana po zobaczeniu wyniku to naginanie wyniku |
-| Użytkownicy na wariant, MDE (opcjonalne) | kalkulator Przed testem | plan testu; przycisk „Wstaw z planu” przenosi go w tej samej karcie przeglądarki | włączają kontrolę: za mało / za dużo użytkowników względem planu, wzrost poniżej MDE |
-| Miesięczny przychód ze strony testowej (opcjonalne) | `03` → `monthly_revenue` | przychód od użytkowników, którzy weszli na stronę objętą testem | kalkulator mnoży go przez zakres wzrostu — dostajesz przedział złotówek, nie jedną liczbę |
+| 1 | **Stan wyniku** (ramka z ikoną) | decyzja o wariancie B, jeden z sześciu stanów | Tabela stanów niżej. |
+| 2 | **Werdykt** | „Wynik istotny statystycznie (p-value = 0,0048 < 0,05, test dwustronny).” albo „Wynik nieistotny statystycznie (…). Nie da się odróżnić wzrostu od przypadku.” | Porównanie p-value z progiem α. Pod spodem przypomnienie: p-value to nie prawdopodobieństwo, że wariant jest lepszy. |
+| 3 | **Kopiuj link do wyniku** | link z wpisanymi liczbami | Jak w „Przed testem”. |
+| 4 | **Zakres możliwego wzrostu (95% przedział ufności)** | **w punktach procentowych**: +0,0922 pp … +0,5119 pp · **w procentach**: +4,61% … +25,59% · pasek z zerem, zakresem i punktem | Realny wzrost leży najpewniej w tym zakresie. Zakres obejmuje zero = realnie może być wzrost, brak zmiany albo spadek. Dolna granica poniżej 1% = wzrost jest, ale może być bliski zera. Przy teście jednostronnym zakres to 90% przedział ufności, zgodny z progiem testu. |
+| 5 | **Wpływ na przychód miesięcznie** | „Od +23 055 zł do +127 965 zł, najbardziej prawdopodobnie +75 510 zł.” | Przychód miesięczny × zakres wzrostu. Zawsze przedział, nigdy jedna liczba — do budżetu bierz dolną granicę. Zakłada, że wartość konwersji się nie zmienia (test mierzył CR, nie przychód). Przy teście zepsutym (SRM) blok się nie pokazuje. |
+| 6 | **Ostrzeżenia** | lista pod wynikiem | Kolejne powody ostrożności, gdy jest ich więcej niż jeden (pierwszy stoi w stanie wyniku), oraz zastrzeżenie o *winner's curse*. |
+| 7 | **„Analizuj raz…”** | stała zasada | Analizuj raz, po zebraniu zaplanowanej liczby użytkowników. Każde wcześniejsze „zerknięcie” z możliwością zatrzymania testu podnosi ryzyko fałszywego pozytywu ponad wybrany próg α. |
+| 8 | **CR A / CR B** | 2,0000% / 2,3020% | Konwertujący podzieleni przez użytkowników w wariancie. |
+| 9 | **Wzrost (pp)** | +0,3020 pp | CR B − CR A w punktach procentowych. |
+| 10 | **Wzrost (%)** | +15,10% | Wzrost w pp podzielony przez CR A. To pojedyncza, zmierzona wartość — realny wzrost leży w zakresie z punktu 4. |
+| 11 | **p-value dwustronne / jednostronne** | 0,0048 / 0,0024 | Prawdopodobieństwo wyniku co najmniej tak skrajnego, gdyby wzrostu nie było. Kalkulator pokazuje oba, ale werdykt bierze rodzaj testu wybrany w polu „Rodzaj testu”. |
+| 12 | **Podział użytkowników A/B (SRM)** | „w normie: χ² = 0,03, p-value = 0,85” | SRM (*sample ratio mismatch*) sprawdza, czy A i B dostały po równo — zakłada podział 50/50. „alarm” przy p-value < 0,001 = błąd w losowaniu albo w danych (np. wariant B ładuje się wolniej i gubi część użytkowników). Wtedy wyniku nie interpretujesz. |
+| 13 | **Szczegóły statystyczne**: **Statystyka z** | 2,8214 | Wzrost w pp podzielony przez swój błąd standardowy. Im dalej od zera, tym mniejsze p-value; ±1,96 to granica istotności przy 95% w teście dwustronnym. |
+| 14 | **Szczegóły statystyczne**: **Błąd standardowy wzrostu** | 0,1071 pp | Niepewność wzrostu wynikająca z liczby użytkowników w A i B, liczona bez poolowania (*unpooled SE*). Z niej powstaje zakres z punktu 4. |
+
+### Stany wyniku
+
+Sprawdzane po kolei — pierwszy pasujący wygrywa.
+
+| Stan | Kiedy | Co zrobić |
+|---|---|---|
+| ✕ **Test zepsuty — powtórz test.** | SRM: p-value < 0,001 | Szukaj błędu w losowaniu albo w danych. Żadnych złotówek, żadnej decyzji. |
+| ✕ **Nie wdrażaj B.** | B ma istotnie niższy CR niż A | Zostań przy A. |
+| ! **Wstrzymaj decyzję.** | dane z planu niespójne, za mało (< 95%) albo za dużo (> 125%) użytkowników względem planu, albo test jednostronny i B gorsze od A | Powód stoi obok stanu. Najczęściej: poczekaj na pełną liczbę użytkowników. |
+| ✓ **Wdrażaj B, ale licz na mniej, niż zmierzono.** | istotny wzrost poniżej MDE z planu albo dolna granica zakresu < 1% | Wdrażaj, ale do prognoz bierz dolną granicę zakresu, nie zmierzony wzrost. |
+| ✓ **Wdrażaj B.** | istotny wzrost bez zastrzeżeń | Wdrażaj. |
+| – **Nie wdrażaj B jako zwycięzcy.** | wynik nieistotny | Wzrostu nie da się odróżnić od przypadku. Jeśli chcesz wdrożyć B z innych powodów (koszt, UX), kalkulator podaje zakres zmiany CR — to Twój najgorszy i najlepszy scenariusz. |
 
 ## Definicje metryk
 
@@ -72,16 +159,6 @@ Wynik: użytkownicy na wariant i łącznie, czas w pełnych tygodniach, ocena pl
 | CR | konwertujący / użytkownicy | — (liczy kalkulator) |
 | Przychód miesięczny | przychód z `purchase` po pierwszym `view_item`, `window_days` dni przed testem; w przykładzie `purchase_revenue_in_usd`, na własnym eksporcie `purchase_revenue` | `monthly_revenue` |
 | Wielokrotnie przypisani | użytkownicy z 2+ wariantami (wyczyszczone cookies, błąd w tagu); wykluczeni z wyniku `02` | — |
-
-## Jak czytać wynik po teście
-
-| Pojęcie | Znaczenie |
-|---|---|
-| p-value | prawdopodobieństwo takiego lub bardziej skrajnego wyniku, gdyby wzrostu nie było; istotny, gdy < α. Nie jest prawdopodobieństwem, że wariant jest lepszy |
-| Zakres wzrostu (przedział ufności) | wzrosty zgodne z danymi; obejmuje zero = wzrostu nie da się odróżnić od przypadku. Przy teście jednostronnym przedział 90% (dla 95% ufności), zgodny z werdyktem |
-| SRM | nierówny podział użytkowników A/B; p-value < 0,001 = test zepsuty, wyniku nie interpretujesz |
-| Winner's curse | istotny wynik przy wzroście mniejszym niż MDE zawyża wzrost — realny jest prawdopodobnie mniejszy |
-| Analizuj raz | każde zerknięcie w trakcie z możliwością zatrzymania podnosi ryzyko fałszywego pozytywu |
 
 ## Ograniczenia
 
