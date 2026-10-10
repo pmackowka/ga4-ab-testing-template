@@ -44,6 +44,8 @@ Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają.
 
 Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno pole jest puste, nad wynikiem stoi „Przykładowe dane — wpisz swoje, a wynik przeliczy się od razu.”
 
+![Kalkulator Przed testem wypełniony danymi z tabeli pól](docs/img/przed-testem.png)
+
 ### Pola
 
 | # | Pole | Przykład | Skąd | Co znaczy |
@@ -89,6 +91,8 @@ Plan zapisuje się w tej karcie przeglądarki (`sessionStorage`) po pierwszej zm
 
 [pmdata.pl/kalkulatory/istotnosc-testu-ab](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/) odpowiada na pytanie: co zrobić z wariantem B. Wynik ma dwie warstwy — na górze decyzja i jej skutek w złotówkach, na dole statystyka dla analityka.
 
+![Kalkulator Po teście wypełniony danymi z tabeli pól, z danymi z planu i przychodem](docs/img/po-tescie.png)
+
 ### Pola
 
 | # | Pole | Przykład | Skąd | Co znaczy |
@@ -100,7 +104,7 @@ Plan zapisuje się w tej karcie przeglądarki (`sessionStorage`) po pierwszej zm
 | 5 | **Liczba wariantów razem z kontrolą** | 2 | z planu | Ta sama co w planie. Przy 3+ zaostrza próg p-value tak samo jak w „Przed testem”. |
 | 6 | **Poziom ufności** | 95% | z planu | Ten sam co w planie. |
 | 7 | **Rodzaj testu** | dwustronny (wzrost i spadek) | z planu | Ten sam co w planie. Zmiana po zobaczeniu wyniku to naginanie wyniku: test jednostronny zrobi z p-value 0,09 wynik 0,045. |
-| 8 | **Dane z planu testu — opcjonalnie** | — | kalkulator Przed testem | Grupa dwóch pól: **Użytkownicy na wariant** (wynik „Użytkownicy na wariant” z planu) i **MDE (%)** (MDE wpisane w planie). Przycisk **Wstaw z planu** przenosi oba z „Przed testem”, jeśli liczyłeś plan w tej samej karcie przeglądarki; inaczej przepisz je ręcznie. Po co — niżej. |
+| 8 | **Dane z planu testu — opcjonalnie** | 36 693 · 15 | kalkulator Przed testem | Grupa dwóch pól: **Użytkownicy na wariant** (wynik „Użytkownicy na wariant” z planu) i **MDE (%)** (MDE wpisane w planie). Przycisk **Wstaw z planu** przenosi oba z „Przed testem”, jeśli liczyłeś plan w tej samej karcie przeglądarki; inaczej przepisz je ręcznie. Po co — niżej. |
 | 9 | **Miesięczny przychód ze strony testowej (zł)** — opcjonalnie | 500 000 | `03` → `monthly_revenue` | Przychód od użytkowników, którzy weszli na stronę objętą testem. Kalkulator przelicza na nim zakres wzrostu na złotówki. Bez tego pola blok „Wpływ na przychód miesięcznie” się nie pokazuje. |
 
 ### Dane z planu testu — po co
@@ -133,7 +137,7 @@ Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole.
 | 9 | **Wzrost (pp)** | +0,3020 pp | CR B − CR A w punktach procentowych. |
 | 10 | **Wzrost (%)** | +15,10% | Wzrost w pp podzielony przez CR A. To pojedyncza, zmierzona wartość — realny wzrost leży w zakresie z punktu 4. |
 | 11 | **p-value dwustronne / jednostronne** | 0,0048 / 0,0024 | Prawdopodobieństwo wyniku co najmniej tak skrajnego, gdyby wzrostu nie było. Kalkulator pokazuje oba, ale werdykt bierze rodzaj testu wybrany w polu „Rodzaj testu”. |
-| 12 | **Podział użytkowników A/B (SRM)** | „w normie: χ² = 0,03, p-value = 0,85” | SRM (*sample ratio mismatch*) sprawdza, czy A i B dostały po równo — zakłada podział 50/50. „alarm” przy p-value < 0,001 = błąd w losowaniu albo w danych (np. wariant B ładuje się wolniej i gubi część użytkowników). Wtedy wyniku nie interpretujesz. |
+| 12 | **Podział użytkowników A/B (SRM)** | „w normie: χ² = 0,03, p-value = 0,8536” | SRM (*sample ratio mismatch*) sprawdza, czy A i B dostały po równo — zakłada podział 50/50. „alarm” przy p-value < 0,001 = błąd w losowaniu albo w danych (np. wariant B ładuje się wolniej i gubi część użytkowników). Wtedy wyniku nie interpretujesz. |
 | 13 | **Szczegóły statystyczne**: **Statystyka z** | 2,8214 | Wzrost w pp podzielony przez swój błąd standardowy. Im dalej od zera, tym mniejsze p-value; ±1,96 to granica istotności przy 95% w teście dwustronnym. |
 | 14 | **Szczegóły statystyczne**: **Błąd standardowy wzrostu** | 0,1071 pp | Niepewność wzrostu wynikająca z liczby użytkowników w A i B, liczona bez poolowania (*unpooled SE*). Z niej powstaje zakres z punktu 4. |
 
