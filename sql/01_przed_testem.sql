@@ -4,9 +4,10 @@
  Test karty produktu: wejście = view_item, konwersja = purchase.
 */
 
--- poniedziałek: początek 8 pełnych tygodni PRZED testem (bez bieżącego tygodnia)
+-- poniedziałek: początek pełnych tygodni PRZED testem (bez bieżącego tygodnia);
+-- domyślnie 5 tygodni 2020-11-02 – 2020-12-06, bo przykładowy test startuje 2020-12-07
 DECLARE window_start DATE DEFAULT DATE '2020-11-02';
-DECLARE max_weeks INT64 DEFAULT 8;
+DECLARE max_weeks INT64 DEFAULT 5;
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
   AS 'window_start musi być poniedziałkiem';
@@ -84,17 +85,14 @@ windows AS (
  Przykład (liczby poglądowe):
  weeks | users_per_week | converters_per_week
  ------+----------------+--------------------
-     1 |         20 000 |                 400
-     2 |         18 000 |                 415
-     3 |         16 833 |                 433
-     4 |         16 000 |                 440
-     5 |         15 300 |                 440
-     6 |         14 667 |                 437
-     7 |         14 143 |                 431
-     8 |         13 688 |                 425
+     1 |         25 000 |                 375
+     2 |         22 500 |                 383
+     3 |         21 000 |                 392
+     4 |         20 000 |                 400
+     5 |         19 200 |                 403
 
- → plan 5 tygodni: 15 300 / 440 → kalkulator (MDE +15%) liczy 4 tygodnie
-   → wiersz 4: 16 000 / 440 → kalkulator liczy 4 tygodnie. Zgodne, koniec.
+ → plan 5 tygodni: 19 200 / 403 → kalkulator (MDE +15%) liczy 4 tygodnie
+   → wiersz 4: 20 000 / 400 → kalkulator liczy 4 tygodnie. Zgodne, koniec.
 */
 SELECT
   weeks,
