@@ -92,7 +92,7 @@ MDE to skrót od *minimum detectable effect*, po polsku najmniejszy wykrywalny e
 
 ### Wynik: Plan testu
 
-Kolejność jak na stronie.
+Kolejność jak na stronie. Biznes czyta do tabeli MDE; punkty 7–11 są zwinięte pod „Statystyki dla analityka” — klik rozwija.
 
 1. **Stan planu** (ramka z ikoną)<br>Na stronie: ✓ **Plan wykonalny** · ! **Plan ryzykowny** · ✕ **Plan niewykonalny**
 
@@ -118,23 +118,23 @@ Kolejność jak na stronie.
 
    Wiersz = „gdybyś zakończył test po tym tygodniu”. Użytkownicy na wariant = ruch × tygodnie / liczba wariantów. MDE (%) i MDE (pp) = najmniejszy wzrost wykrywalny przy tej liczbie użytkowników, względnie i w punktach procentowych. Wartość wzrostu / tydz. = przychód tygodniowy × MDE (%): ile zł tygodniowo daje wykrywalny wzrost, jeśli się potwierdzi i średnia wartość zamówienia się nie zmieni. Wiersz „(najdłużej)” to Twój limit. „poza zasięgiem” = przy tej liczbie użytkowników nie wykryjesz realistycznego wzrostu. Tabela ma zawsze co najmniej 8 tygodni, żeby było widać, co da dłuższy test. Ruch na tydzień jest stały, więc przy dłuższych oknach tabela trochę przeszacowuje użytkowników — dla dokładnego wiersza weź liczby z `01` dla tej długości.
 
-7. **Czas trwania**<br>Na stronie: „3,67 tyg. → 4 tygodnie”
+7. **Statystyki dla analityka**: **Czas trwania**<br>Na stronie: „3,67 tyg. → 4 tygodnie”
 
    Tyle tygodni zbierasz użytkowników łącznie, zaokrąglone w górę do pełnych tygodni.
 
-8. **Użytkownicy na wariant**<br>Na stronie: 36 693
+8. **Statystyki dla analityka**: **Użytkownicy na wariant**<br>Na stronie: 36 693
 
    Tylu użytkowników musi trafić do każdego wariantu. Tę liczbę wpisujesz potem w „Po teście” jako dane z planu.
 
-9. **Użytkownicy łącznie**<br>Na stronie: 73 386
+9. **Statystyki dla analityka**: **Użytkownicy łącznie**<br>Na stronie: 73 386
 
    Użytkownicy na wariant × liczba wariantów. Ruch w tygodniu decyduje tylko, jak szybko ich zbierzesz.
 
-10. **CR wariantu przy wzroście równym MDE**<br>Na stronie: 2,30%
+10. **Statystyki dla analityka**: **CR wariantu przy wzroście równym MDE**<br>Na stronie: 2,30%
 
    Tyle musi osiągnąć wariant, żeby wzrost był równy MDE.
 
-11. **Próg p-value (α)**<br>Na stronie: 0,05
+11. **Statystyki dla analityka**: **Próg p-value (α)**<br>Na stronie: 0,05
 
    Poniżej tej wartości wynik w „Po teście” uznasz za istotny. Przy 3+ wariantach zaostrzony, np. „0,05 / 2 = 0,025”.
 
@@ -197,7 +197,7 @@ Progi: mniej niż 95% planu = za mało (każdy brakujący użytkownik to mniejsz
 
 ### Wynik testu
 
-Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole.
+Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole. Punkty 8–14 są zwinięte pod „Statystyki dla analityka” — klik rozwija.
 
 1. **Stan wyniku** (ramka z ikoną)<br>Na stronie: decyzja o wariancie B, jeden z sześciu stanów
 
@@ -211,7 +211,7 @@ Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole.
 
    Jak w „Przed testem”.
 
-4. **Zakres możliwego wzrostu (95% przedział ufności)**<br>Na stronie: **w punktach procentowych**: od +0,0922 pp do +0,5119 pp · **w procentach**: od +4,61% do +25,59% · pasek z zerem, zakresem i punktem
+4. **Zakres możliwego wzrostu (95% przedział ufności)**<br>Na stronie: **w punktach procentowych**: od +0,0922 pp do +0,5119 pp · **w procentach**: od +4,61% do +25,59% · oś: nad nią zmierzony wzrost (+15,10%), pod nią „0” i granice zakresu; odcinek zielony, gdy cały zakres jest powyżej zera, szary — gdy obejmuje zero, czerwony — gdy jest poniżej zera
 
    Realny wzrost leży najpewniej w tym zakresie. Zakres obejmuje zero = realnie może być wzrost, brak zmiany albo spadek. Dolna granica poniżej 1% = wzrost jest, ale może być bliski zera. Przy teście jednostronnym zakres to przedział na poziomie 1 − 2α (przy 95% ufności: 90%), zgodny z progiem testu.
 
@@ -227,31 +227,31 @@ Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole.
 
    Analizuj raz, po zebraniu zaplanowanej liczby użytkowników. Każde wcześniejsze „zerknięcie” z możliwością zatrzymania testu podnosi ryzyko fałszywego pozytywu ponad wybrany próg α.
 
-8. **CR A / CR B**<br>Na stronie: 2,0000% / 2,3020%
+8. **Statystyki dla analityka**: **CR A / CR B**<br>Na stronie: 2,0000% / 2,3020%
 
    Konwertujący podzieleni przez użytkowników w wariancie.
 
-9. **Wzrost (pp)**<br>Na stronie: +0,3020 pp
+9. **Statystyki dla analityka**: **Wzrost (pp)**<br>Na stronie: +0,3020 pp
 
    CR B − CR A w punktach procentowych.
 
-10. **Wzrost (%)**<br>Na stronie: +15,10%
+10. **Statystyki dla analityka**: **Wzrost (%)**<br>Na stronie: +15,10%
 
    Wzrost w pp podzielony przez CR A. To pojedyncza, zmierzona wartość — realny wzrost leży w zakresie z punktu 4.
 
-11. **p-value dwustronne / jednostronne**<br>Na stronie: 0,0048 / 0,0024
+11. **Statystyki dla analityka**: **p-value dwustronne / jednostronne**<br>Na stronie: 0,0048 / 0,0024
 
    Prawdopodobieństwo wyniku co najmniej tak skrajnego, gdyby wzrostu nie było. Kalkulator pokazuje oba, ale werdykt bierze rodzaj testu wybrany w polu „Rodzaj testu”.
 
-12. **Podział użytkowników A/B (SRM)**<br>Na stronie: „w normie: χ² = 0,03, p-value = 0,8536”
+12. **Statystyki dla analityka**: **Podział użytkowników A/B (SRM)**<br>Na stronie: „w normie: χ² = 0,03, p-value = 0,8536”
 
    SRM (*sample ratio mismatch*) sprawdza, czy A i B dostały po równo — zakłada podział 50/50. „alarm” przy p-value < 0,001 = błąd w losowaniu albo w danych (np. wariant B ładuje się wolniej i gubi część użytkowników). Wtedy wyniku nie interpretujesz.
 
-13. **Szczegóły statystyczne**: **Statystyka z**<br>Na stronie: 2,8214
+13. **Statystyki dla analityka** → **Szczegóły statystyczne**: **Statystyka z**<br>Na stronie: 2,8214
 
    Wzrost w pp podzielony przez swój błąd standardowy. Im dalej od zera, tym mniejsze p-value; ±1,96 to granica istotności przy 95% w teście dwustronnym.
 
-14. **Szczegóły statystyczne**: **Błąd standardowy wzrostu**<br>Na stronie: 0,1071 pp
+14. **Statystyki dla analityka** → **Szczegóły statystyczne**: **Błąd standardowy wzrostu**<br>Na stronie: 0,1071 pp
 
    Niepewność wzrostu wynikająca z liczby użytkowników w A i B, liczona bez poolowania (*unpooled SE*). Z niej powstaje zakres z punktu 4.
 
