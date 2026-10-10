@@ -1,11 +1,12 @@
 /*
- 03 · PO TEŚCIE → kalkulator „Po teście A/B”, pole przychodu
+ 03 · PRZYCHÓD TYGODNIOWY → pole przychodu w obu kalkulatorach
+ https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
  Test karty produktu: wejście = view_item, przychód z purchase.
 */
 
 DECLARE window_end DATE DEFAULT DATE '2020-12-06';  -- dzień przed startem testu
-DECLARE window_days INT64 DEFAULT 30;
+DECLARE window_weeks INT64 DEFAULT 4;  -- pełne tygodnie: każdy dzień tygodnia tyle samo razy
 
 WITH events AS (
   SELECT
@@ -18,7 +19,7 @@ WITH events AS (
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE(
         '%Y%m%d',
-        DATE_SUB(window_end, INTERVAL window_days - 1 DAY)
+        DATE_SUB(window_end, INTERVAL window_weeks * 7 - 1 DAY)
       )
       AND FORMAT_DATE('%Y%m%d', window_end)
     AND event_name IN ('view_item', 'purchase')
@@ -47,20 +48,22 @@ purchases AS (
 
 /*
  ─── WYNIK ────────────────────────────────────────────────────────────────
- monthly_revenue → kalkulator: Miesięczny przychód ze strony testowej
+ weekly_revenue → kalkulatory: Tygodniowy przychód ze strony testowej
 
- Przychód z 30 dni przed testem od użytkowników, którzy obejrzeli kartę
- produktu — tylko z zakupów PO pierwszym view_item. Kalkulator mnoży go
- przez zakres wzrostu, nie przez jedną liczbę.
+ Przychód z window_weeks tygodni przed testem od użytkowników, którzy
+ obejrzeli kartę produktu — tylko z zakupów PO pierwszym view_item —
+ podzielony przez liczbę tygodni.
 
  Przykład (liczby poglądowe):
- monthly_revenue
- ---------------
-         500 000
+ weekly_revenue
+ --------------
+        125 000
 
- → kalkulator, przy domyślnym wyniku testu: od +23 055 zł do +127 965 zł
-   miesięcznie, najbardziej prawdopodobnie +75 510 zł.
+ → Przed testem, przy danych domyślnych: w 4 tygodniach wykryjesz
+   +14,35%, czyli +17 931 zł tygodniowo.
+ → Po teście, przy domyślnym wyniku: od +5 764 zł do +31 991 zł
+   tygodniowo, najbardziej prawdopodobnie +18 878 zł.
 */
 SELECT
-  CAST(ROUND(IFNULL(SUM(revenue), 0)) AS INT64) AS monthly_revenue
+  CAST(ROUND(IFNULL(SUM(revenue), 0) / window_weeks) AS INT64) AS weekly_revenue
 FROM purchases;
