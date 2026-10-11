@@ -39,7 +39,7 @@ Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają.
 
 [pmdata.pl/kalkulatory/wielkosc-proby-test-ab](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/) odpowiada na dwa pytania: ilu użytkowników potrzebuje test i ile tygodni potrwa przy Twoim ruchu. Nazwy poniżej są dokładnie takie jak na stronie, w tej samej kolejności.
 
-Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno pole z przykładem jest puste, nad wynikiem stoi „Przykładowe dane — wpisz swoje, a wynik przeliczy się od razu.” Wyjątek to pola opcjonalne — przychód i, w „Po teście”, dane z planu: ich przykład liczy się tylko, gdy cały formularz jest na przykładzie. Gdy wpiszesz własne liczby, a pole opcjonalne zostawisz puste, przykład znika, bo przykładowy przychód przy Twoim ruchu dawałby fałszywe złotówki.
+Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno pole z przykładem jest puste, nad wynikiem stoi „Przykładowe dane — wpisz swoje, a wynik przeliczy się od razu.” Pola opcjonalne działają inaczej. Chodzi o przychód, a w „Po teście” także o dane z planu. Ich przykład pokazuje się tylko wtedy, gdy nie wpisałeś jeszcze żadnej liczby. Gdy wpiszesz własne liczby, a pole opcjonalne zostawisz puste, przykład z niego znika. Inaczej kalkulator policzyłby złotówki z przykładowego przychodu, który nie pasuje do Twojego ruchu.
 
 ![Kalkulator Przed testem wypełniony danymi z listy pól, z przychodem](docs/img/przed-testem.png)
 
