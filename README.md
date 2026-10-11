@@ -16,7 +16,7 @@ Scenariusz: e-commerce testuje kartę produktu. Wejście do testu to `view_item`
 Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01 – 2021-01-31) — wystarczy, żeby zobaczyć kształt wyniku.
 
 - `01` · `window_start` — poniedziałek, od którego liczysz okna (zapytanie sprawdza dzień tygodnia)
-- `01` · `max_weeks` — ile okien policzyć: 1, 2, … tygodni; okno nie może sięgać w okres testu (domyślnie 5 — przykładowy test startuje 2020-12-07)
+- `01` · `max_weeks` — ile okien policzyć: 1, 2, … tygodni, najwyżej 8 (tyle co limit w kalkulatorze); okno nie może sięgać w okres testu (domyślnie 5 — przykładowy test startuje 2020-12-07)
 - `02` · `test_start`, `test_end` — pierwszy i ostatni dzień testu, pełne tygodnie
 - `02` · `test_id` — środkowa część `exp_variant_string` (`NARZĘDZIE-TEST-WARIANT`); identyfikator testu i nazwa wariantu bez myślnika, bo zapytanie dzieli tekst po `-`
 - `02` · `control_variant` — wariant kontrolny, zwykle `A`
@@ -75,7 +75,7 @@ Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno 
 
 8. **Najdłużej możesz testować (tygodnie)**<br>Przykład: 4 · skąd: decyzja
 
-   Ile pełnych tygodni strona, ceny i kampanie mogą zostać bez zmian. Pełne tygodnie, bo w poniedziałek i w sobotę kupują inni ludzie. Powyżej ~6 tygodni wynik psują kasowanie cookies (ten sam człowiek wraca jako nowy użytkownik) i sezonowość.
+   Ile pełnych tygodni strona, ceny i kampanie mogą zostać bez zmian. Pełne tygodnie, bo w poniedziałek i w sobotę kupują inni ludzie. Najwyżej 8: dłużej kasowanie cookies miesza warianty (ten sam człowiek wraca jako nowy użytkownik i może trafić do drugiego wariantu), a sezonowość zmienia to, co test mierzy. Wpisanie 9 i więcej kalkulator odrzuca komunikatem przy polu. Powyżej 6 tygodni plan jest „ryzykowny”.
 
 9. **Tygodniowy przychód ze strony testowej (zł)** — opcjonalnie<br>Przykład: 125 000 · skąd: `03` → `weekly_revenue`
 
@@ -96,7 +96,7 @@ Kolejność jak na stronie. Biznes czyta do tabeli MDE; punkty 7–11 są zwini�
 
 1. **Stan planu** (ramka z ikoną)<br>Na stronie: ✓ **Plan wykonalny** · ! **Plan ryzykowny** · ✕ **Plan niewykonalny**
 
-   Wykonalny: test mieści się w limicie tygodni (gdy wystarczy mniej niż 2 tygodnie, kalkulator i tak radzi pełne 2, o ile limit na to pozwala). Ryzykowny: test potrwa ponad 6 tygodni — wynik mogą zaburzyć cookies i sezonowość; rozważ większe MDE. Niewykonalny: test potrzebuje więcej tygodni niż limit; kalkulator podaje MDE, które wykryjesz w limicie.
+   Wykonalny: test mieści się w limicie tygodni (gdy wystarczy mniej niż 2 tygodnie, kalkulator i tak radzi pełne 2, o ile limit na to pozwala). Ryzykowny: test potrwa ponad 6 tygodni — wynik mogą zaburzyć cookies i sezonowość; rozważ większe MDE. Niewykonalny: test potrzebuje więcej tygodni niż limit; kalkulator podaje MDE, które wykryjesz w limicie. Gdy test zmieści się w 8 tygodniach, dodaje „albo wydłuż test do N tygodni”; gdy potrzebuje więcej niż 8 — „albo testuj na stronie z większym ruchem”, bo dłuższego testu i tak nie warto robić.
 
 2. **Zdanie wyniku**<br>Na stronie: „Przy CR 2% i MDE +15% potrzebujesz 36 693 użytkowników na wariant (73 386 łącznie). Przy 20 000 użytkowników w tygodniu test potrwa 3,67 tyg., czyli 4 tygodnie.”
 
@@ -112,11 +112,11 @@ Kolejność jak na stronie. Biznes czyta do tabeli MDE; punkty 7–11 są zwini�
 
 5. **Jaki wzrost wykryjesz w kolejnych tygodniach** (słupki)<br>Na stronie: słupek na tydzień, nad nim MDE (%); wyróżniony słupek = limit, przygaszone = tygodnie ponad limit
 
-   Te same liczby co kolumna MDE (%) w tabeli, pokazane jako kształt: im dłuższy test, tym niższy słupek, ale każdy kolejny tydzień daje mniej. Na wąskim ekranie wartość stoi tylko nad limitem.
+   Te same liczby co kolumna MDE (%) w tabeli, pokazane jako kształt: im dłuższy test, tym niższy słupek, ale każdy kolejny tydzień daje mniej. Gdy kolumny są węższe niż etykiety (wąski ekran), wartość stoi tylko nad limitem.
 
 6. **Tabela MDE po tygodniach**<br>Na stronie: kolumny: **Tydzień**, **Użytkownicy na wariant**, **MDE (%)**, **MDE (pp)**, z przychodem także **Wartość wzrostu / tydz.**
 
-   Wiersz = „gdybyś zakończył test po tym tygodniu”. Użytkownicy na wariant = ruch × tygodnie / liczba wariantów. MDE (%) i MDE (pp) = najmniejszy wzrost wykrywalny przy tej liczbie użytkowników, względnie i w punktach procentowych. Wartość wzrostu / tydz. = przychód tygodniowy × MDE (%): ile zł tygodniowo daje wykrywalny wzrost, jeśli się potwierdzi i średnia wartość zamówienia się nie zmieni. Wiersz „(najdłużej)” to Twój limit. „poza zasięgiem” = przy tej liczbie użytkowników nie wykryjesz realistycznego wzrostu. Tabela ma zawsze co najmniej 8 tygodni, żeby było widać, co da dłuższy test. Ruch na tydzień jest stały, więc przy dłuższych oknach tabela trochę przeszacowuje użytkowników — dla dokładnego wiersza weź liczby z `01` dla tej długości.
+   Wiersz = „gdybyś zakończył test po tym tygodniu”. Użytkownicy na wariant = ruch × tygodnie / liczba wariantów. MDE (%) i MDE (pp) = najmniejszy wzrost wykrywalny przy tej liczbie użytkowników, względnie i w punktach procentowych. Wartość wzrostu / tydz. = przychód tygodniowy × MDE (%): ile zł tygodniowo daje wykrywalny wzrost, jeśli się potwierdzi i średnia wartość zamówienia się nie zmieni. Wiersz „(najdłużej)” to Twój limit. „poza zasięgiem” = przy tej liczbie użytkowników nie wykryjesz realistycznego wzrostu. Tabela ma zawsze 8 tygodni — tyle wynosi najdłuższy dopuszczalny limit. Ruch i CR są stałe, z wpisanego okna, więc dokładny jest tylko wiersz o długości tego okna; pozostałe to przybliżenie. W dłuższym oknie ubywa unikalnych użytkowników, ale rośnie CR, więc błąd działa w obie strony — na przykładowych danych z `01` najwyżej ok. 1 pp MDE. Dla dokładnej liczby weź z `01` wiersz o tej długości.
 
 7. **Szczegóły obliczeń**: **Czas trwania**<br>Na stronie: „3,67 tyg. → 4 tygodnie”
 
@@ -221,7 +221,7 @@ Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole. Pu
 
 6. **Ostrzeżenia**<br>Na stronie: lista pod wynikiem
 
-   Kolejne powody ostrożności, gdy jest ich więcej niż jeden (pierwszy stoi w stanie wyniku), zastrzeżenie o *winner's curse* oraz „Za mało konwersji na ten test”, gdy w którymś wariancie jest mniej niż 10 konwersji albo osób bez konwersji — test z to przybliżenie, przy tak małych liczbach p-value i zakres są niewiarygodne.
+   Kolejne powody ostrożności, gdy jest ich więcej niż jeden (pierwszy stoi w stanie wyniku), zastrzeżenie o *winner's curse* oraz „Za mało konwersji na ten test”, gdy w którymś wariancie jest mniej niż 10 konwersji albo osób bez konwersji — test z to przybliżenie, przy tak małych liczbach p-value i zakres są niewiarygodne. Przy wyniku istotnym ten powód stoi w stanie wyniku („Wstrzymaj decyzję”), nie w ostrzeżeniach.
 
 7. **„Analizuj raz…”**<br>Na stronie: stała zasada
 
@@ -261,7 +261,7 @@ Sprawdzane po kolei — pierwszy pasujący wygrywa.
 
 - ✕ **Test zepsuty — powtórz test.**<br>Kiedy: SRM: p-value < 0,001<br>Co zrobić: Szukaj błędu w losowaniu albo w danych. Żadnych złotówek, żadnej decyzji.
 - ✕ **Nie wdrażaj B.**<br>Kiedy: B ma istotnie niższy CR niż A<br>Co zrobić: Zostań przy A.
-- ! **Wstrzymaj decyzję.**<br>Kiedy: dane z planu niespójne, za mało (< 95%) albo za dużo (> 125%) użytkowników względem planu, albo test jednostronny i B gorsze od A<br>Co zrobić: Powód stoi obok stanu. Najczęściej: poczekaj na pełną liczbę użytkowników.
+- ! **Wstrzymaj decyzję.**<br>Kiedy: istotny wynik przy mniej niż 10 konwersjach (albo osobach bez konwersji) w którymś wariancie, dane z planu niespójne, za mało (< 95%) albo za dużo (> 125%) użytkowników względem planu, albo test jednostronny i B gorsze od A<br>Co zrobić: Powód stoi obok stanu. Najczęściej: poczekaj na pełną liczbę użytkowników.
 - ✓ **Wdrażaj B, ale licz na mniej, niż zmierzono.**<br>Kiedy: istotny wzrost poniżej MDE z planu albo dolna granica zakresu < 1%<br>Co zrobić: Wdrażaj, ale do prognoz bierz dolną granicę zakresu, nie zmierzony wzrost.
 - ✓ **Wdrażaj B.**<br>Kiedy: istotny wzrost bez zastrzeżeń<br>Co zrobić: Wdrażaj.
 - – **Nie wdrażaj B jako zwycięzcy.**<br>Kiedy: wynik nieistotny<br>Co zrobić: Wzrostu nie da się odróżnić od przypadku. Jeśli chcesz wdrożyć B z innych powodów (koszt, UX), kalkulator podaje zakres zmiany CR — to Twój najgorszy i najlepszy scenariusz.
@@ -278,5 +278,5 @@ Sprawdzane po kolei — pierwszy pasujący wygrywa.
 
 - `user_pseudo_id` to przeglądarka, nie osoba: ten sam człowiek na telefonie i laptopie to dwóch użytkowników.
 - SRM zakłada podział 50/50; przy 3+ wariantach kalkulator ocenia jedną parę z kontrolą.
-- Ocena to test z (przybliżenie normalne): przy kilku konwersjach w wariancie wynik jest przybliżony, a dolna granica zakresu względnego jest ucinana na −100%.
+- Ocena to test z (przybliżenie normalne): przy kilku konwersjach w wariancie wynik jest przybliżony, a granice zakresu są ucinane tak, żeby CR B mieścił się między 0 a 100% (spadek najwyżej −100%).
 - Wariant w `02` pochodzi z `experience_impression` / `exp_variant_string` ([integracja GA4](https://developers.google.com/analytics/devguides/collection/ga4/integration)); inne narzędzie testowe = inny warunek w CTE `assignments`.
