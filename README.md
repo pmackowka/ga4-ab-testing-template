@@ -39,7 +39,7 @@ Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają.
 
 [pmdata.pl/kalkulatory/wielkosc-proby-test-ab](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/) odpowiada na dwa pytania: ilu użytkowników potrzebuje test i ile tygodni potrwa przy Twoim ruchu. Nazwy poniżej są dokładnie takie jak na stronie, w tej samej kolejności.
 
-Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno pole z przykładem jest puste, nad wynikiem stoi „Przykładowe dane — wpisz swoje, a wynik przeliczy się od razu.”
+Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno pole z przykładem jest puste, nad wynikiem stoi „Przykładowe dane — wpisz swoje, a wynik przeliczy się od razu.” Wyjątek to pola opcjonalne — przychód i, w „Po teście”, dane z planu: ich przykład liczy się tylko, gdy cały formularz jest na przykładzie. Gdy wpiszesz własne liczby, a pole opcjonalne zostawisz puste, przykład znika, bo przykładowy przychód przy Twoim ruchu dawałby fałszywe złotówki.
 
 ![Kalkulator Przed testem wypełniony danymi z listy pól, z przychodem](docs/img/przed-testem.png)
 
@@ -63,7 +63,7 @@ Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno 
 
 5. **Poziom ufności**<br>Przykład: 95% · skąd: decyzja
 
-   Chroni przed fałszywym pozytywem (błąd I rodzaju, α = 1 − poziom ufności). Przy 95% w 1 teście na 20, w którym wariant nic nie zmienia, ogłosisz różnicę, której nie ma. 99% = mniej fałszywych alarmów, ale dłuższy test; 90% = odwrotnie.
+   Chroni przed fałszywym pozytywem (błąd I rodzaju, α = 1 − poziom ufności). Próg p-value to 100% minus poziom ufności: przy 95% wynik jest istotny, gdy p < 0,05 (przy 3+ wariantach niższy — patrz pole 4). Przy 95% w 1 teście na 20, w którym wariant nic nie zmienia, ogłosisz różnicę, której nie ma. 99% = mniej fałszywych alarmów, ale dłuższy test; 90% = odwrotnie.
 
 6. **Moc testu**<br>Przykład: 80% · skąd: decyzja
 
@@ -79,7 +79,7 @@ Puste pole liczy się jako przykład (szara liczba w polu). Dopóki choć jedno 
 
 9. **Tygodniowy przychód ze strony testowej (zł)** — opcjonalnie<br>Przykład: 125 000 · skąd: `03` → `weekly_revenue`
 
-   Przychód od użytkowników, którzy weszli na stronę objętą testem. Kalkulator przelicza na nim wykrywalny wzrost na złotówki: kolumna „Wartość wzrostu / tydz.” w tabeli i kwota w zdaniu o limicie. Bez tego pola ani kolumny, ani kwoty nie ma. Tydzień, nie miesiąc — jak pozostałe dane wejściowe; miesiąc to ok. 4,3 tygodnia.
+   Przychód od użytkowników, którzy weszli na stronę objętą testem. Kalkulator przelicza na nim wykrywalny wzrost na złotówki: kolumna „Wartość wzrostu / tydz.” w tabeli i kwota w zdaniu o limicie. Pole puste przy własnych danych = bez kolumny i bez kwoty. Tydzień, nie miesiąc — jak pozostałe dane wejściowe; miesiąc to ok. 4,3 tygodnia.
 
 ### MDE — najmniejszy wzrost do wykrycia
 
@@ -124,7 +124,7 @@ Kolejność jak na stronie. Biznes czyta do tabeli MDE; punkty 7–11 są zwini�
 
 8. **Szczegóły obliczeń**: **Użytkownicy na wariant**<br>Na stronie: 36 693
 
-   Tylu użytkowników musi trafić do każdego wariantu. Tę liczbę wpisujesz potem w „Po teście” jako dane z planu.
+   Tylu użytkowników musi trafić do każdego wariantu. Tę liczbę wpisujesz potem w „Po teście” w pole „Wymagani użytkownicy na wariant”. Ta sama liczba stoi w zdaniu wyniku (punkt 2).
 
 9. **Szczegóły obliczeń**: **Użytkownicy łącznie**<br>Na stronie: 73 386
 
@@ -178,11 +178,11 @@ Plan zapisuje się w tej karcie przeglądarki (`sessionStorage`) po pierwszej zm
 
 8. **Dane z planu testu — opcjonalnie**<br>Przykład: 36 693 · 15 · skąd: kalkulator Przed testem
 
-   Grupa dwóch pól: **Użytkownicy na wariant** (wynik „Użytkownicy na wariant” z planu) i **MDE (%)** (MDE wpisane w planie). Przycisk **Wstaw z planu** przenosi oba z „Przed testem”, jeśli liczyłeś plan w tej samej karcie przeglądarki; inaczej przepisz je ręcznie. Po co — niżej.
+   Grupa dwóch pól: **Wymagani użytkownicy na wariant** (z wyniku „Przed testem”: „potrzebujesz … użytkowników na wariant” — nie tygodniowy ruch i nie suma wariantów) i **MDE (%)** (MDE wpisane w planie). Przycisk **Wstaw z planu** przenosi oba z „Przed testem”, jeśli liczyłeś plan w tej samej karcie przeglądarki; inaczej przepisz je ręcznie. Po co — niżej.
 
 9. **Tygodniowy przychód ze strony testowej (zł)** — opcjonalnie<br>Przykład: 125 000 · skąd: `03` → `weekly_revenue`
 
-   Ta sama liczba co w „Przed testem”. Przychód od użytkowników, którzy weszli na stronę objętą testem. Kalkulator przelicza na nim zakres wzrostu na złotówki. Bez tego pola blok „Wpływ na przychód tygodniowo” się nie pokazuje.
+   Ta sama liczba co w „Przed testem”. Przychód od użytkowników, którzy weszli na stronę objętą testem. Kalkulator przelicza na nim zakres wzrostu na złotówki. Pole puste przy własnych danych = bez bloku „Wpływ na przychód tygodniowo”.
 
 ### Dane z planu testu — po co
 
@@ -241,7 +241,7 @@ Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole. Pu
 
 11. **Szczegóły obliczeń**: **p-value dwustronne / jednostronne**<br>Na stronie: 0,0048 / 0,0024
 
-   Prawdopodobieństwo wyniku co najmniej tak skrajnego, gdyby wzrostu nie było. Kalkulator pokazuje oba, ale werdykt bierze rodzaj testu wybrany w polu „Rodzaj testu”.
+   Prawdopodobieństwo wyniku co najmniej tak skrajnego, gdyby wzrostu nie było (prawdziwa H0) — nie prawdopodobieństwo, że wariant jest lepszy. Kalkulator pokazuje oba, ale werdykt bierze rodzaj testu wybrany w polu „Rodzaj testu”.
 
 12. **Szczegóły obliczeń**: **Podział użytkowników A/B (SRM)**<br>Na stronie: „w normie: χ² = 0,03, p-value = 0,8536”
 
