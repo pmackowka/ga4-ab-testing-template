@@ -7,10 +7,12 @@
 -- poniedziałek: początek pełnych tygodni PRZED testem (bez bieżącego tygodnia);
 -- domyślnie 5 tygodni 2020-11-02 – 2020-12-06, bo przykładowy test startuje 2020-12-07
 DECLARE window_start DATE DEFAULT DATE '2020-11-02';
-DECLARE max_weeks INT64 DEFAULT 5;
+DECLARE max_weeks INT64 DEFAULT 5;  -- najwyżej 8: tyle co limit w kalkulatorze
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
   AS 'window_start musi być poniedziałkiem';
+ASSERT max_weeks BETWEEN 1 AND 8
+  AS 'max_weeks: od 1 do 8 tygodni';
 
 WITH events AS (
   -- _TABLE_SUFFIX ogranicza skanowane dni, czyli koszt zapytania
