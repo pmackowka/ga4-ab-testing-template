@@ -211,11 +211,11 @@ Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole. Pu
 
    Jak w „Przed testem”.
 
-4. **Zakres możliwego wzrostu (95% przedział ufności)**<br>Na stronie: **w punktach procentowych**: od +0,0922 pp do +0,5119 pp · **w procentach**: od +4,61% do +25,59% · oś: nad nią zmierzony wzrost (+15,10%), pod nią „0” i granice zakresu; odcinek zielony, gdy cały zakres jest powyżej zera, szary — gdy obejmuje zero, czerwony — gdy jest poniżej zera
+4. **Zakres możliwego wzrostu (95% przedział ufności)**<br>Na stronie: **w procentach**: od +4,61% do +25,59% · oś: nad nią zmierzony wzrost (+15,10%), pod nią „0” i granice zakresu; odcinek zielony, gdy cały zakres jest powyżej zera, szary — gdy obejmuje zero, czerwony — gdy jest poniżej zera
 
    Realny wzrost leży najpewniej w tym zakresie. Zakres obejmuje zero = realnie może być wzrost, brak zmiany albo spadek. Dolna granica poniżej 1% = wzrost jest, ale może być bliski zera. Przy teście jednostronnym zakres to przedział na poziomie 1 − 2α (przy 95% ufności: 90%), zgodny z progiem testu.
 
-5. **Wpływ na przychód tygodniowo**<br>Na stronie: „Od +5 764 zł do +31 991 zł, najbardziej prawdopodobnie +18 878 zł.”
+5. **Wpływ na przychód tygodniowo**<br>Na stronie: ta sama oś w złotówkach (nad nią +18 878 zł, pod nią „0”, +5 764 zł i +31 991 zł) i zdanie „Od +5 764 zł do +31 991 zł, najbardziej prawdopodobnie +18 878 zł.”
 
    Przychód tygodniowy × zakres wzrostu. Zawsze przedział, nigdy jedna liczba — do budżetu bierz dolną granicę. Zakłada, że wartość konwersji się nie zmienia (test mierzył CR, nie przychód). Przy teście zepsutym (SRM) blok się nie pokazuje.
 
