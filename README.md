@@ -211,7 +211,7 @@ Kolejność jak na stronie: najpierw to, co czyta biznes, statystyka na dole. Pu
 
    Jak w „Przed testem”.
 
-4. **Zakres możliwego wzrostu (95% przedział ufności)**<br>Na stronie: **w procentach**: od +4,61% do +25,59% · oś: nad nią zmierzony wzrost (+15,10%), pod nią „0” i granice zakresu; odcinek zielony, gdy cały zakres jest powyżej zera, szary — gdy obejmuje zero, czerwony — gdy jest poniżej zera
+4. **Zakres możliwego wzrostu (95% przedział ufności)**<br>Na stronie: oś — nad nią zmierzony wzrost (+15,10%), pod nią „0” i granice zakresu (+4,61%, +25,59%); odcinek zielony, gdy cały zakres jest powyżej zera, szary — gdy obejmuje zero, czerwony — gdy jest poniżej zera
 
    Realny wzrost leży najpewniej w tym zakresie. Zakres obejmuje zero = realnie może być wzrost, brak zmiany albo spadek. Dolna granica poniżej 1% = wzrost jest, ale może być bliski zera. Przy teście jednostronnym zakres to przedział na poziomie 1 − 2α (przy 95% ufności: 90%), zgodny z progiem testu.
 
