@@ -14,7 +14,12 @@ WITH events AS (
     event_name,
     event_timestamp,
     -- przykładowy eksport ma USD; własny eksport: ecommerce.purchase_revenue
-    ecommerce.purchase_revenue_in_usd AS revenue
+    ecommerce.purchase_revenue_in_usd AS revenue,
+    -- brak transaction_id → każdy event to osobne zamówienie
+    IFNULL(
+      NULLIF(NULLIF(ecommerce.transaction_id, '(not set)'), ''),
+      CONCAT(user_pseudo_id, '-', CAST(event_timestamp AS STRING))
+    ) AS order_key
   FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE(
@@ -34,16 +39,24 @@ exposed AS (
   GROUP BY user_pseudo_id
 ),
 
+orders AS (
+  -- jeden wiersz na zamówienie: GA4 dubluje purchase (odświeżenie strony
+  -- podziękowania, podwójny tag), a zdublowany przychód liczy się podwójnie
+  SELECT user_pseudo_id, event_timestamp, revenue
+  FROM events
+  WHERE event_name = 'purchase'
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY order_key ORDER BY event_timestamp) = 1
+),
+
 purchases AS (
   -- tylko zakupy po pierwszym obejrzeniu karty produktu
   SELECT
     p.user_pseudo_id,
     p.revenue
-  FROM events AS p
+  FROM orders AS p
   JOIN exposed AS e
     ON e.user_pseudo_id = p.user_pseudo_id
     AND p.event_timestamp > e.first_view_ts
-  WHERE p.event_name = 'purchase'
 )
 
 /*
