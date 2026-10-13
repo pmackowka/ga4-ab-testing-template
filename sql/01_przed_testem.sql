@@ -10,19 +10,27 @@ DECLARE window_start DATE DEFAULT DATE '2020-11-02';
 DECLARE max_weeks INT64 DEFAULT 5;  -- najwyżej 8: tyle co limit w kalkulatorze
 DECLARE test_start DATE DEFAULT DATE '2020-12-07';  -- pierwszy dzień testu
 
+-- ASSERT przerywa skrypt z komunikatem, gdy warunek = FALSE;
+-- DAYOFWEEK w BigQuery liczy od niedzieli: 1 = niedziela, 2 = poniedziałek
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
   AS 'window_start musi być poniedziałkiem';
 ASSERT max_weeks BETWEEN 1 AND 8
   AS 'max_weeks: od 1 do 8 tygodni';
+-- pierwszy dzień PO oknie (start + max_weeks × 7) musi wypaść najpóźniej w dniu startu testu
 ASSERT DATE_ADD(window_start, INTERVAL max_weeks * 7 DAY) <= test_start
   AS 'okno sięga w okres testu: przesuń window_start wstecz albo zmniejsz max_weeks';
 
 WITH events AS (
-  -- _TABLE_SUFFIX ogranicza skanowane dni, czyli koszt zapytania
+  -- _TABLE_SUFFIX ogranicza skanowane dni, czyli koszt zapytania;
+  -- events_* to osobna tabela na każdy dzień, a _TABLE_SUFFIX to końcówka jej nazwy
+  -- ('20201102') — porównanie tekstów działa, bo format ma stałą długość
   SELECT
     user_pseudo_id,
     event_name,
     event_timestamp,
+    -- numer tygodnia w oknie: event_date to tekst 'YYYYMMDD' (stąd PARSE_DATE),
+    -- DATE_DIFF daje dni od window_start, DIV dzieli całkowicie (ucina resztę),
+    -- +1 numeruje od 1: dni 0–6 → tydzień 1, dni 7–13 → tydzień 2
     DIV(DATE_DIFF(PARSE_DATE('%Y%m%d', event_date), window_start, DAY), 7) + 1
       AS week_no
   FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`
@@ -30,6 +38,7 @@ WITH events AS (
     _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', window_start)
       AND FORMAT_DATE(
         '%Y%m%d',
+        -- − 1, bo BETWEEN obejmuje oba końce: 5 tygodni = 35 dni = start + 34
         DATE_ADD(window_start, INTERVAL max_weeks * 7 - 1 DAY)
       )
     AND event_name IN ('view_item', 'purchase')
@@ -63,8 +72,13 @@ windows AS (
   -- okno k tygodni: weszli w tygodniach 1..k, kupili do końca tygodnia k
   SELECT
     w AS weeks,
+    -- COUNTIF liczy wiersze z warunkiem TRUE; bez zakupu purchase_week jest NULL,
+    -- warunek daje NULL, więc taki użytkownik nie trafia do converters
     COUNTIF(f.first_week <= w) AS users_unique,
     COUNTIF(f.first_week <= w AND fp.purchase_week <= w) AS converters
+  -- GENERATE_ARRAY(1, max_weeks) = [1, 2, …, max_weeks], UNNEST robi z tablicy
+  -- wiersze w; CROSS JOIN łączy każdego użytkownika z każdym oknem, więc jeden
+  -- przebieg liczy wszystkie długości okna naraz
   FROM UNNEST(GENERATE_ARRAY(1, max_weeks)) AS w
   CROSS JOIN first_view AS f
   LEFT JOIN first_purchase AS fp
@@ -101,6 +115,7 @@ windows AS (
 */
 SELECT
   weeks,
+  -- „/” na liczbach całkowitych daje FLOAT64; ROUND zaokrągla, CAST wraca do INT64
   CAST(ROUND(users_unique / weeks) AS INT64) AS users_per_week,
   CAST(ROUND(converters / weeks) AS INT64) AS converters_per_week
 FROM windows
