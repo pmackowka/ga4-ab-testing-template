@@ -15,7 +15,9 @@ WITH events AS (
     event_timestamp,
     -- przykładowy eksport ma USD; własny eksport: ecommerce.purchase_revenue
     ecommerce.purchase_revenue_in_usd AS revenue,
-    -- brak transaction_id → każdy event to osobne zamówienie
+    -- brak transaction_id → każdy event to osobne zamówienie:
+    -- NULLIF(x, y) zwraca NULL, gdy x = y, więc '(not set)' i '' stają się NULL,
+    -- a IFNULL podstawia wtedy klucz unikalny dla eventu (user + czas)
     IFNULL(
       NULLIF(NULLIF(ecommerce.transaction_id, '(not set)'), ''),
       CONCAT(user_pseudo_id, '-', CAST(event_timestamp AS STRING))
@@ -24,6 +26,7 @@ WITH events AS (
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE(
         '%Y%m%d',
+        -- − 1, bo BETWEEN obejmuje oba końce: 4 tygodnie = 28 dni = koniec − 27
         DATE_SUB(window_end, INTERVAL window_weeks * 7 - 1 DAY)
       )
       AND FORMAT_DATE('%Y%m%d', window_end)
@@ -45,6 +48,8 @@ orders AS (
   SELECT user_pseudo_id, event_timestamp, revenue
   FROM events
   WHERE event_name = 'purchase'
+  -- ROW_NUMBER numeruje eventy w obrębie jednego order_key od najwcześniejszego;
+  -- QUALIFY filtruje po wyniku funkcji okna (jak HAVING po agregacji) — zostaje 1.
   QUALIFY ROW_NUMBER() OVER (PARTITION BY order_key ORDER BY event_timestamp) = 1
 ),
 
@@ -78,5 +83,6 @@ purchases AS (
    tygodniowo, najbardziej prawdopodobnie +18 878 zł.
 */
 SELECT
+  -- SUM z zera wierszy daje NULL, nie 0 — stąd IFNULL
   CAST(ROUND(IFNULL(SUM(revenue), 0) / window_weeks) AS INT64) AS weekly_revenue
 FROM purchases;

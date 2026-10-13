@@ -18,6 +18,8 @@ DECLARE control_variant STRING DEFAULT 'v0';
 -- ab_assign zostaw, gdy losujesz na stronie testowej, usuń, gdy losujesz wcześniej
 DECLARE exposure_events ARRAY<STRING> DEFAULT ['ab_assign', 'view_item'];
 
+-- DAYOFWEEK w BigQuery liczy od niedzieli: 1 = niedziela, 2 = poniedziałek;
+-- poniedziałek–niedziela gwarantuje pełne tygodnie
 ASSERT EXTRACT(DAYOFWEEK FROM test_start) = 2
   AS 'test_start musi być poniedziałkiem';
 ASSERT EXTRACT(DAYOFWEEK FROM test_end) = 1 AND test_end > test_start
@@ -30,6 +32,10 @@ WITH events AS (
     user_pseudo_id,
     event_name,
     event_timestamp,
+    -- event_params to tablica par {key, value}, a value ma osobne pola na typ
+    -- (string_value, int_value, double_value…). Podzapytanie robi z tablicy
+    -- jednego eventu wiersze (UNNEST), wybiera wiersz o danym kluczu i zwraca
+    -- jego tekst; brak klucza = NULL. Działa w obrębie jednego eventu, bez JOIN.
     IF(
       demo_mode,
       test_name,
@@ -37,6 +43,10 @@ WITH events AS (
     ) AS ab_test,
     IF(
       demo_mode,
+      -- demo: FARM_FINGERPRINT zamienia tekst na liczbę (hash) — zawsze tę samą
+      -- dla tego samego user_pseudo_id, więc user nie zmienia wariantu między
+      -- eventami. Hash bywa ujemny, stąd ABS; MOD(…, 2) = reszta z dzielenia
+      -- przez 2: parzyste → v0, nieparzyste → v1, czyli podział ok. 50/50
       IF(MOD(ABS(FARM_FINGERPRINT(user_pseudo_id)), 2) = 0, 'v0', 'v1'),
       (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_variant')
     ) AS ab_variant
@@ -51,16 +61,26 @@ users_assigned AS (
   -- i liczba wariantów na WSZYSTKICH eventach testu (wygasłe cookie → nowe losowanie)
   SELECT
     user_pseudo_id,
+    -- agregacja warunkowa: IF zwraca czas tylko dla eventów ekspozycji, dla
+    -- reszty NULL, a MIN pomija NULL → czas pierwszej ekspozycji;
+    -- „IN UNNEST(tablica)” sprawdza, czy event_name jest na liście
     MIN(IF(event_name IN UNNEST(exposure_events), event_timestamp, NULL))
       AS first_exposure_ts,
+    -- wariant z pierwszej ekspozycji: ARRAY_AGG zbiera warianty w tablicę
+    -- posortowaną po czasie, IGNORE NULLS pomija eventy spoza ekspozycji,
+    -- LIMIT 1 zostawia najwcześniejszy, a [SAFE_OFFSET(0)] wyjmuje go z tablicy
+    -- (NULL zamiast błędu, gdy tablica jest pusta)
     ARRAY_AGG(
       IF(event_name IN UNNEST(exposure_events), ab_variant, NULL)
       IGNORE NULLS ORDER BY event_timestamp LIMIT 1
     )[SAFE_OFFSET(0)] AS variant,
+    -- liczone ze wszystkich eventów testu, nie tylko z ekspozycji: 2+ = user
+    -- dostał nowy wariant po wygaśnięciu ciasteczka
     COUNT(DISTINCT ab_variant) AS variants_seen
   FROM events
   WHERE ab_test = test_name AND ab_variant IS NOT NULL
   GROUP BY user_pseudo_id
+  -- HAVING filtruje po agregacji: odpada user z wariantem, ale bez ekspozycji
   HAVING first_exposure_ts IS NOT NULL
 ),
 
@@ -99,6 +119,9 @@ converters AS (
 */
 SELECT
   CASE
+    -- LOGICAL_OR(…) OVER () to funkcja okna liczona po GROUP BY na całym wyniku:
+    -- TRUE, gdy którykolwiek wiersz to kontrola. Gdy żaden — ERROR() przerywa
+    -- zapytanie z komunikatem, zamiast oddać wynik bez wiersza A
     WHEN NOT LOGICAL_OR(u.variant = control_variant) OVER ()
       THEN ERROR(FORMAT("brak wariantu kontrolnego '%s' w danych", control_variant))
     WHEN u.variant = control_variant THEN 'A (kontrola)'
@@ -111,4 +134,5 @@ FROM users_assigned AS u
 LEFT JOIN converters AS c
   USING (user_pseudo_id)
 GROUP BY u.variant
+-- porównanie daje TRUE/FALSE; DESC stawia TRUE (kontrolę) na górze
 ORDER BY u.variant = control_variant DESC, u.variant;
