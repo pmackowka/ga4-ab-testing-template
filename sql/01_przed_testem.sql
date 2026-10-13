@@ -8,11 +8,14 @@
 -- domyślnie 5 tygodni 2020-11-02 – 2020-12-06, bo przykładowy test startuje 2020-12-07
 DECLARE window_start DATE DEFAULT DATE '2020-11-02';
 DECLARE max_weeks INT64 DEFAULT 5;  -- najwyżej 8: tyle co limit w kalkulatorze
+DECLARE test_start DATE DEFAULT DATE '2020-12-07';  -- pierwszy dzień testu
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
   AS 'window_start musi być poniedziałkiem';
 ASSERT max_weeks BETWEEN 1 AND 8
   AS 'max_weeks: od 1 do 8 tygodni';
+ASSERT DATE_ADD(window_start, INTERVAL max_weeks * 7 DAY) <= test_start
+  AS 'okno sięga w okres testu: przesuń window_start wstecz albo zmniejsz max_weeks';
 
 WITH events AS (
   -- _TABLE_SUFFIX ogranicza skanowane dni, czyli koszt zapytania
