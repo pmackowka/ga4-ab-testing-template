@@ -25,6 +25,22 @@ ASSERT EXTRACT(DAYOFWEEK FROM test_start) = 2
 ASSERT EXTRACT(DAYOFWEEK FROM test_end) = 1 AND test_end > test_start
   AS 'test_end musi być niedzielą po test_start: pełne tygodnie';
 
+-- strażnik trybu demo: dane z parametrem ab_variant to prawdziwy test, a demo
+-- policzyłoby wynik z symulowanego podziału zamiast z ciasteczka. IF w skrypcie
+-- uruchamia zapytanie tylko przy demo_mode = TRUE — na własnych danych z FALSE
+-- nic nie skanuje. Tabelę podmień w obu miejscach pliku.
+IF demo_mode THEN
+  ASSERT NOT EXISTS (
+    SELECT 1
+    FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`,
+      UNNEST(event_params) AS p
+    WHERE
+      _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', test_start)
+        AND FORMAT_DATE('%Y%m%d', test_end)
+      AND p.key = 'ab_variant'
+  ) AS 'dane mają parametr ab_variant: to prawdziwy test, ustaw demo_mode = FALSE';
+END IF;
+
 WITH events AS (
   -- bez filtra na event_name: BigQuery liczy koszt od kolumn, nie wierszy,
   -- a wariant z każdego eventu wyłapuje ponowne losowanie
@@ -43,7 +59,10 @@ WITH events AS (
     ) AS ab_test,
     IF(
       demo_mode,
-      -- demo: FARM_FINGERPRINT zamienia tekst na liczbę (hash) — zawsze tę samą
+      -- TYLKO DEMO: symulacja przydziału, bo publiczny eksport nie ma testu.
+      -- Na własnych danych (demo_mode = FALSE) ta linia się nie wykonuje —
+      -- wariant losuje GTM, a SQL czyta go z parametru ab_variant niżej.
+      -- FARM_FINGERPRINT zamienia tekst na liczbę (hash) — zawsze tę samą
       -- dla tego samego user_pseudo_id, więc user nie zmienia wariantu między
       -- eventami. Hash bywa ujemny, stąd ABS; MOD(…, 2) = reszta z dzielenia
       -- przez 2: parzyste → v0, nieparzyste → v1, czyli podział ok. 50/50

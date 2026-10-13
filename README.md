@@ -9,7 +9,7 @@ Scenariusz: e-commerce testuje kartę produktu. Wejście do testu to `view_item`
 
 ## Szybki start
 
-1. Podmień tabelę `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` na swój eksport GA4 (`<projekt>.analytics_<id>.events_*`) we wszystkich trzech plikach.
+1. Podmień tabelę `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` na swój eksport GA4 (`<projekt>.analytics_<id>.events_*`) we wszystkich trzech plikach — w `02` w dwóch miejscach.
 2. Ustaw parametry `DECLARE` na górze pliku (lista niżej).
 3. Uruchom zapytanie i przepisz liczby do pól kalkulatora według kroków.
 
@@ -22,7 +22,7 @@ Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01
 - `02` · `test_name` — wartość parametru `ab_test`, czyli nazwa testu z tagu GTM ([wariant z first-party cookie](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/))
 - `02` · `control_variant` — wartość `ab_variant` grupy kontrolnej, zwykle `v0`; gdy nie ma jej w danych, zapytanie przerywa się błędem
 - `02` · `exposure_events` — eventy, od których użytkownik wchodzi do testu (punkt ekspozycji), domyślnie `ab_assign` i `view_item`; `ab_assign` usuń, gdy losujesz wcześniej niż na stronie testowej
-- `02` · `demo_mode` — `TRUE` tylko na danych przykładowych (wariant z hasha `user_pseudo_id`); na własnych `FALSE`
+- `02` · `demo_mode` — `TRUE` tylko na danych przykładowych: nie mają testu, więc wariant symuluje hash `user_pseudo_id`; na własnych `FALSE` — wariant losuje GTM, a zapytanie czyta go z `ab_variant`. Gdy przy `TRUE` dane mają parametr `ab_variant`, zapytanie przerywa się błędem
 - `03` · `window_end` — dzień przed startem testu
 - `03` · `window_weeks` — ile pełnych tygodni przed testem uśrednić, domyślnie 4
 
