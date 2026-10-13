@@ -17,9 +17,11 @@ Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01
 
 - `01` · `window_start` — poniedziałek, od którego liczysz okna (zapytanie sprawdza dzień tygodnia)
 - `01` · `max_weeks` — ile okien policzyć: 1, 2, … tygodni, najwyżej 8 (tyle co limit w kalkulatorze); okno nie może sięgać w okres testu (domyślnie 5 — przykładowy test startuje 2020-12-07)
-- `02` · `test_start`, `test_end` — pierwszy i ostatni dzień testu, pełne tygodnie
-- `02` · `test_id` — środkowa część `exp_variant_string` (`NARZĘDZIE-TEST-WARIANT`); identyfikator testu i nazwa wariantu bez myślnika, bo zapytanie dzieli tekst po `-`
-- `02` · `control_variant` — wariant kontrolny, zwykle `A`
+- `01` · `test_start` — pierwszy dzień testu; zapytanie przerywa się, gdy okno w niego sięga
+- `02` · `test_start`, `test_end` — pierwszy (poniedziałek) i ostatni (niedziela) dzień testu; zapytanie sprawdza oba
+- `02` · `test_name` — wartość parametru `ab_test`, czyli nazwa testu z tagu GTM ([wariant z first-party cookie](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/))
+- `02` · `control_variant` — wartość `ab_variant` grupy kontrolnej, zwykle `v0`; gdy nie ma jej w danych, zapytanie przerywa się błędem
+- `02` · `exposure_events` — eventy, od których użytkownik wchodzi do testu (punkt ekspozycji), domyślnie `ab_assign` i `view_item`; `ab_assign` usuń, gdy losujesz wcześniej niż na stronie testowej
 - `02` · `demo_mode` — `TRUE` tylko na danych przykładowych (wariant z hasha `user_pseudo_id`); na własnych `FALSE`
 - `03` · `window_end` — dzień przed startem testu
 - `03` · `window_weeks` — ile pełnych tygodni przed testem uśrednić, domyślnie 4
@@ -150,11 +152,11 @@ Plan zapisuje się w tej karcie przeglądarki (`sessionStorage`) po pierwszej zm
 
 1. **Użytkownicy A (kontrola)**<br>Przykład: 36 700 · skąd: `02` → `users` (wiersz A)
 
-   Unikalni użytkownicy od pierwszego przypisania do wariantu A. Nie sesje. Osoby przypisane do 2+ wariantów zapytanie wyklucza.
+   Unikalni użytkownicy od pierwszej ekspozycji w wariancie A. Nie sesje. Osoby przypisane do 2+ wariantów zapytanie wyklucza.
 
 2. **Konwertujący A**<br>Przykład: 734 · skąd: `02` → `converters` (wiersz A)
 
-   Użytkownicy z konwersją po pierwszym przypisaniu. Osoby, nie konwersje. Zakup sprzed przypisania nie zależał od wariantu, więc się nie liczy.
+   Użytkownicy z konwersją po pierwszej ekspozycji. Osoby, nie konwersje. Zakup sprzed ekspozycji nie zależał od wariantu, więc się nie liczy.
 
 3. **Użytkownicy B (wariant)**<br>Przykład: 36 750 · skąd: `02` → `users` (wiersz B)
 
@@ -268,15 +270,17 @@ Sprawdzane po kolei — pierwszy pasujący wygrywa.
 
 ## Definicje metryk
 
-- **Użytkownicy** — unikalni `user_pseudo_id` od pierwszego `view_item` w oknie (przed testem; na tydzień = okno / liczba tygodni) albo od pierwszego przypisania do wariantu (po teście). Nie sesje: sesje jednej osoby nie są niezależne. Kolumna: `users_per_week`, `users`.
+- **Użytkownicy** — unikalni `user_pseudo_id` od pierwszego `view_item` w oknie (przed testem; na tydzień = okno / liczba tygodni) albo od pierwszej ekspozycji (`exposure_events` z parametrem `ab_variant`) w okresie testu (po teście). Nie sesje: sesje jednej osoby nie są niezależne. Kolumna: `users_per_week`, `users`.
 - **Konwertujący** — użytkownicy z `purchase` po pierwszym wejściu; osoby, nie zamówienia. Kolumna: `converters_per_week`, `converters`.
 - **CR** — konwertujący / użytkownicy; liczy kalkulator, nie zapytanie.
-- **Przychód tygodniowy** — przychód z `purchase` po pierwszym `view_item` w `window_weeks` pełnych tygodniach przed testem, podzielony przez liczbę tygodni; w przykładzie `purchase_revenue_in_usd`, na własnym eksporcie `purchase_revenue`. Kolumna: `weekly_revenue`.
-- **Wielokrotnie przypisani** — użytkownicy z 2+ wariantami (wyczyszczone cookies, błąd w tagu); wykluczeni z wyniku `02`.
+- **Przychód tygodniowy** — przychód z `purchase` po pierwszym `view_item` w `window_weeks` pełnych tygodniach przed testem, podzielony przez liczbę tygodni; zdublowane `purchase` z tym samym `transaction_id` liczą się raz (bez ID każdy event to osobne zamówienie); w przykładzie `purchase_revenue_in_usd`, na własnym eksporcie `purchase_revenue`. Kolumna: `weekly_revenue`.
+- **Wielokrotnie przypisani** — użytkownicy z 2+ wartościami `ab_variant` na dowolnym evencie testu (wygasłe ciasteczko, błąd w tagu); wykluczeni z wyniku `02`, liczba w kolumnie `excluded_mixed` przy wariancie pierwszej ekspozycji. Wyraźnie różne liczby między wierszami = wykluczenie zależy od wariantu i wynik jest obciążony.
 
 ## Ograniczenia
 
 - `user_pseudo_id` to przeglądarka, nie osoba: ten sam człowiek na telefonie i laptopie to dwóch użytkowników.
 - SRM zakłada podział 50/50; przy 3+ wariantach kalkulator ocenia jedną parę z kontrolą.
 - Ocena to test z (przybliżenie normalne): przy kilku konwersjach w wariancie wynik jest przybliżony, a granice zakresu są ucinane tak, żeby CR B mieścił się między 0 a 100% (spadek najwyżej −100%).
-- Wariant w `02` pochodzi z `experience_impression` / `exp_variant_string` ([integracja GA4](https://developers.google.com/analytics/devguides/collection/ga4/integration)); inne narzędzie testowe = inny warunek w CTE `assignments`.
+- Wariant w `02` pochodzi z parametrów `ab_test` i `ab_variant`, które tag GTM czyta z first-party cookie i dokleja do eventów ([artykuł](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). Konwersja liczy się z każdego `purchase` po ekspozycji, także bez parametru — wariant bierze się z przypisania użytkownika, nie z eventu zakupu.
+- Jeden parametr `ab_test` = jeden test na event. Przy dwóch testach naraz na tej samej stronie para `ab_test`/`ab_variant` nie pomieści obu — potrzebny osobny parametr na test.
+- Safari (ITP) skraca ciasteczka ustawione z JavaScriptu do 7 dni, także `_ga`. Gdy po tygodniu wygaśnie tylko ciasteczko testu, `excluded_mixed` to wyłapie. Gdy wygaśnie też `_ga`, ten sam człowiek wraca z nowym `user_pseudo_id` i nowym losowaniem, a zapytanie widzi dwóch użytkowników. Ciasteczka ustawiane z serwera (server-side GTM) usuwają ten problem.
