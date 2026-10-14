@@ -296,7 +296,7 @@ Sprawdzane po kolei — pierwszy pasujący wygrywa.
 - **Konwertujący** — użytkownicy z `purchase` po pierwszym wejściu; osoby, nie zamówienia. Kolumna: `converters_per_week`, `converters`.
 - **CR** — konwertujący / użytkownicy; liczy kalkulator, nie zapytanie.
 - **Przychód tygodniowy** — przychód z `purchase` po pierwszym `view_item` w `window_weeks` pełnych tygodniach przed testem, podzielony przez liczbę tygodni; zdublowane `purchase` z tym samym `transaction_id` liczą się raz (bez ID każdy event to osobne zamówienie); w przykładzie `purchase_revenue_in_usd`, na własnym eksporcie `purchase_revenue`. Kolumna: `weekly_revenue`.
-- **Wielokrotnie przypisani** — użytkownicy z 2+ wartościami `ab_variant` na dowolnym evencie testu (wygasłe ciasteczko, błąd w tagu); wykluczeni z wyniku `02`, liczba w kolumnie `excluded_mixed` przy wariancie pierwszej ekspozycji. Wyraźnie różne liczby między wierszami = wykluczenie zależy od wariantu i wynik jest obciążony.
+- **Wielokrotnie przypisani** — użytkownicy z 2+ wartościami `ab_variant` na dowolnym evencie testu, np. Safari skasowało ciasteczko testu, a `_ga` przetrwało, więc ten sam użytkownik został wylosowany ponownie. Wykluczeni z `users` i `converters`; ich liczba stoi w kolumnie `excluded_mixed`, w wierszu wariantu pierwszej ekspozycji. To ok. połowa ponownie wylosowanych — reszta trafiła przypadkiem w ten sam wariant. Przy podobnych `users` różnica `excluded_mixed` między wariantem a kontrolą większa niż 2 × √(suma obu) jest podejrzana (410 vs 398: różnica 12, próg ≈ 57 — w normie). Przyczyną może być błąd w tagu albo efekt wariantu, który zmienia, jak często ludzie wracają; w obu przypadkach wynik jest obciążony, dopóki różnicy nie wyjaśnisz.
 
 ## Ograniczenia
 
