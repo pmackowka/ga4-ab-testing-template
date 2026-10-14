@@ -1,0 +1,47 @@
+<script>
+/*
+ 03 · DWA WARIANTY, ale tylko 50% użytkowników karty produktu w teście
+ GTM → Tag → Custom HTML. Wyzwalacz: karta produktu, po zgodzie.
+ Połowa userów trafia do testu (v0/v1 po 25% całego ruchu), druga połowa
+ dostaje ciasteczko 'out': widzi obecną wersję strony i NIE wchodzi do analizy
+ (bez ab_assign; zmienna_ab_variant.js zwraca dla 'out' undefined, więc tagi
+ GA4 nie wysyłają ab_variant). Po co: mniejsze ryzyko, gdy wariant może
+ szkodzić — kosztem dłuższego testu (połowa ruchu → ok. 2× więcej tygodni).
+ Rozszerzenie na cały ruch: 04_rozszerzenie_do_100_procent.html.
+*/
+(function () {
+  var TEST = 'ab_cta';
+  var VARIANTS = ['v0', 'v1'];
+  var ALLOCATION = 0.5;   // udział ruchu w teście: 0.5 = 50%
+  var OUT = 'out';        // znacznik „poza testem” — pamiętany, żeby nie losować co wizytę
+  var DAYS = 30;
+
+  function getCookie(name) {
+    var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  function setCookie(name, value, days) {
+    var exp = new Date(Date.now() + days * 864e5);
+    document.cookie = name + '=' + encodeURIComponent(value) +
+      '; expires=' + exp.toUTCString() + '; path=/; SameSite=Lax' +
+      (location.protocol === 'https:' ? '; Secure' : '');
+  }
+
+  // przydział już jest — wariant albo 'out'; oba zostają bez zmian
+  if (getCookie(TEST)) return;
+
+  // pierwsze losowanie: czy user w ogóle wchodzi do testu
+  if (Math.random() >= ALLOCATION) {
+    setCookie(TEST, OUT, DAYS);
+    return;
+  }
+
+  // drugie, niezależne losowanie: który wariant — wśród wpuszczonych 50/50
+  var variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
+  setCookie(TEST, variant, DAYS);
+
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: 'ab_assign', ab_test: TEST, ab_variant: variant });
+})();
+</script>
