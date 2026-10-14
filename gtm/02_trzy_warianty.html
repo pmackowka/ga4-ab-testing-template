@@ -6,11 +6,12 @@
  Analiza: sql/02 zwróci wiersz kontroli i po wierszu na v1, v2; każdą parę
  z kontrolą wpisz do kalkulatora osobno, z „Liczba wariantów” = 3
  (kalkulator zaostrza wtedy próg p-value — korekta Bonferroniego).
- Zmienna GTM (zmienna_ab_variant.js) musi mieć v2 na liście VALID.
+ W sql/02 ustaw test_name = 'ab2'; zmienna GTM (zmienna_ab_variant.js)
+ musi mieć TEST = 'ab2' i v2 na liście VALID.
 */
 (function () {
-  var TEST = 'ab_cta_abc';            // osobna nazwa — nie mieszaj z testem 2-wariantowym
-  var VARIANTS = ['v0', 'v1', 'v2'];  // v0 = kontrola
+  var TEST = 'ab2';                   // osobny numer — nie mieszaj z testem ab1
+  var VARIANTS = ['v0', 'v1', 'v2'];  // v0 = wersja dotychczasowa, v1 i v2 = warianty testowe
   var DAYS = 30;
 
   function getCookie(name) {
