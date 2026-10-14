@@ -96,7 +96,8 @@ users_assigned AS (
       IGNORE NULLS ORDER BY event_timestamp LIMIT 1
     )[SAFE_OFFSET(0)] AS variant,
     -- liczone ze wszystkich eventów testu, nie tylko z ekspozycji: 2+ = user
-    -- dostał nowy wariant po wygaśnięciu ciasteczka
+    -- dostał nowy wariant, np. Safari skasowało ciasteczko testu po 7 dniach,
+    -- a _ga przetrwało — ten sam user_pseudo_id, nowe losowanie
     COUNT(DISTINCT ab_variant) AS variants_seen
   FROM events
   WHERE ab_test = test_name AND ab_variant IS NOT NULL
@@ -121,14 +122,27 @@ converters AS (
  calculator_field → który wiersz kalkulatora: A (kontrola) albo B (wariant)
  users            → kalkulator: Użytkownicy A / Użytkownicy B
  converters       → kalkulator: Konwertujący A / Konwertujący B
- excluded_mixed   → do kalkulatora nie idzie: wykluczeni z 2+ wariantami,
-                    przypisani do wariantu pierwszej ekspozycji
+ excluded_mixed   → do kalkulatora nie idzie: kontrola jakości danych
 
  users: unikalni użytkownicy od pierwszej ekspozycji w okresie testu.
  converters: ci z nich, którzy kupili PO pierwszej ekspozycji; osoby, nie
- zamówienia. excluded_mixed wyraźnie różne między wierszami = wykluczenie
- zależy od wariantu, wynik obciążony — szukaj błędu w tagu albo ciasteczku.
- Brak control_variant w danych przerywa zapytanie błędem.
+ zamówienia. Brak control_variant w danych przerywa zapytanie błędem.
+
+ excluded_mixed: użytkownicy z 2+ wariantami (variants_seen > 1), wyjęci
+ z users i converters, bo nie wiadomo, któremu wariantowi przypisać ich
+ zakup. Wiersz = wariant ich PIERWSZEJ ekspozycji. To ok. połowa ponownie
+ wylosowanych — druga połowa trafiła przypadkiem w ten sam wariant i jest
+ niewidoczna (variants_seen = 1).
+ Jak czytać, przy podobnych users w wierszach: różnica excluded_mixed między
+ wierszem wariantu a kontrolą większa niż 2 × √(suma obu) jest podejrzana.
+ Przykład niżej: 410 − 398 = 12, próg 2 × √808 ≈ 57 → w normie.
+ Podejrzana różnica ma dwie możliwe przyczyny:
+ - błąd: tag losuje ponownie mimo ciasteczka albo zapisuje je tylko w jednym
+   wariancie — napraw i powtórz test;
+ - efekt wariantu: wariant zmienia, jak często ludzie wracają po tygodniu,
+   więc częściej tracą ciasteczko — tag działa, ale z jednego wariantu
+   wypadają akurat najbardziej zaangażowani i wynik jest obciążony.
+ W obu przypadkach nie ufaj wynikowi bez wyjaśnienia różnicy.
 
  Przykład (liczby poglądowe, zgodne z domyślnymi danymi kalkulatora):
  calculator_field | users  | converters | excluded_mixed
