@@ -3,8 +3,10 @@
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
  Wariant z first-party cookie ustawianego w GTM:
  https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/
- Tagi GA4 wysyłają parametry ab_test (nazwa testu) i ab_variant (wartość
- ciasteczka) — na ab_assign i na każdym evencie, do którego je dodasz.
+ Tagi GA4 wysyłają parametry ab_test (klucz ciasteczka = numer testu: ab1,
+ ab2, ab3…) i ab_variant (wartość ciasteczka: v0 = wersja dotychczasowa,
+ v1, v2 = warianty testowe) — na ab_assign i na każdym evencie, do którego
+ je dodasz.
 */
 
 -- TRUE: przykładowy eksport GA4 nie ma testu, wariant z hasha user_pseudo_id;

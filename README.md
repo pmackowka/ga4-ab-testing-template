@@ -19,8 +19,8 @@ Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01
 - `01` · `max_weeks` — ile okien policzyć: 1, 2, … tygodni, najwyżej 8 (tyle co limit w kalkulatorze); okno nie może sięgać w okres testu (domyślnie 5 — przykładowy test startuje 2020-12-07)
 - `01` · `test_start` — pierwszy dzień testu; zapytanie przerywa się, gdy okno w niego sięga
 - `02` · `test_start`, `test_end` — pierwszy (poniedziałek) i ostatni (niedziela) dzień testu; zapytanie sprawdza oba
-- `02` · `test_name` — wartość parametru `ab_test`, czyli nazwa testu z tagu GTM ([wariant z first-party cookie](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/))
-- `02` · `control_variant` — wartość `ab_variant` grupy kontrolnej, zwykle `v0`; gdy nie ma jej w danych, zapytanie przerywa się błędem
+- `02` · `test_name` — wartość parametru `ab_test`, czyli klucz ciasteczka z tagu GTM: numer testu `ab1`, `ab2`, `ab3`… ([wariant z first-party cookie](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/))
+- `02` · `control_variant` — wartość `ab_variant` grupy kontrolnej: `v0`, czyli wersja dotychczasowa; gdy nie ma jej w danych, zapytanie przerywa się błędem
 - `02` · `exposure_events` — eventy, od których użytkownik wchodzi do testu (punkt ekspozycji), domyślnie `ab_assign` i `view_item`; `ab_assign` usuń, gdy losujesz wcześniej niż na stronie testowej
 - `02` · `demo_mode` — `TRUE` tylko na danych przykładowych: nie mają testu, więc wariant symuluje hash `user_pseudo_id`; na własnych `FALSE` — wariant losuje GTM, a zapytanie czyta go z `ab_variant`. Gdy przy `TRUE` dane mają parametr `ab_variant`, zapytanie przerywa się błędem
 - `03` · `window_end` — dzień przed startem testu
@@ -41,21 +41,21 @@ Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają.
 
 Folder [`gtm/`](gtm/) losuje wariant w przeglądarce, zapisuje go w first-party cookie i wysyła `ab_assign` ([metoda z artykułu](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). SQL niczego nie losuje — `02` czyta wariant z parametru `ab_variant`.
 
-| Plik | Co robi | Gdzie w GTM |
-|---|---|---|
-| [`01_dwa_warianty.html`](gtm/01_dwa_warianty.html) | `v0`/`v1` po 50%, cały ruch strony testowej | Tag → Custom HTML |
-| [`02_trzy_warianty.html`](gtm/02_trzy_warianty.html) | `v0`/`v1`/`v2` po 1/3, osobna nazwa testu | Tag → Custom HTML |
-| [`03_dwa_warianty_50_procent.html`](gtm/03_dwa_warianty_50_procent.html) | 50% ruchu w teście (`v0`/`v1` po 25%), reszta `out` — poza analizą | Tag → Custom HTML |
-| [`04_rozszerzenie_do_100_procent.html`](gtm/04_rozszerzenie_do_100_procent.html) | podmiana kodu tagu z `03`: przydziały zostają, `out` i nowi dostają wariant | ten sam tag co `03` |
-| [`zmienna_ab_variant.js`](gtm/zmienna_ab_variant.js) | wariant z ciasteczka albo `undefined` (dla `out` i śmieci) | Zmienna → Custom JavaScript |
+| Plik | Klucz | Co robi | Gdzie w GTM |
+|---|---|---|---|
+| [`01_dwa_warianty.html`](gtm/01_dwa_warianty.html) | `ab1` | `v0`/`v1` po 50%, cały ruch strony testowej | Tag → Custom HTML |
+| [`02_trzy_warianty.html`](gtm/02_trzy_warianty.html) | `ab2` | `v0`/`v1`/`v2` po 1/3 | Tag → Custom HTML |
+| [`03_dwa_warianty_50_procent.html`](gtm/03_dwa_warianty_50_procent.html) | `ab3` | 50% ruchu w teście (`v0`/`v1` po 25%), reszta `out` — poza analizą | Tag → Custom HTML |
+| [`04_rozszerzenie_do_100_procent.html`](gtm/04_rozszerzenie_do_100_procent.html) | `ab3` | podmiana kodu tagu z `03`: przydziały zostają, `out` i nowi dostają wariant | ten sam tag co `03` |
+| [`zmienna_ab_variant.js`](gtm/zmienna_ab_variant.js) | jedna kopia na klucz | wariant z ciasteczka albo `undefined` (dla `out` i śmieci) | Zmienna → Custom JavaScript |
 
 Konfiguracja:
 
 1. Tag Custom HTML z jednym ze skryptów; wyzwalacz: strona testowa (np. karta produktu). Ustawienia zgody tagu: wymagaj zgody — ciasteczko testu nie jest niezbędne, więc losujesz dopiero po zgodzie.
 2. Tag GA4 Event `ab_assign` na zdarzeniu niestandardowym `ab_assign`, parametry `ab_test` i `ab_variant` z warstwy danych.
-3. Zmienna Custom JavaScript z `zmienna_ab_variant.js`; w tagach GA4 `view_item` i `purchase` dodaj parametry `ab_test` (stała, nazwa testu) i `ab_variant` (ta zmienna).
+3. Zmienna Custom JavaScript z `zmienna_ab_variant.js`; w tagach GA4 `view_item` i `purchase` dodaj parametry `ab_test` (stała: klucz testu, np. `ab1`) i `ab_variant` (ta zmienna).
 4. Tag `view_item`: Sekwencjonowanie tagów → najpierw tag z kroku 1. Bez tego pierwszy `view_item` może pójść, zanim ciasteczko powstanie — `02` złapie usera dopiero na `ab_assign`.
-5. Nazwa testu i wariant kontrolny w skrypcie = `test_name` i `control_variant` w `02`. Konwencja: klucz ciasteczka to kolejny numer testu małymi literami (`ab1` w `01`, `ab2` w `02`, `ab3` w `03` i `04` — jeden test, więc ten sam klucz), wartości `v0` — zawsze wersja dotychczasowa (kontrola) — oraz `v1`, `v2` — warianty testowe.
+5. Klucz testu i wariant kontrolny w skrypcie = `test_name` i `control_variant` w `02`. Konwencja: klucz ciasteczka to kolejny numer testu małymi literami (`ab1` w `01`, `ab2` w `02`, `ab3` w `03` i `04` — jeden test, więc ten sam klucz), wartości `v0` — zawsze wersja dotychczasowa (kontrola) — oraz `v1`, `v2` — warianty testowe.
 
 Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wariant, zostaje w nim. Dawni `out` wchodzą do analizy od dnia rozszerzenia, ale wcześniej widzieli obecną wersję strony — gdy to przeszkadza, `INCLUDE_OUT = false` wpuszcza tylko nowych. Plan z kalkulatora Przed testem liczyłeś dla 50% ruchu — po rozszerzeniu użytkownicy zbierają się 2× szybciej, więc kończysz po pierwszym pełnym tygodniu, w którym każdy wariant ma liczbę użytkowników z planu.
 
