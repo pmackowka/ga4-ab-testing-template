@@ -1,0 +1,36 @@
+<script>
+/*
+ 01 · DWA WARIANTY, 50/50, cały ruch strony testowej
+ GTM → Tag → Custom HTML. Wyzwalacz: strona testowa (np. karta produktu),
+ dopiero po zgodzie na ciasteczka. Losuje raz, zapisuje wariant w first-party
+ cookie i wysyła ab_assign do dataLayer — z niego liczy sql/02.
+*/
+(function () {
+  var TEST = 'ab_cta';          // nazwa testu = parametr ab_test = test_name w sql/02
+  var VARIANTS = ['v0', 'v1'];  // v0 = kontrola (control_variant w sql/02)
+  var DAYS = 30;                // Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
+
+  function getCookie(name) {
+    var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  function setCookie(name, value, days) {
+    var exp = new Date(Date.now() + days * 864e5);
+    document.cookie = name + '=' + encodeURIComponent(value) +
+      '; expires=' + exp.toUTCString() + '; path=/; SameSite=Lax' +
+      (location.protocol === 'https:' ? '; Secure' : '');
+  }
+
+  // user ma już wariant — nie losuj ponownie, bo przeskoczyłby do innej grupy
+  if (getCookie(TEST)) return;
+
+  // Math.random() daje liczbę z [0, 1); × liczba wariantów i zaokrąglenie
+  // w dół daje indeks 0 albo 1 z równym prawdopodobieństwem
+  var variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
+  setCookie(TEST, variant, DAYS);
+
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: 'ab_assign', ab_test: TEST, ab_variant: variant });
+})();
+</script>
