@@ -6,8 +6,8 @@
  cookie i wysyła ab_assign do dataLayer — z niego liczy sql/02.
 */
 (function () {
-  var TEST = 'ab_cta';          // nazwa testu = parametr ab_test = test_name w sql/02
-  var VARIANTS = ['v0', 'v1'];  // v0 = kontrola (control_variant w sql/02)
+  var TEST = 'ab1';             // klucz ciasteczka = ab_test = test_name w sql/02; kolejne testy: ab2, ab3…
+  var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa (kontrola), v1 = wariant testowy
   var DAYS = 30;                // Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
 
   function getCookie(name) {
