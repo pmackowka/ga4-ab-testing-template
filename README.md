@@ -1,5 +1,10 @@
 # ab-test-bigquery
 
+## TODO
+
+- [ ] **CUPED** — redukcja wariancji przez zachowanie użytkownika sprzed testu (np. zakupy w oknie przed `test_start`): ta sama moc przy mniejszej próbie. Wymaga metryki per użytkownik i kowariaty z okresu przed testem — obecne kalkulatory przyjmują tylko liczby użytkowników i konwertujących, więc potrzebny nowy krok liczenia albo nowy kalkulator.
+- [ ] **Testy sekwencyjne** — dozwolone podglądanie wyniku w trakcie testu z kontrolą błędu I rodzaju (np. mSPRT / alpha spending), zamiast obecnej zasady „w trakcie nie zaglądasz”. Wymaga zapytania z wynikiem narastająco dzień po dniu i progów istotności zależnych od momentu podglądu.
+
 SQL pod BigQuery (eksport GA4) do dwóch kalkulatorów testów A/B na pmdata.pl, plus [skrypty GTM](#skrypty-gtm), które losują wariant:
 
 - [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/) — ilu użytkowników potrzebujesz i ile tygodni potrwa test,
