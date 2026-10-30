@@ -33,6 +33,38 @@ Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01
 
 ## Kroki
 
+```mermaid
+flowchart TD
+    subgraph PRZED["1 · Przed testem"]
+        A["01_przed_testem.sql<br/>ustaw DECLARE, uruchom<br/>→ wiersze dla 1–8 tygodni"]
+        B["03_przychod_tygodniowy.sql<br/>→ przychód na tydzień<br/>(opcjonalnie)"]
+        C["Kalkulator Przed testem<br/>wpisz wiersz z planowaną liczbą tygodni<br/>+ przychód, MDE, ufność, moc, warianty"]
+        D{"Czas testu z kalkulatora<br/>= liczba tygodni wiersza?"}
+        E["Weź z wyniku 01 wiersz<br/>z czasem z kalkulatora"]
+        A --> C
+        B --> C
+        C --> D
+        D -->|nie| E --> C
+    end
+
+    subgraph START["2 · Start testu"]
+        G["GTM: tag losowania + ab_assign<br/>ab_test i ab_variant w view_item i purchase<br/>(sekcja Skrypty GTM)"]
+    end
+
+    subgraph TRAKCIE["3 · W trakcie"]
+        H["Nie zaglądasz do wyniku<br/>do końca zaplanowanych tygodni"]
+    end
+
+    subgraph PO["4 · Po teście"]
+        I["02_po_tescie_warianty.sql<br/>→ Użytkownicy A/B, Konwertujący A/B"]
+        K["Kalkulator Po teście<br/>→ p-value, zakres wzrostu, SRM"]
+        I --> K
+    end
+
+    D -->|tak| G --> H --> I
+    B -.->|ta sama liczba przychodu| K
+```
+
 1. **Przed testem** · [`01`](sql/01_przed_testem.sql) — wiersz z planowaną liczbą tygodni wpisujesz w Przed testem: Użytkownicy w tygodniu, Konwertujący w tygodniu.
 2. **Przed testem** · [`03`](sql/03_przychod_tygodniowy.sql) — wynik wpisujesz w Przed testem: Tygodniowy przychód ze strony testowej (opcjonalnie).
 3. **Przed testem** · kalkulator — ustawiasz pozostałe pola ([opis](#kalkulator-przed-testem)); gdy kalkulator policzy inny czas testu, wracasz do wyniku `01` i bierzesz wiersz z tym czasem.
