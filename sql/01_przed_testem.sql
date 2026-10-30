@@ -91,6 +91,8 @@ windows AS (
  weeks               → planowana długość testu w tygodniach
  users_per_week      → kalkulator: Użytkownicy w tygodniu
  converters_per_week → kalkulator: Konwertujący w tygodniu
+ users i converters to osoby (user_pseudo_id), nie sesje ani zamówienia;
+ CR liczy kalkulator, nie zapytanie.
 
  Jak użyć: wpisz wiersz z liczbą tygodni, którą planujesz. Kalkulator
  policzył inny czas testu? Weź wiersz z tym czasem i przelicz jeszcze raz —

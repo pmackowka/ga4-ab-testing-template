@@ -10,12 +10,12 @@
 */
 
 -- TRUE: przykładowy eksport GA4 nie ma testu, wariant z hasha user_pseudo_id;
--- na własnych danych ustaw FALSE
+-- na własnych danych ustaw FALSE — wariant z parametru ab_variant (losuje GTM)
 DECLARE demo_mode BOOL DEFAULT TRUE;
 DECLARE test_start DATE DEFAULT DATE '2020-12-07';  -- poniedziałek
 DECLARE test_end DATE DEFAULT DATE '2021-01-03';    -- niedziela
 DECLARE test_name STRING DEFAULT 'ab1';             -- ab_test = klucz ciasteczka: ab1, ab2, ab3…
-DECLARE control_variant STRING DEFAULT 'v0';       -- v0 = wersja dotychczasowa; v1, v2 = warianty testowe
+DECLARE control_variant STRING DEFAULT 'v0';       -- v0 = wersja dotychczasowa; v1, v2 = warianty testowe; brak v0 w danych = błąd
 -- punkt ekspozycji: user wchodzi do testu na pierwszym z tych eventów z wariantem;
 -- ab_assign zostaw, gdy losujesz na stronie testowej, usuń, gdy losujesz wcześniej
 DECLARE exposure_events ARRAY<STRING> DEFAULT ['ab_assign', 'view_item'];

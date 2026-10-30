@@ -10,21 +10,10 @@ Scenariusz: e-commerce testuje kartę produktu. Wejście do testu to `view_item`
 ## Szybki start
 
 1. Podmień tabelę `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` na swój eksport GA4 (`<projekt>.analytics_<id>.events_*`) we wszystkich trzech plikach — w `02` w dwóch miejscach.
-2. Ustaw parametry `DECLARE` na górze pliku (lista niżej).
+2. Ustaw parametry `DECLARE` na górze pliku — opis każdego stoi w komentarzu obok, a `ASSERT` pod nimi zatrzyma zapytanie przy złej wartości.
 3. Uruchom zapytanie i przepisz liczby do pól kalkulatora według kroków.
 
 Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01 – 2021-01-31) — wystarczy, żeby zobaczyć kształt wyniku.
-
-- `01` · `window_start` — poniedziałek, od którego liczysz okna (zapytanie sprawdza dzień tygodnia)
-- `01` · `max_weeks` — ile okien policzyć: 1, 2, … tygodni, najwyżej 8 (tyle co limit w kalkulatorze); okno nie może sięgać w okres testu (domyślnie 5 — przykładowy test startuje 2020-12-07)
-- `01` · `test_start` — pierwszy dzień testu; zapytanie przerywa się, gdy okno w niego sięga
-- `02` · `test_start`, `test_end` — pierwszy (poniedziałek) i ostatni (niedziela) dzień testu; zapytanie sprawdza oba
-- `02` · `test_name` — wartość parametru `ab_test`, czyli klucz ciasteczka z tagu GTM: numer testu `ab1`, `ab2`, `ab3`… ([wariant z first-party cookie](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/))
-- `02` · `control_variant` — wartość `ab_variant` grupy kontrolnej: `v0`, czyli wersja dotychczasowa; gdy nie ma jej w danych, zapytanie przerywa się błędem
-- `02` · `exposure_events` — eventy, od których użytkownik wchodzi do testu (punkt ekspozycji), domyślnie `ab_assign` i `view_item`; `ab_assign` usuń, gdy losujesz wcześniej niż na stronie testowej
-- `02` · `demo_mode` — `TRUE` tylko na danych przykładowych: nie mają testu, więc wariant symuluje hash `user_pseudo_id`; na własnych `FALSE` — wariant losuje GTM, a zapytanie czyta go z `ab_variant`. Gdy przy `TRUE` dane mają parametr `ab_variant`, zapytanie przerywa się błędem
-- `03` · `window_end` — dzień przed startem testu
-- `03` · `window_weeks` — ile pełnych tygodni przed testem uśrednić, domyślnie 4
 
 ## Kroki
 
@@ -92,14 +81,6 @@ Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wa
 - **SRM (sample ratio mismatch)** — sprawdza, czy A i B dostały po równo (50/50). Alarm przy p < 0,001 = błąd w losowaniu albo w danych, np. B ładuje się wolniej i gubi użytkowników; wtedy wyniku nie interpretujesz.
 - **Mniej niż 10 konwersji** (albo osób bez konwersji) w którymś wariancie — test z to przybliżenie, przy tak małych liczbach p-value i zakres są niewiarygodne.
 - **Stany wyniku** — sprawdzane po kolei, pierwszy pasujący wygrywa: ✕ Test zepsuty (SRM) → ✕ Nie wdrażaj B (istotny spadek) → ! Wstrzymaj decyzję (< 10 konwersji, poza 95–125% planu albo test jednostronny i B gorsze) → ✓ Wdrażaj B, ale licz na mniej (wzrost < MDE albo dolna granica zakresu < 1%) → ✓ Wdrażaj B → – Nie wdrażaj B jako zwycięzcy (wynik nieistotny).
-
-## Definicje metryk
-
-- **Użytkownicy** — unikalni `user_pseudo_id` od pierwszego `view_item` w oknie (przed testem; na tydzień = okno / liczba tygodni) albo od pierwszej ekspozycji (`exposure_events` z parametrem `ab_variant`) w okresie testu (po teście). Nie sesje: sesje jednej osoby nie są niezależne. Kolumna: `users_per_week`, `users`.
-- **Konwertujący** — użytkownicy z `purchase` po pierwszym wejściu; osoby, nie zamówienia. Kolumna: `converters_per_week`, `converters`.
-- **CR** — konwertujący / użytkownicy; liczy kalkulator, nie zapytanie.
-- **Przychód tygodniowy** — przychód z `purchase` po pierwszym `view_item` w `window_weeks` pełnych tygodniach przed testem, podzielony przez liczbę tygodni; zdublowane `purchase` z tym samym `transaction_id` liczą się raz (bez ID każdy event to osobne zamówienie); w przykładzie `purchase_revenue_in_usd`, na własnym eksporcie `purchase_revenue`. Kolumna: `weekly_revenue`.
-- **Wielokrotnie przypisani** — użytkownicy z 2+ wartościami `ab_variant` na dowolnym evencie testu, np. Safari skasowało ciasteczko testu, a `_ga` przetrwało, więc ten sam użytkownik został wylosowany ponownie. Wykluczeni z `users` i `converters`; ich liczba stoi w kolumnie `excluded_mixed`, w wierszu wariantu pierwszej ekspozycji. To ok. połowa ponownie wylosowanych — reszta trafiła przypadkiem w ten sam wariant. Przy podobnych `users` różnica `excluded_mixed` między wariantem a kontrolą większa niż 2 × √(suma obu) jest podejrzana (410 vs 398: różnica 12, próg ≈ 57 — w normie). Przyczyną może być błąd w tagu albo efekt wariantu, który zmienia, jak często ludzie wracają; w obu przypadkach wynik jest obciążony, dopóki różnicy nie wyjaśnisz.
 
 ## Ograniczenia
 
