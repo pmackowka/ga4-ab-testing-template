@@ -1,10 +1,5 @@
 # ab-test-bigquery
 
-## TODO
-
-- [ ] **CUPED** — redukcja wariancji przez zachowanie użytkownika sprzed testu (np. zakupy w oknie przed `test_start`): ta sama moc przy mniejszej próbie. Wymaga metryki per użytkownik i kowariaty z okresu przed testem — obecne kalkulatory przyjmują tylko liczby użytkowników i konwertujących, więc potrzebny nowy krok liczenia albo nowy kalkulator.
-- [ ] **Testy sekwencyjne** — dozwolone podglądanie wyniku w trakcie testu z kontrolą błędu I rodzaju (np. mSPRT / alpha spending), zamiast obecnej zasady „w trakcie nie zaglądasz”. Wymaga zapytania z wynikiem narastająco dzień po dniu i progów istotności zależnych od momentu podglądu.
-
 SQL pod BigQuery (eksport GA4) do dwóch kalkulatorów testów A/B na pmdata.pl, plus [skrypty GTM](#skrypty-gtm), które losują wariant:
 
 - [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/) — ilu użytkowników potrzebujesz i ile tygodni potrwa test,
@@ -34,35 +29,8 @@ Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01
 ## Kroki
 
 ```mermaid
-flowchart TD
-    subgraph PRZED["1 · Przed testem"]
-        A["01_przed_testem.sql<br/>ustaw DECLARE, uruchom<br/>→ wiersze dla 1–8 tygodni"]
-        B["03_przychod_tygodniowy.sql<br/>→ przychód na tydzień<br/>(opcjonalnie)"]
-        C["Kalkulator Przed testem<br/>wpisz wiersz z planowaną liczbą tygodni<br/>+ przychód, MDE, ufność, moc, warianty"]
-        D{"Czas testu z kalkulatora<br/>= liczba tygodni wiersza?"}
-        E["Weź z wyniku 01 wiersz<br/>z czasem z kalkulatora"]
-        A --> C
-        B --> C
-        C --> D
-        D -->|nie| E --> C
-    end
-
-    subgraph START["2 · Start testu"]
-        G["GTM: tag losowania + ab_assign<br/>ab_test i ab_variant w view_item i purchase<br/>(sekcja Skrypty GTM)"]
-    end
-
-    subgraph TRAKCIE["3 · W trakcie"]
-        H["Nie zaglądasz do wyniku<br/>do końca zaplanowanych tygodni"]
-    end
-
-    subgraph PO["4 · Po teście"]
-        I["02_po_tescie_warianty.sql<br/>→ Użytkownicy A/B, Konwertujący A/B"]
-        K["Kalkulator Po teście<br/>→ p-value, zakres wzrostu, SRM"]
-        I --> K
-    end
-
-    D -->|tak| G --> H --> I
-    B -.->|ta sama liczba przychodu| K
+flowchart LR
+    A["01 + 03<br/>SQL"] --> B["Kalkulator<br/>Przed testem"] --> C["GTM<br/>start testu"] --> D["Test trwa<br/>nie zaglądasz"] --> E["02<br/>SQL"] --> F["Kalkulator<br/>Po teście"]
 ```
 
 1. **Przed testem** · [`01`](sql/01_przed_testem.sql) — wiersz z planowaną liczbą tygodni wpisujesz w Przed testem: Użytkownicy w tygodniu, Konwertujący w tygodniu.
@@ -343,3 +311,14 @@ Sprawdzane po kolei — pierwszy pasujący wygrywa.
 - Wariant w `02` pochodzi z parametrów `ab_test` i `ab_variant`, które tag GTM czyta z first-party cookie i dokleja do eventów ([artykuł](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). Konwersja liczy się z każdego `purchase` po ekspozycji, także bez parametru — wariant bierze się z przypisania użytkownika, nie z eventu zakupu.
 - Jeden parametr `ab_test` = jeden test na event. Przy dwóch testach naraz na tej samej stronie para `ab_test`/`ab_variant` nie pomieści obu — potrzebny osobny parametr na test.
 - Safari (ITP) skraca ciasteczka ustawione z JavaScriptu do 7 dni, także `_ga`. Gdy po tygodniu wygaśnie tylko ciasteczko testu, `excluded_mixed` to wyłapie. Gdy wygaśnie też `_ga`, ten sam człowiek wraca z nowym `user_pseudo_id` i nowym losowaniem, a zapytanie widzi dwóch użytkowników. Ciasteczka ustawiane z serwera (server-side GTM) usuwają ten problem.
+
+## Rozbudowa: najpierw testy sekwencyjne, CUPED dopiero po pomiarze korelacji
+
+Na anonimowym ruchu e-commerce testy sekwencyjne dają korzyść niezależnie od danych, a CUPED tylko wtedy, gdy zachowanie sprzed testu przewiduje wynik testu (korelacja ρ). Większość osób na karcie produktu nie ma historii pod tym samym `user_pseudo_id` — nowi, skasowane ciasteczka, inne urządzenie. Kolejność: zmierz ρ jednym zapytaniem → testy sekwencyjne → CUPED, jeśli ρ ≥ 0,3.
+
+| | Testy sekwencyjne (podgląd co tydzień) | CUPED |
+|---|---|---|
+| Co daje | Wcześniejszy koniec, gdy efekt jest duży albo wariant szkodzi; podglądanie bez zawyżania fałszywych alarmów | Ta sama moc przy próbie mniejszej o ρ² (ρ = 0,3 → −9%, ρ = 0,5 → −25%) |
+| Czy zysk jest pewny | Ochrona przed podglądaniem — zawsze; krótszy test — tylko przy dużym efekcie | Zależy od ρ; na ruchu anonimowym zwykle niskie |
+| Dane | Te same co `02`, narastająco tydzień po tygodniu | Historia każdego użytkownika z 2–4 tygodni przed testem |
+| Złożoność / praca | Statystyka 4/5, wdrożenie 3/5, ok. 4–6 dni | Statystyka 3/5, wdrożenie 3/5, ok. 3–4 dni |
