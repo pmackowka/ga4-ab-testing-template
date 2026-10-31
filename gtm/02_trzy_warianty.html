@@ -6,8 +6,8 @@
  Analiza: sql/03 zwróci wiersz kontroli i po wierszu na v1, v2; każdą parę
  z kontrolą wpisz do kalkulatora osobno, z „Liczba wariantów” = 3
  (kalkulator zaostrza wtedy próg p-value — korekta Bonferroniego).
- W sql/03 ustaw test_name = 'ab2' i variants = ['v0', 'v1', 'v2']; zmienna GTM (zmienna_ab_variant.js)
- musi mieć TEST = 'ab2' i v2 na liście VALID.
+ W sql/03 ustaw test_name = 'ab2' i variants = ['v0', 'v1', 'v2'] (w dbt: wiersz ab2 z v0|v1|v2
+ w dbt/seeds/ab_tests.csv); zmienna GTM (zmienna_ab_variant.js) musi mieć TEST = 'ab2' i v2 na liście VALID.
 */
 (function () {
   var TEST = 'ab2';                   // osobny numer — nie mieszaj z testem ab1

@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: stg_seeds__ab_tests
+    description: Rejestr testów z seeds/ab_tests.csv z listami jako ARRAY<STRING>.
+    columns:
+      - name: test_name
+        data_tests:
+          - unique
+          - not_null
+      - name: test_start
+        data_tests:
+          - not_null
+      - name: test_end
+        data_tests:
+          - not_null
+      - name: control_variant
+        data_tests:
+          - not_null
+      - name: variants
+      - name: conversion_event
+        data_tests:
+          - not_null
+      - name: exposure_events
+      - name: test_days
+        description: Długość testu w dniach.
+      - name: is_final
+        description: >
+          true, gdy od test_end minęły co najmniej 3 dni i GA4 nie dopisze już danych.
+          Do kalkulatora bierz tylko wiersze z is_final = true.

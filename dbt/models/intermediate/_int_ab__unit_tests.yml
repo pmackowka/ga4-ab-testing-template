@@ -1,0 +1,78 @@
+# Unit testy logiki przypisania i konwersji na zamockowanych wierszach — zamiast trybu demo.
+# Uruchamiają się w BigQuery, ale nie czytają GA4: dbt wstawia wiersze z given jako CTE.
+# Przed pierwszym uruchomieniem modele nadrzędne muszą istnieć (dbt bierze z nich typy kolumn):
+#   uv run dbt run --select +fct_ab_test_weekly --empty
+#   uv run dbt test --select test_type:unit
+version: 2
+
+unit_tests:
+  - name: exposures_rerandomized_user_is_mixed
+    description: >
+      Użytkownik traci cookie i dostaje drugi wariant: wariant = pierwsza ekspozycja,
+      variants_seen = 2, mixed_date = dzień drugiego wariantu.
+    model: int_ab__exposures
+    given:
+      - input: ref('stg_seeds__ab_tests')
+        format: sql
+        rows: |
+          SELECT 'ab1' AS test_name, DATE '2026-09-07' AS test_start, DATE '2026-10-04' AS test_end,
+            'v0' AS control_variant, ['v0', 'v1'] AS variants, 'purchase' AS conversion_event,
+            ['ab_assign', 'view_item'] AS exposure_events, 28 AS test_days, TRUE AS is_final
+      - input: ref('stg_ga4__events')
+        rows:
+          - {event_date: 2026-09-08, event_ts: '2026-09-08 10:00:00', user_pseudo_id: u1, event_name: ab_assign, ab_test: ab1, ab_variant: v1}
+          - {event_date: 2026-09-20, event_ts: '2026-09-20 10:00:00', user_pseudo_id: u1, event_name: ab_assign, ab_test: ab1, ab_variant: v0}
+          - {event_date: 2026-09-09, event_ts: '2026-09-09 10:00:00', user_pseudo_id: u2, event_name: ab_assign, ab_test: ab1, ab_variant: v0}
+    expect:
+      rows:
+        - {test_name: ab1, user_pseudo_id: u1, variant: v1, first_exposure_date: 2026-09-08, variants_seen: 2, mixed_date: 2026-09-20}
+        - {test_name: ab1, user_pseudo_id: u2, variant: v0, first_exposure_date: 2026-09-09, variants_seen: 1, mixed_date: null}
+
+  - name: exposures_require_exposure_event_and_test_window
+    description: >
+      Wariant tylko na evencie spoza exposure_events (u1) albo ekspozycja poza oknem testu (u2)
+      albo inny test (u3) — użytkownik nie wchodzi do testu. Ekspozycja na view_item się liczy (u4).
+    model: int_ab__exposures
+    given:
+      - input: ref('stg_seeds__ab_tests')
+        format: sql
+        rows: |
+          SELECT 'ab1' AS test_name, DATE '2026-09-07' AS test_start, DATE '2026-10-04' AS test_end,
+            'v0' AS control_variant, ['v0', 'v1'] AS variants, 'purchase' AS conversion_event,
+            ['ab_assign', 'view_item'] AS exposure_events, 28 AS test_days, TRUE AS is_final
+      - input: ref('stg_ga4__events')
+        rows:
+          - {event_date: 2026-09-10, event_ts: '2026-09-10 10:00:00', user_pseudo_id: u1, event_name: purchase, ab_test: ab1, ab_variant: v1}
+          - {event_date: 2026-10-05, event_ts: '2026-10-05 10:00:00', user_pseudo_id: u2, event_name: ab_assign, ab_test: ab1, ab_variant: v1}
+          - {event_date: 2026-09-10, event_ts: '2026-09-10 10:00:00', user_pseudo_id: u3, event_name: ab_assign, ab_test: ab2, ab_variant: v1}
+          - {event_date: 2026-09-11, event_ts: '2026-09-11 10:00:00', user_pseudo_id: u4, event_name: view_item, ab_test: ab1, ab_variant: v1}
+    expect:
+      rows:
+        - {test_name: ab1, user_pseudo_id: u4, variant: v1, variants_seen: 1}
+
+  - name: conversions_after_exposure_once_per_user
+    description: >
+      Zakup przed ekspozycją się nie liczy (u1), zdublowany purchase daje jeden wiersz z pierwszym
+      zakupem po ekspozycji (u2), zakup po test_end się nie liczy (u3).
+    model: int_ab__conversions
+    given:
+      - input: ref('stg_seeds__ab_tests')
+        format: sql
+        rows: |
+          SELECT 'ab1' AS test_name, DATE '2026-09-07' AS test_start, DATE '2026-10-04' AS test_end,
+            'v0' AS control_variant, ['v0', 'v1'] AS variants, 'purchase' AS conversion_event,
+            ['ab_assign', 'view_item'] AS exposure_events, 28 AS test_days, TRUE AS is_final
+      - input: ref('int_ab__exposures')
+        rows:
+          - {test_name: ab1, user_pseudo_id: u1, variant: v0, first_exposure_ts: '2026-09-10 12:00:00'}
+          - {test_name: ab1, user_pseudo_id: u2, variant: v1, first_exposure_ts: '2026-09-10 12:00:00'}
+          - {test_name: ab1, user_pseudo_id: u3, variant: v1, first_exposure_ts: '2026-10-04 12:00:00'}
+      - input: ref('stg_ga4__events')
+        rows:
+          - {event_date: 2026-09-10, event_ts: '2026-09-10 11:00:00', user_pseudo_id: u1, event_name: purchase}
+          - {event_date: 2026-09-12, event_ts: '2026-09-12 09:00:00', user_pseudo_id: u2, event_name: purchase}
+          - {event_date: 2026-09-12, event_ts: '2026-09-12 09:00:30', user_pseudo_id: u2, event_name: purchase}
+          - {event_date: 2026-10-05, event_ts: '2026-10-05 09:00:00', user_pseudo_id: u3, event_name: purchase}
+    expect:
+      rows:
+        - {test_name: ab1, user_pseudo_id: u2, first_conversion_ts: '2026-09-12 09:00:00', first_conversion_date: 2026-09-12}

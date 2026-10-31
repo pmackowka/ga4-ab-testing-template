@@ -1,0 +1,56 @@
+version: 2
+
+unit_tests:
+  - name: results_exclude_mixed_and_keep_empty_variant
+    description: >
+      Ponownie wylosowany (u3) idzie do excluded_mixed, nie do users ani converters. Wariant v2
+      z seeda bez użytkowników zostaje jako wiersz z zerami.
+    model: fct_ab_test_results
+    given:
+      - input: ref('stg_seeds__ab_tests')
+        format: sql
+        rows: |
+          SELECT 'ab2' AS test_name, DATE '2026-09-07' AS test_start, DATE '2026-10-04' AS test_end,
+            'v0' AS control_variant, ['v0', 'v1', 'v2'] AS variants, 'purchase' AS conversion_event,
+            ['ab_assign', 'view_item'] AS exposure_events, 28 AS test_days, TRUE AS is_final
+      - input: ref('int_ab__exposures')
+        rows:
+          - {test_name: ab2, user_pseudo_id: u1, variant: v0, variants_seen: 1}
+          - {test_name: ab2, user_pseudo_id: u2, variant: v1, variants_seen: 1}
+          - {test_name: ab2, user_pseudo_id: u3, variant: v1, variants_seen: 2}
+      - input: ref('int_ab__conversions')
+        rows:
+          - {test_name: ab2, user_pseudo_id: u2}
+          - {test_name: ab2, user_pseudo_id: u3}
+    expect:
+      rows:
+        - {test_name: ab2, variant: v0, calculator_field: 'A (kontrola)', users: 1, converters: 0, excluded_mixed: 0}
+        - {test_name: ab2, variant: v1, calculator_field: 'B (wariant v1)', users: 1, converters: 1, excluded_mixed: 1}
+        - {test_name: ab2, variant: v2, calculator_field: 'B (wariant v2)', users: 0, converters: 0, excluded_mixed: 0}
+
+  - name: weekly_excludes_mixed_from_their_week
+    description: >
+      u2 wylosowany ponownie w tygodniu 2: w tygodniu 1 liczy się jako user, od tygodnia 2
+      jako excluded_mixed. Konwersja u1 w tygodniu 2 pojawia się dopiero w tygodniu 2.
+    model: fct_ab_test_weekly
+    given:
+      - input: ref('stg_seeds__ab_tests')
+        format: sql
+        rows: |
+          SELECT 'ab1' AS test_name, DATE '2026-09-07' AS test_start, DATE '2026-09-20' AS test_end,
+            'v0' AS control_variant, ['v0', 'v1'] AS variants, 'purchase' AS conversion_event,
+            ['ab_assign', 'view_item'] AS exposure_events, 14 AS test_days, TRUE AS is_final
+      - input: ref('fct_ab_test_results')
+        rows:
+          - {test_name: ab1, variant: v0}
+      - input: ref('int_ab__exposures')
+        rows:
+          - {test_name: ab1, user_pseudo_id: u1, variant: v0, first_exposure_date: 2026-09-08, mixed_date: null}
+          - {test_name: ab1, user_pseudo_id: u2, variant: v0, first_exposure_date: 2026-09-09, mixed_date: 2026-09-15}
+      - input: ref('int_ab__conversions')
+        rows:
+          - {test_name: ab1, user_pseudo_id: u1, first_conversion_date: 2026-09-16}
+    expect:
+      rows:
+        - {test_name: ab1, variant: v0, week_no: 1, users: 2, converters: 0, excluded_mixed: 0}
+        - {test_name: ab1, variant: v0, week_no: 2, users: 1, converters: 1, excluded_mixed: 1}

@@ -1,0 +1,44 @@
+# Szablon połączenia z BigQuery. Skopiuj do profiles.yml (jest w .gitignore) albo ~/.dbt/profiles.yml.
+#
+# Wymagane zmienne środowiskowe (dev — domyślny target):
+#   export BIGQUERY_PROJECT="twoj-projekt-gcp"
+#   export BIGQUERY_KEYFILE="/sciezka/do/klucza/service-account.json"  # POZA folderem repo
+# Tylko przy --target prod (osobna tożsamość):
+#   export BIGQUERY_PROD_PROJECT="twoj-projekt-gcp-prod"
+#   export BIGQUERY_PROD_KEYFILE="/sciezka/do/klucza/service-account-prod.json"
+#
+# Konto serwisowe potrzebuje: BigQuery Data Viewer na datasecie GA4, BigQuery Data Editor
+# na datasecie docelowym, BigQuery Job User w projekcie.
+ab_testing: # musi pasować do `profile:` w dbt_project.yml
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('BIGQUERY_KEYFILE') }}"
+      project: "{{ env_var('BIGQUERY_PROJECT') }}"
+      dataset: dbt_dev_ab_testing
+      # Musi się zgadzać z lokalizacją datasetu GA4 — BigQuery nie łączy danych między regionami.
+      location: EU
+      priority: interactive
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      # Twardy limit bajtów na zapytanie: po przekroczeniu zapytanie pada bez opłaty.
+      # Pierwszy --full-refresh stg_ga4__events czyta kilka kolumn z każdego dnia od ga4_start_date —
+      # przy dużym ruchu podnieś limit świadomie, zamiast go usuwać.
+      maximum_bytes_billed: 10737418240   # 10 GiB
+
+    # Prod ma własne zmienne bez fallbacku na dev: przypadkowe --target prod z kluczem dev nie połączy się.
+    prod:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('BIGQUERY_PROD_KEYFILE') }}"
+      project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
+      dataset: dbt_prod_ab_testing
+      location: EU
+      priority: interactive
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      maximum_bytes_billed: 107374182400  # 100 GiB

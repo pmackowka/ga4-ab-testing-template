@@ -1,0 +1,30 @@
+# dbt parse na każdym PR i pushu do main: składnia SQL/Jinja, YAML, ref() i testy bez połączenia
+# z BigQuery. Unit testy i dbt build wymagają konta serwisowego — dochodzą, gdy CI dostanie
+# tożsamość przez Workload Identity Federation (bez pliku klucza w sekretach).
+name: dbt
+
+on:
+  pull_request:
+    paths: ["dbt/**", ".github/workflows/dbt.yml"]
+  push:
+    branches: [main]
+    paths: ["dbt/**", ".github/workflows/dbt.yml"]
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dbt
+    env:
+      # parse renderuje profil, ale się nie łączy — wystarczą wartości zastępcze
+      BIGQUERY_PROJECT: ci-placeholder
+      BIGQUERY_KEYFILE: /dev/null
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      # --locked: pada, gdy uv.lock nie zgadza się z pyproject.toml
+      - run: uv sync --locked
+      - run: cp profiles.yml.example profiles.yml
+      - run: uv run dbt deps
+      - run: uv run dbt parse --profiles-dir .

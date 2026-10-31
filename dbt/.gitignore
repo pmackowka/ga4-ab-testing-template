@@ -1,0 +1,13 @@
+# dbt — artefakty budowania i lokalne pliki
+target/
+dbt_packages/
+logs/
+.user.yml
+
+# Poświadczenia — w repo tylko profiles.yml.example
+profiles.yml
+*.json
+
+# Python
+__pycache__/
+.venv/

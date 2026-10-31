@@ -1,0 +1,74 @@
+version: 2
+
+models:
+  - name: fct_ab_test_results
+    description: >
+      Wynik testu do kalkulatora „Po teście A/B”: wiersz kontroli (A) i po wierszu na każdy
+      wariant (B). Do kalkulatora bierz tylko wiersze z is_final = true.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [test_name, variant]
+    columns:
+      - name: test_name
+        data_type: string
+        constraints:
+          - type: not_null
+      - name: variant
+        data_type: string
+        constraints:
+          - type: not_null
+        data_tests:
+          - variant_in_seed
+      - name: is_control
+        data_type: boolean
+      - name: calculator_field
+        description: Który wiersz kalkulatora — A (kontrola) albo B (wariant).
+        data_type: string
+      - name: users
+        description: >
+          Kalkulator: Użytkownicy A / B. Unikalni użytkownicy od pierwszej ekspozycji,
+          bez ponownie wylosowanych.
+        data_type: int64
+      - name: converters
+        description: "Kalkulator: Konwertujący A / B. Osoby z konwersją po pierwszej ekspozycji."
+        data_type: int64
+      - name: excluded_mixed
+        description: >
+          Do kalkulatora nie idzie. Użytkownicy z 2+ wariantami, wyjęci z users i converters;
+          wiersz = wariant pierwszej ekspozycji.
+        data_type: int64
+      - name: is_final
+        description: true, gdy od końca testu minęły 3 dni i GA4 nie dopisze już danych.
+        data_type: boolean
+
+  - name: fct_ab_test_weekly
+    description: >
+      Liczby z fct_ab_test_results narastająco na koniec każdego tygodnia testu. Podgląd
+      i punkt wyjścia pod testy sekwencyjne — nie podstawa decyzji w teście o stałej długości.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [test_name, variant, week_no]
+    columns:
+      - name: test_name
+        data_tests:
+          - not_null
+      - name: variant
+        data_tests:
+          - not_null
+      - name: week_no
+        description: Numer tygodnia testu, od 1.
+      - name: week_end
+        description: Niedziela kończąca tydzień.
+      - name: users
+        description: Użytkownicy narastająco na koniec tygodnia, bez wylosowanych ponownie do tego dnia.
+      - name: converters
+        description: Ci z users, którzy skonwertowali do końca tygodnia.
+      - name: excluded_mixed
+        description: Użytkownicy z 2+ wariantami do końca tygodnia.
+      - name: is_final
+        description: true, gdy od końca tygodnia minęły 3 dni.

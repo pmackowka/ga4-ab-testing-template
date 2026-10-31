@@ -1,0 +1,47 @@
+# Projekt dbt: wyniki testów A/B z eksportu GA4 (odpowiednik sql/03).
+name: 'ab_testing'  # nie 'dbt_bigquery' — tę nazwę zajmuje wewnętrzny pakiet makr adaptera
+version: '1.0.0'
+config-version: 2
+profile: 'ab_testing'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Eksport GA4: projekt i dataset z tabelami events_YYYYMMDD — jedyne miejsce do podmiany.
+  ga4_project: 'twoj-projekt'
+  ga4_dataset: 'analytics_123456789'
+  # Pierwszy dzień, który czyta pełny rebuild stg_ga4__events (--full-refresh). Ustaw na
+  # najwcześniejszy test_start z seeds/ab_tests.csv: każdy dzień wcześniej to koszt bez pożytku.
+  ga4_start_date: '2026-09-07'
+
+models:
+  ab_testing:
+    +persist_docs:
+      relation: true
+      columns: true
+    # Dev: tabele znikają po 1 h. Prod: bez wygasania, bo expiration kasuje tabelę bez błędu w dbt.
+    +hours_to_expiration: "{{ 1 if target.name == 'dev' else none }}"
+    staging:
+      +materialized: view
+    # view: intermediate czytają tylko marty, osobna tabela byłaby kopią bez odbiorcy
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+
+seeds:
+  ab_testing:
+    ab_tests:
+      +column_types:
+        test_name: string
+        test_start: date
+        test_end: date
+        control_variant: string
+        variants: string
+        conversion_event: string
+        exposure_events: string

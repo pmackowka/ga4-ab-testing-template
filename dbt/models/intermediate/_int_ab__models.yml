@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: int_ab__exposures
+    description: Jeden wiersz na test i eksponowanego użytkownika.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [test_name, user_pseudo_id]
+    columns:
+      - name: test_name
+        data_tests:
+          - not_null
+      - name: user_pseudo_id
+        data_tests:
+          - not_null
+      - name: variant
+        description: Wariant z pierwszego eventu ekspozycji.
+        data_tests:
+          - not_null
+          - variant_in_seed
+      - name: first_exposure_ts
+        description: Czas pierwszego eventu z listy exposure_events z wariantem tego testu.
+      - name: first_exposure_date
+        description: Dzień pierwszej ekspozycji (strefa usługi GA4).
+      - name: variants_seen
+        description: Liczba różnych wariantów na eventach testu; 2+ = ponowne losowanie.
+      - name: mixed_date
+        description: >
+          Dzień pierwszego eventu z innym wariantem; NULL, gdy variants_seen = 1.
+          fct_ab_test_weekly wyklucza użytkownika dopiero od tygodnia, w którym to nastąpiło.
+
+  - name: int_ab__conversions
+    description: Jeden wiersz na test i użytkownika z konwersją po pierwszej ekspozycji.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [test_name, user_pseudo_id]
+    columns:
+      - name: test_name
+        data_tests:
+          - not_null
+      - name: user_pseudo_id
+        data_tests:
+          - not_null
+      - name: first_conversion_ts
+        description: Czas pierwszej konwersji po pierwszej ekspozycji.
+      - name: first_conversion_date
+        description: Dzień pierwszej konwersji (strefa usługi GA4).
