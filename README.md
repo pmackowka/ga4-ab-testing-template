@@ -9,7 +9,7 @@ Scenariusz: e-commerce testuje kartę produktu. Wejście do testu to `view_item`
 
 ## Szybki start
 
-1. Podmień tabelę `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` na swój eksport GA4 (`<projekt>.analytics_<id>.events_*`) we wszystkich trzech plikach — w `03` w dwóch miejscach.
+1. Podmień tabelę `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` na swój eksport GA4 (`<projekt>.analytics_<id>.events_*`) we wszystkich plikach — w `03` w dwóch miejscach. Na własnych danych zamiast `03_po_tescie_warianty.sql` (tryb demo) użyj [`03_po_tescie_produkcja.sql`](sql/03_po_tescie_produkcja.sql) — bez demo, z kontrolą kompletności danych i dozwolonych wariantów.
 2. Ustaw parametry `DECLARE` na górze pliku — opis każdego stoi w komentarzu obok, a `ASSERT` pod nimi zatrzyma zapytanie przy złej wartości.
 3. Uruchom zapytanie i przepisz liczby do pól kalkulatora według kroków.
 

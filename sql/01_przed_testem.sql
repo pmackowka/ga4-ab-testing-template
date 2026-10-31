@@ -42,6 +42,9 @@ WITH events AS (
         DATE_ADD(window_start, INTERVAL max_weeks * 7 - 1 DAY)
       )
     AND event_name IN ('view_item', 'purchase')
+    -- Consent Mode bez zgody wysyła eventy bez user_pseudo_id — bez filtra
+    -- GROUP BY skleiłby ich wszystkich w jednego użytkownika
+    AND user_pseudo_id IS NOT NULL
 ),
 
 first_view AS (

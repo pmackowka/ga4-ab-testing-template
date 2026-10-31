@@ -75,6 +75,9 @@ WITH events AS (
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', test_start)
       AND FORMAT_DATE('%Y%m%d', test_end)
+    -- Consent Mode bez zgody wysyła eventy bez user_pseudo_id — bez filtra
+    -- GROUP BY skleiłby ich wszystkich w jednego użytkownika
+    AND user_pseudo_id IS NOT NULL
 ),
 
 users_assigned AS (

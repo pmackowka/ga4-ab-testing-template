@@ -38,6 +38,9 @@ WITH events AS (
       )
       AND FORMAT_DATE('%Y%m%d', window_end)
     AND event_name IN ('view_item', 'purchase')
+    -- Consent Mode bez zgody wysyła eventy bez user_pseudo_id — bez filtra
+    -- GROUP BY skleiłby ich wszystkich w jednego użytkownika
+    AND user_pseudo_id IS NOT NULL
 ),
 
 exposed AS (
