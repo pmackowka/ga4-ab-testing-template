@@ -9,7 +9,7 @@ Scenariusz: e-commerce testuje kartę produktu. Wejście do testu to `view_item`
 
 ## Szybki start
 
-1. Podmień tabelę `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` na swój eksport GA4 (`<projekt>.analytics_<id>.events_*`) we wszystkich trzech plikach — w `02` w dwóch miejscach.
+1. Podmień tabelę `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` na swój eksport GA4 (`<projekt>.analytics_<id>.events_*`) we wszystkich trzech plikach — w `03` w dwóch miejscach.
 2. Ustaw parametry `DECLARE` na górze pliku — opis każdego stoi w komentarzu obok, a `ASSERT` pod nimi zatrzyma zapytanie przy złej wartości.
 3. Uruchom zapytanie i przepisz liczby do pól kalkulatora według kroków.
 
@@ -19,15 +19,22 @@ Bez zmian zapytania liczą na publicznym przykładowym eksporcie GA4 (2020-11-01
 
 ```mermaid
 flowchart LR
-    A["01 + 03<br/>SQL"] --> B["Kalkulator<br/>Przed testem"] --> C["GTM<br/>start testu"] --> D["Test trwa<br/>nie zaglądasz"] --> E["02<br/>SQL"] --> F["Kalkulator<br/>Po teście"]
+    S1["1 · SQL 01<br/>ruch i konwersje<br/>w oknach 1–8 tyg."] --> S2["2 · SQL 02<br/>przychód tygodniowy<br/>(opcjonalnie)"]
+    S2 --> S3["3 · Kalkulator Przed testem<br/>ilu użytkowników<br/>i ile tygodni"]
+    S3 --> S4["4 · GTM<br/>start testu:<br/>losowanie wariantu"]
+    S4 --> S5["5 · W trakcie<br/>nie zaglądasz<br/>do wyniku"]
+    S5 --> S6["6 · SQL 03<br/>użytkownicy<br/>i konwertujący A/B"]
+    S6 --> S7["7 · Kalkulator Po teście<br/>czy wdrażać B"]
+    S2 -.->|ten sam przychód| S7
 ```
 
 1. **Przed testem** · [`01`](sql/01_przed_testem.sql) — wiersz z planowaną liczbą tygodni wpisujesz w Przed testem: Użytkownicy w tygodniu, Konwertujący w tygodniu.
-2. **Przed testem** · [`03`](sql/03_przychod_tygodniowy.sql) — wynik wpisujesz w Przed testem: Tygodniowy przychód ze strony testowej (opcjonalnie).
+2. **Przed testem** · [`02`](sql/02_przychod_tygodniowy.sql) — wynik wpisujesz w Przed testem: Tygodniowy przychód ze strony testowej (opcjonalnie).
 3. **Przed testem** · kalkulator — ustawiasz pozostałe pola ([opis](#kalkulator-przed-testem)); gdy kalkulator policzy inny czas testu, wracasz do wyniku `01` i bierzesz wiersz z tym czasem.
-4. **W trakcie** — nie zaglądasz do wyniku.
-5. **Po teście** · [`02`](sql/02_po_tescie_warianty.sql) — wynik wpisujesz w Po teście: Użytkownicy A/B, Konwertujący A/B.
-6. **Po teście** · wynik `03` z kroku 2 — wpisujesz w Po teście: Tygodniowy przychód ze strony testowej. Ta sama liczba, bo okno kończy się przed startem testu.
+4. **Start testu** · GTM — publikujesz tag losujący wariant ([Skrypty GTM](#skrypty-gtm)) w poniedziałek, bo `03` liczy pełne tygodnie.
+5. **W trakcie** — nie zaglądasz do wyniku.
+6. **Po teście** · [`03`](sql/03_po_tescie_warianty.sql) — wynik wpisujesz w Po teście: Użytkownicy A/B, Konwertujący A/B.
+7. **Po teście** · kalkulator — przychód wpisujesz ten sam co z kroku 2, bo okno kończy się przed startem testu.
 
 Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają. Każdy użytkownik liczy się w oknie raz, więc w oknie 4 tygodni unikalnych jest mniej niż 4 × tydzień — wartość „na tydzień” (okno / liczba tygodni) spada z długością okna. CR rośnie, bo użytkownik ma więcej czasu na zakup. Oba efekty działają w przeciwne strony, więc liczysz je na danych, w oknie tak długim jak test.
 
@@ -48,8 +55,8 @@ Konfiguracja:
 1. Tag Custom HTML z jednym ze skryptów; wyzwalacz: strona testowa (np. karta produktu). Ustawienia zgody tagu: wymagaj zgody — ciasteczko testu nie jest niezbędne, więc losujesz dopiero po zgodzie.
 2. Tag GA4 Event `ab_assign` na zdarzeniu niestandardowym `ab_assign`, parametry `ab_test` i `ab_variant` z warstwy danych.
 3. Zmienna Custom JavaScript z `zmienna_ab_variant.js`; w tagach GA4 `view_item` i `purchase` dodaj parametry `ab_test` (stała: klucz testu, np. `ab1`) i `ab_variant` (ta zmienna).
-4. Tag `view_item`: Sekwencjonowanie tagów → najpierw tag z kroku 1. Bez tego pierwszy `view_item` może pójść, zanim ciasteczko powstanie — `02` złapie usera dopiero na `ab_assign`.
-5. Klucz testu i wariant kontrolny w skrypcie = `test_name` i `control_variant` w `02`. Konwencja: klucz ciasteczka to kolejny numer testu małymi literami (`ab1` w `01`, `ab2` w `02`, `ab3` w `03` i `04` — jeden test, więc ten sam klucz), wartości `v0` — zawsze wersja dotychczasowa (kontrola) — oraz `v1`, `v2` — warianty testowe.
+4. Tag `view_item`: Sekwencjonowanie tagów → najpierw tag z kroku 1. Bez tego pierwszy `view_item` może pójść, zanim ciasteczko powstanie — `03` złapie usera dopiero na `ab_assign`.
+5. Klucz testu i wariant kontrolny w skrypcie = `test_name` i `control_variant` w `03`. Konwencja: klucz ciasteczka to kolejny numer testu małymi literami (`ab1` w `01`, `ab2` w `02`, `ab3` w `03` i `04` — jeden test, więc ten sam klucz), wartości `v0` — zawsze wersja dotychczasowa (kontrola) — oraz `v1`, `v2` — warianty testowe.
 
 Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wariant, zostaje w nim. Dawni `out` wchodzą do analizy od dnia rozszerzenia, ale wcześniej widzieli obecną wersję strony — gdy to przeszkadza, `INCLUDE_OUT = false` wpuszcza tylko nowych. Plan z kalkulatora Przed testem liczyłeś dla 50% ruchu — po rozszerzeniu użytkownicy zbierają się 2× szybciej, więc kończysz po pierwszym pełnym tygodniu, w którym każdy wariant ma liczbę użytkowników z planu.
 
@@ -87,7 +94,7 @@ Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wa
 - `user_pseudo_id` to przeglądarka, nie osoba: ten sam człowiek na telefonie i laptopie to dwóch użytkowników.
 - SRM zakłada podział 50/50; przy 3+ wariantach kalkulator ocenia jedną parę z kontrolą.
 - Ocena to test z (przybliżenie normalne): przy kilku konwersjach w wariancie wynik jest przybliżony, a granice zakresu są ucinane tak, żeby CR B mieścił się między 0 a 100% (spadek najwyżej −100%).
-- Wariant w `02` pochodzi z parametrów `ab_test` i `ab_variant`, które tag GTM czyta z first-party cookie i dokleja do eventów ([artykuł](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). Konwersja liczy się z każdego `purchase` po ekspozycji, także bez parametru — wariant bierze się z przypisania użytkownika, nie z eventu zakupu.
+- Wariant w `03` pochodzi z parametrów `ab_test` i `ab_variant`, które tag GTM czyta z first-party cookie i dokleja do eventów ([artykuł](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). Konwersja liczy się z każdego `purchase` po ekspozycji, także bez parametru — wariant bierze się z przypisania użytkownika, nie z eventu zakupu.
 - Jeden parametr `ab_test` = jeden test na event. Przy dwóch testach naraz na tej samej stronie para `ab_test`/`ab_variant` nie pomieści obu — potrzebny osobny parametr na test.
 - Safari (ITP) skraca ciasteczka ustawione z JavaScriptu do 7 dni, także `_ga`. Gdy po tygodniu wygaśnie tylko ciasteczko testu, `excluded_mixed` to wyłapie. Gdy wygaśnie też `_ga`, ten sam człowiek wraca z nowym `user_pseudo_id` i nowym losowaniem, a zapytanie widzi dwóch użytkowników. Ciasteczka ustawiane z serwera (server-side GTM) usuwają ten problem.
 
@@ -99,5 +106,5 @@ Na anonimowym ruchu e-commerce testy sekwencyjne dają korzyść niezależnie od
 |---|---|---|
 | Co daje | Wcześniejszy koniec, gdy efekt jest duży albo wariant szkodzi; podglądanie bez zawyżania fałszywych alarmów | Ta sama moc przy próbie mniejszej o ρ² (ρ = 0,3 → −9%, ρ = 0,5 → −25%) |
 | Czy zysk jest pewny | Ochrona przed podglądaniem — zawsze; krótszy test — tylko przy dużym efekcie | Zależy od ρ; na ruchu anonimowym zwykle niskie |
-| Dane | Te same co `02`, narastająco tydzień po tygodniu | Historia każdego użytkownika z 2–4 tygodni przed testem |
+| Dane | Te same co `03`, narastająco tydzień po tygodniu | Historia każdego użytkownika z 2–4 tygodni przed testem |
 | Złożoność / praca | Statystyka 4/5, wdrożenie 3/5, ok. 4–6 dni | Statystyka 3/5, wdrożenie 3/5, ok. 3–4 dni |

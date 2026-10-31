@@ -3,10 +3,10 @@
  01 · DWA WARIANTY, 50/50, cały ruch strony testowej
  GTM → Tag → Custom HTML. Wyzwalacz: strona testowa (np. karta produktu),
  dopiero po zgodzie na ciasteczka. Losuje raz, zapisuje wariant w first-party
- cookie i wysyła ab_assign do dataLayer — z niego liczy sql/02.
+ cookie i wysyła ab_assign do dataLayer — z niego liczy sql/03.
 */
 (function () {
-  var TEST = 'ab1';             // klucz ciasteczka = ab_test = test_name w sql/02; kolejne testy: ab2, ab3…
+  var TEST = 'ab1';             // klucz ciasteczka = ab_test = test_name w sql/03; kolejne testy: ab2, ab3…
   var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa (kontrola), v1 = wariant testowy
   var DAYS = 30;                // Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
 

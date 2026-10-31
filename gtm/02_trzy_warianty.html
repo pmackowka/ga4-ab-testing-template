@@ -3,10 +3,10 @@
  02 · TRZY WARIANTY (A/B/C), po 1/3, cały ruch strony testowej
  GTM → Tag → Custom HTML. Różni się od 01 tylko listą VARIANTS — losowanie
  indeksu działa dla dowolnej liczby wariantów.
- Analiza: sql/02 zwróci wiersz kontroli i po wierszu na v1, v2; każdą parę
+ Analiza: sql/03 zwróci wiersz kontroli i po wierszu na v1, v2; każdą parę
  z kontrolą wpisz do kalkulatora osobno, z „Liczba wariantów” = 3
  (kalkulator zaostrza wtedy próg p-value — korekta Bonferroniego).
- W sql/02 ustaw test_name = 'ab2'; zmienna GTM (zmienna_ab_variant.js)
+ W sql/03 ustaw test_name = 'ab2'; zmienna GTM (zmienna_ab_variant.js)
  musi mieć TEST = 'ab2' i v2 na liście VALID.
 */
 (function () {

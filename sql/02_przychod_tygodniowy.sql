@@ -1,5 +1,5 @@
 /*
- 03 · PRZYCHÓD TYGODNIOWY → pole przychodu w obu kalkulatorach
+ 02 · PRZYCHÓD TYGODNIOWY → pole przychodu w obu kalkulatorach
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
  Test karty produktu: wejście = view_item, przychód z purchase.

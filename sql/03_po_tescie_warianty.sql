@@ -1,5 +1,5 @@
 /*
- 02 · PO TEŚCIE → kalkulator „Po teście A/B”
+ 03 · PO TEŚCIE → kalkulator „Po teście A/B”
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
  Wariant z first-party cookie ustawianego w GTM:
  https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/
