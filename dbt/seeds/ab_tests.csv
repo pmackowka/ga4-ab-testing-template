@@ -1,2 +1,4 @@
 test_name,test_start,test_end,control_variant,variants,conversion_event,exposure_events
 ab1,2026-09-07,2026-10-04,v0,v0|v1,purchase,ab_assign|view_item
+ab2,2026-10-05,2026-11-01,v0,v0|v1|v2,purchase,ab_assign|view_item
+ab3,2026-11-02,2026-12-13,v0,v0|v1,purchase,ab_assign|view_item

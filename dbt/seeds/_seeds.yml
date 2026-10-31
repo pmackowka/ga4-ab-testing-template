@@ -5,6 +5,10 @@ seeds:
     description: >
       Rejestr testów A/B — jeden wiersz na test, zamiast DECLARE w sql/03. Nowy test = nowy wiersz.
       Listy rozdziela „|”, bo CSV nie ma typu tablicowego; stg_seeds__ab_tests robi z nich ARRAY.
+      Wiersze odpowiadają tagom z gtm/: ab1 = 01_dwa_warianty, ab2 = 02_trzy_warianty,
+      ab3 = 03_dwa_warianty_50_procent i 04_rozszerzenie_do_100_procent (jeden test, ten sam klucz;
+      'out' nie ma ab_variant, więc nie ma go w variants). Testy idą po sobie, bo jeden parametr
+      ab_test na evencie mieści tylko jeden test naraz na tej samej stronie.
     columns:
       - name: test_name
         description: Klucz testu, = TEST w tagu GTM i parametr ab_test w GA4.
