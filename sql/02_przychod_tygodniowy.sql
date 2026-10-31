@@ -13,6 +13,13 @@ WITH events AS (
     user_pseudo_id,
     event_name,
     event_timestamp,
+    -- numer tygodnia w oknie: dni 0–6 od początku okna → 1, dni 7–13 → 2 itd.;
+    -- początek okna = window_end − (window_weeks × 7 − 1), jak w WHERE niżej
+    DIV(DATE_DIFF(
+        PARSE_DATE('%Y%m%d', event_date),
+        DATE_SUB(window_end, INTERVAL window_weeks * 7 - 1 DAY),
+        DAY), 7) + 1
+      AS week_no,
     -- przykładowy eksport ma USD; własny eksport: ecommerce.purchase_revenue
     ecommerce.purchase_revenue_in_usd AS revenue,
     -- brak transaction_id → każdy event to osobne zamówienie:
@@ -45,7 +52,7 @@ exposed AS (
 orders AS (
   -- jeden wiersz na zamówienie: GA4 dubluje purchase (odświeżenie strony
   -- podziękowania, podwójny tag), a zdublowany przychód liczy się podwójnie
-  SELECT user_pseudo_id, event_timestamp, revenue
+  SELECT user_pseudo_id, event_timestamp, week_no, revenue
   FROM events
   WHERE event_name = 'purchase'
   -- ROW_NUMBER numeruje eventy w obrębie jednego order_key od najwcześniejszego;
@@ -56,26 +63,43 @@ orders AS (
 purchases AS (
   -- tylko zakupy po pierwszym obejrzeniu karty produktu
   SELECT
-    p.user_pseudo_id,
+    p.week_no,
     p.revenue
   FROM orders AS p
   JOIN exposed AS e
     ON e.user_pseudo_id = p.user_pseudo_id
     AND p.event_timestamp > e.first_view_ts
+),
+
+weekly AS (
+  -- przychód każdego tygodnia okna; GENERATE_ARRAY daje wiersz także tygodniom
+  -- bez zakupów, a LEFT JOIN + IFNULL wpisuje im 0 — inaczej mediana by je pominęła
+  SELECT
+    w AS week_no,
+    IFNULL(SUM(p.revenue), 0) AS revenue
+  FROM UNNEST(GENERATE_ARRAY(1, window_weeks)) AS w
+  LEFT JOIN purchases AS p
+    ON p.week_no = w
+  GROUP BY w
 )
 
 /*
  ─── WYNIK ────────────────────────────────────────────────────────────────
- weekly_revenue → kalkulatory: Tygodniowy przychód ze strony testowej
+ weekly_revenue        → kalkulatory: Tygodniowy przychód ze strony testowej
+ weekly_revenue_median → to samo pole, gdy w oknie był pik sezonowy
 
  Przychód z window_weeks tygodni przed testem od użytkowników, którzy
- obejrzeli kartę produktu — tylko z zakupów PO pierwszym view_item —
- podzielony przez liczbę tygodni.
+ obejrzeli kartę produktu — tylko z zakupów PO pierwszym view_item.
+ weekly_revenue = suma / liczba tygodni; jeden tydzień z pikiem
+ (Black Friday, wyprzedaż) podnosi ją o część piku.
+ weekly_revenue_median = środkowy tydzień; pik wypada, bo leży na skraju.
+ Mediana wyraźnie niższa od średniej → w oknie był pik: do budżetu
+ bierz medianę, bo po wdrożeniu przyjdą zwykłe tygodnie, nie szczyt.
 
- Przykład (liczby poglądowe):
- weekly_revenue
- --------------
-        125 000
+ Przykład (liczby poglądowe): 4 tygodnie po 100 000 i Black Friday 225 000
+ weekly_revenue | weekly_revenue_median
+ ---------------+----------------------
+        125 000 |               100 000
 
  → Przed testem, przy danych domyślnych: w 4 tygodniach wykryjesz
    +14,35%, czyli +17 931 zł tygodniowo.
@@ -83,6 +107,14 @@ purchases AS (
    tygodniowo, najbardziej prawdopodobnie +18 878 zł.
 */
 SELECT
-  -- SUM z zera wierszy daje NULL, nie 0 — stąd IFNULL
-  CAST(ROUND(IFNULL(SUM(revenue), 0) / window_weeks) AS INT64) AS weekly_revenue
-FROM purchases;
+  CAST(ROUND(SUM(revenue) / window_weeks) AS INT64) AS weekly_revenue,
+  -- PERCENTILE_CONT to funkcja okna (wartość w każdym wierszu, OVER () = cała
+  -- tabela), więc ANY_VALUE bierze ją raz; przy parzystej liczbie tygodni
+  -- daje średnią dwóch środkowych
+  CAST(ROUND(ANY_VALUE(median_revenue)) AS INT64) AS weekly_revenue_median
+FROM (
+  SELECT
+    revenue,
+    PERCENTILE_CONT(revenue, 0.5) OVER () AS median_revenue
+  FROM weekly
+);
