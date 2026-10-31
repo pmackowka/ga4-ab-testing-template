@@ -2,7 +2,7 @@
 	Te same liczby co fct_ab_test_results, narastająco na koniec każdego tygodnia testu — pod testy
 	sekwencyjne, gdzie decyzję podejmuje się w zaplanowanych punktach kontrolnych. Przy zwykłym
 	teście z ustaloną długością to tylko podgląd: decyzja na podstawie tygodnia 2 z 4 zawyża
-	odsetek fałszywych zwycięzców (README, krok 5).
+	odsetek fałszywych zwycięzców (README w katalogu głównym, krok 5).
 
 	Stan „na koniec tygodnia w”: użytkownik ponownie wylosowany w tygodniu 3 jest w tygodniach 1–2
 	zwykłym użytkownikiem, a od tygodnia 3 trafia do excluded_mixed. Ostatni tydzień zgadza się

@@ -1,6 +1,6 @@
 # ab-test-bigquery
 
-SQL pod BigQuery (eksport GA4) do dwóch kalkulatorów testów A/B na pmdata.pl, plus [skrypty GTM](#skrypty-gtm), które losują wariant, i [projekt dbt](#dbt), który liczy wynik wszystkich testów naraz:
+SQL pod BigQuery (eksport GA4) do dwóch kalkulatorów testów A/B na pmdata.pl, plus [skrypty GTM](#skrypty-gtm), które losują wariant:
 
 - [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/) — ilu użytkowników potrzebujesz i ile tygodni potrwa test,
 - [Po teście](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/) — czy różnica jest istotna i jak duża może naprawdę być.
@@ -55,7 +55,7 @@ Konfiguracja:
 2. Tag GA4 Event `ab_assign` na zdarzeniu niestandardowym `ab_assign`, parametry `ab_test` i `ab_variant` z warstwy danych.
 3. Zmienna Custom JavaScript z `zmienna_ab_variant.js`; w tagach GA4 `view_item` i `purchase` dodaj parametry `ab_test` (stała: klucz testu, np. `ab1`) i `ab_variant` (ta zmienna).
 4. Tag `view_item`: Sekwencjonowanie tagów → najpierw tag z kroku 1. Bez tego pierwszy `view_item` może pójść, zanim ciasteczko powstanie — `03` złapie usera dopiero na `ab_assign`.
-5. Klucz testu, lista wariantów i wariant kontrolny w skrypcie = `test_name`, `variants` i `control_variant` w `03` (w dbt: wiersz w [`seeds/ab_tests.csv`](dbt/seeds/ab_tests.csv)). Konwencja: klucz ciasteczka to kolejny numer testu małymi literami (`ab1` w `01`, `ab2` w `02`, `ab3` w `03` i `04` — jeden test, więc ten sam klucz), wartości `v0` — zawsze wersja dotychczasowa (kontrola) — oraz `v1`, `v2` — warianty testowe.
+5. Klucz testu, lista wariantów i wariant kontrolny w skrypcie = `test_name`, `variants` i `control_variant` w `03`. Konwencja: klucz ciasteczka to kolejny numer testu małymi literami (`ab1` w `01`, `ab2` w `02`, `ab3` w `03` i `04` — jeden test, więc ten sam klucz), wartości `v0` — zawsze wersja dotychczasowa (kontrola) — oraz `v1`, `v2` — warianty testowe.
 
 Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wariant, zostaje w nim. Dawni `out` wchodzą do analizy od dnia rozszerzenia, ale wcześniej widzieli obecną wersję strony — gdy to przeszkadza, `INCLUDE_OUT = false` wpuszcza tylko nowych. Plan z kalkulatora Przed testem liczyłeś dla 50% ruchu — po rozszerzeniu użytkownicy zbierają się 2× szybciej, więc kończysz po pierwszym pełnym tygodniu, w którym każdy wariant ma liczbę użytkowników z planu.
 
@@ -94,48 +94,9 @@ Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wa
 - Test obejmuje tylko osoby ze zgodą na ciasteczka: tag losuje po zgodzie, a eventy bez zgody (Consent Mode) nie mają `user_pseudo_id` i zapytania je pomijają. Wynik mówi o tej grupie, nie o całym ruchu.
 - SRM zakłada podział 50/50; przy 3+ wariantach kalkulator ocenia jedną parę z kontrolą.
 - Ocena to test z (przybliżenie normalne): przy kilku konwersjach w wariancie wynik jest przybliżony, a granice zakresu są ucinane tak, żeby CR B mieścił się między 0 a 100% (spadek najwyżej −100%).
-- Wariant w `03` i w dbt pochodzi z parametrów `ab_test` i `ab_variant`, które tag GTM czyta z first-party cookie i dokleja do eventów ([artykuł](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). Konwersja liczy się z każdego `purchase` (parametr `conversion_event`) po ekspozycji, także bez parametru `ab_variant` — wariant bierze się z przypisania użytkownika, nie z eventu zakupu.
+- Wariant w `03` pochodzi z parametrów `ab_test` i `ab_variant`, które tag GTM czyta z first-party cookie i dokleja do eventów ([artykuł](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). Konwersja liczy się z każdego `purchase` (parametr `conversion_event`) po ekspozycji, także bez parametru `ab_variant` — wariant bierze się z przypisania użytkownika, nie z eventu zakupu.
 - Jeden parametr `ab_test` = jeden test na event. Przy dwóch testach naraz na tej samej stronie para `ab_test`/`ab_variant` nie pomieści obu — potrzebny osobny parametr na test.
 - Safari (ITP) skraca ciasteczka ustawione z JavaScriptu do 7 dni, także `_ga`. Gdy po tygodniu wygaśnie tylko ciasteczko testu, `excluded_mixed` to wyłapie. Gdy wygaśnie też `_ga`, ten sam człowiek wraca z nowym `user_pseudo_id` i nowym losowaniem, a zapytanie widzi dwóch użytkowników. Ciasteczka ustawiane z serwera (server-side GTM) usuwają ten problem.
-
-## dbt
-
-Folder [`dbt/`](dbt/) liczy to samo co `03`, ale dla wszystkich testów naraz i z testami danych zamiast `ASSERT`. Testy rejestrujesz w [`seeds/ab_tests.csv`](dbt/seeds/ab_tests.csv) — wiersz na test zamiast `DECLARE`. `01` i `02` zostają skryptami.
-
-```mermaid
-flowchart LR
-    G["GA4 events_*"] --> S["stg_ga4__events<br/>incremental, 3 dni wstecz"]
-    C["seed ab_tests"] --> T["stg_seeds__ab_tests"]
-    S --> E["int_ab__exposures"]
-    T --> E
-    E --> K["int_ab__conversions"]
-    E --> R["fct_ab_test_results<br/>→ kalkulator Po teście"]
-    K --> R
-    R --> W["fct_ab_test_weekly<br/>narastająco co tydzień"]
-```
-
-| `sql/03` | dbt |
-|---|---|
-| `DECLARE` | wiersz w `seeds/ab_tests.csv` |
-| tabela GA4 w dwóch miejscach | `vars` `ga4_project`, `ga4_dataset` w `dbt_project.yml` |
-| `ASSERT` poniedziałek/niedziela, kontrola na liście | `tests/assert_ab_tests_config_valid.sql` |
-| `ASSERT` 3 dni po końcu testu | kolumna `is_final` — do kalkulatora tylko wiersze z `true` |
-| `ASSERT` kompletność dni eksportu | `tests/assert_ga4_days_complete.sql` |
-| `ERROR()` wariant spoza listy / brak wariantu | test `variant_in_seed`, `tests/assert_all_variants_have_users.sql` |
-| ręczna ocena `excluded_mixed` | `tests/assert_excluded_mixed_balanced.sql` (warn) |
-| SRM w kalkulatorze | `tests/assert_srm.sql` (warn, ta sama reguła: para z kontrolą, p < 0,001) |
-
-Uruchomienie (wymaga [uv](https://docs.astral.sh/uv/) i konta serwisowego z dostępem do eksportu GA4):
-
-```bash
-cd dbt
-uv sync
-cp profiles.yml.example profiles.yml   # zmienne środowiskowe opisane w pliku
-uv run dbt deps
-uv run dbt build --profiles-dir .
-```
-
-Unit testy (`models/**/_*_unit_tests.yml`) sprawdzają logikę na zamockowanych wierszach: ponowne losowanie, zakup przed ekspozycją, zdublowany `purchase`, wariant bez użytkowników. Biegną w BigQuery, ale nie czytają GA4. CI (`.github/workflows/dbt.yml`) robi na razie tylko `dbt parse` — bez konta serwisowego nie zbuduje modeli.
 
 ## Rozbudowa: najpierw testy sekwencyjne, CUPED dopiero po pomiarze korelacji
 
@@ -145,5 +106,5 @@ Na anonimowym ruchu e-commerce testy sekwencyjne dają korzyść niezależnie od
 |---|---|---|
 | Co daje | Wcześniejszy koniec, gdy efekt jest duży albo wariant szkodzi; podglądanie bez zawyżania fałszywych alarmów | Ta sama moc przy próbie mniejszej o ρ² (ρ = 0,3 → −9%, ρ = 0,5 → −25%) |
 | Czy zysk jest pewny | Ochrona przed podglądaniem — zawsze; krótszy test — tylko przy dużym efekcie | Zależy od ρ; na ruchu anonimowym zwykle niskie |
-| Dane | Te same co `03`, narastająco tydzień po tygodniu — gotowe w dbt: `fct_ab_test_weekly` | Historia każdego użytkownika z 2–4 tygodni przed testem |
+| Dane | Te same co `03`, narastająco tydzień po tygodniu | Historia każdego użytkownika z 2–4 tygodni przed testem |
 | Złożoność / praca | Statystyka 4/5, wdrożenie 3/5, ok. 4–6 dni | Statystyka 3/5, wdrożenie 3/5, ok. 3–4 dni |
