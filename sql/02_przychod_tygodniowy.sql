@@ -3,10 +3,23 @@
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
  Test karty produktu: wejście = view_item, przychód z purchase.
+ Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
 */
 
-DECLARE window_end DATE DEFAULT DATE '2020-12-06';  -- dzień przed startem testu
+DECLARE window_end DATE DEFAULT DATE '2026-09-06';  -- niedziela przed startem testu
 DECLARE window_weeks INT64 DEFAULT 5;  -- to samo okno co max_weeks w 01; pełne tygodnie: każdy dzień tygodnia tyle samo razy
+
+ASSERT EXTRACT(DAYOFWEEK FROM window_end) = 1
+  AS 'window_end musi być niedzielą: okno z pełnych tygodni przed poniedziałkowym startem';
+-- brak dziennej tabeli (przerwa w eksporcie) zaniża przychód po cichu
+ASSERT (
+  SELECT COUNT(DISTINCT _TABLE_SUFFIX)
+  FROM `twoj-projekt.analytics_123456789.events_*`
+  WHERE _TABLE_SUFFIX BETWEEN
+      FORMAT_DATE('%Y%m%d', DATE_SUB(window_end, INTERVAL window_weeks * 7 - 1 DAY))
+    AND FORMAT_DATE('%Y%m%d', window_end)
+) = window_weeks * 7
+  AS 'brakuje dziennych tabel eksportu w oknie';
 
 WITH events AS (
   SELECT
@@ -20,8 +33,8 @@ WITH events AS (
         DATE_SUB(window_end, INTERVAL window_weeks * 7 - 1 DAY),
         DAY), 7) + 1
       AS week_no,
-    -- przykładowy eksport ma USD; własny eksport: ecommerce.purchase_revenue
-    ecommerce.purchase_revenue_in_usd AS revenue,
+    -- purchase_revenue = waluta usługi GA4 (zł); _in_usd przelicza na dolary
+    ecommerce.purchase_revenue AS revenue,
     -- brak transaction_id → każdy event to osobne zamówienie:
     -- NULLIF(x, y) zwraca NULL, gdy x = y, więc '(not set)' i '' stają się NULL,
     -- a IFNULL podstawia wtedy klucz unikalny dla eventu (user + czas)
@@ -29,7 +42,7 @@ WITH events AS (
       NULLIF(NULLIF(ecommerce.transaction_id, '(not set)'), ''),
       CONCAT(user_pseudo_id, '-', CAST(event_timestamp AS STRING))
     ) AS order_key
-  FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`
+  FROM `twoj-projekt.analytics_123456789.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE(
         '%Y%m%d',

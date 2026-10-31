@@ -2,13 +2,14 @@
  01 · PRZED TESTEM → kalkulator „Przed testem A/B”
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
  Test karty produktu: wejście = view_item, konwersja = purchase.
+ Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
 */
 
 -- poniedziałek: początek pełnych tygodni PRZED testem (bez bieżącego tygodnia);
--- domyślnie 5 tygodni 2020-11-02 – 2020-12-06, bo przykładowy test startuje 2020-12-07
-DECLARE window_start DATE DEFAULT DATE '2020-11-02';
+-- przykład: 5 tygodni 2026-08-03 – 2026-09-06 przed testem startującym 2026-09-07
+DECLARE window_start DATE DEFAULT DATE '2026-08-03';
 DECLARE max_weeks INT64 DEFAULT 5;  -- najwyżej 8: tyle co limit w kalkulatorze
-DECLARE test_start DATE DEFAULT DATE '2020-12-07';  -- pierwszy dzień testu
+DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- pierwszy dzień testu
 
 -- ASSERT przerywa skrypt z komunikatem, gdy warunek = FALSE;
 -- DAYOFWEEK w BigQuery liczy od niedzieli: 1 = niedziela, 2 = poniedziałek
@@ -19,11 +20,19 @@ ASSERT max_weeks BETWEEN 1 AND 8
 -- pierwszy dzień PO oknie (start + max_weeks × 7) musi wypaść najpóźniej w dniu startu testu
 ASSERT DATE_ADD(window_start, INTERVAL max_weeks * 7 DAY) <= test_start
   AS 'okno sięga w okres testu: przesuń window_start wstecz albo zmniejsz max_weeks';
+-- brak dziennej tabeli (przerwa w eksporcie) zaniża wynik po cichu
+ASSERT (
+  SELECT COUNT(DISTINCT _TABLE_SUFFIX)
+  FROM `twoj-projekt.analytics_123456789.events_*`
+  WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', window_start)
+    AND FORMAT_DATE('%Y%m%d', DATE_ADD(window_start, INTERVAL max_weeks * 7 - 1 DAY))
+) = max_weeks * 7
+  AS 'brakuje dziennych tabel eksportu w oknie';
 
 WITH events AS (
   -- _TABLE_SUFFIX ogranicza skanowane dni, czyli koszt zapytania;
   -- events_* to osobna tabela na każdy dzień, a _TABLE_SUFFIX to końcówka jej nazwy
-  -- ('20201102') — porównanie tekstów działa, bo format ma stałą długość
+  -- ('20260803') — porównanie tekstów działa, bo format ma stałą długość
   SELECT
     user_pseudo_id,
     event_name,
@@ -33,7 +42,7 @@ WITH events AS (
     -- +1 numeruje od 1: dni 0–6 → tydzień 1, dni 7–13 → tydzień 2
     DIV(DATE_DIFF(PARSE_DATE('%Y%m%d', event_date), window_start, DAY), 7) + 1
       AS week_no
-  FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`
+  FROM `twoj-projekt.analytics_123456789.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', window_start)
       AND FORMAT_DATE(
