@@ -40,7 +40,7 @@ Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają.
 
 ## Skrypty GTM
 
-Folder [`gtm/`](gtm/) losuje wariant w przeglądarce, zapisuje go w first-party cookie i wysyła `ab_assign` ([metoda z artykułu](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). SQL niczego nie losuje — `02` czyta wariant z parametru `ab_variant`.
+Folder [`gtm/`](gtm/) losuje wariant w przeglądarce, zapisuje go w first-party cookie i wysyła `ab_assign` ([metoda z artykułu](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). SQL niczego nie losuje — `03` czyta wariant z parametru `ab_variant`.
 
 | Plik | Klucz | Co robi | Gdzie w GTM |
 |---|---|---|---|

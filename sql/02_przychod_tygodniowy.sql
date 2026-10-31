@@ -6,7 +6,7 @@
 */
 
 DECLARE window_end DATE DEFAULT DATE '2020-12-06';  -- dzień przed startem testu
-DECLARE window_weeks INT64 DEFAULT 4;  -- pełne tygodnie: każdy dzień tygodnia tyle samo razy
+DECLARE window_weeks INT64 DEFAULT 5;  -- to samo okno co max_weeks w 01; pełne tygodnie: każdy dzień tygodnia tyle samo razy
 
 WITH events AS (
   SELECT
@@ -26,7 +26,7 @@ WITH events AS (
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE(
         '%Y%m%d',
-        -- − 1, bo BETWEEN obejmuje oba końce: 4 tygodnie = 28 dni = koniec − 27
+        -- − 1, bo BETWEEN obejmuje oba końce: 5 tygodni = 35 dni = koniec − 34
         DATE_SUB(window_end, INTERVAL window_weeks * 7 - 1 DAY)
       )
       AND FORMAT_DATE('%Y%m%d', window_end)
