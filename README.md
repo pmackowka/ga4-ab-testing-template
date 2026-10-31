@@ -25,7 +25,8 @@ flowchart LR
     S4 --> S5["5 · W trakcie<br/>nie zaglądasz<br/>do wyniku"]
     S5 --> S6["6 · SQL 03<br/>użytkownicy<br/>i konwertujący A/B"]
     S6 --> S7["7 · Kalkulator Po teście<br/>czy wdrażać B"]
-    S2 -.->|wynik z kroku 2<br/>wpisujesz też tutaj| S7
+    S2 -.->|pole „Tygodniowy przychód<br/>ze strony testowej”| S7
+    S3 -.->|blok „Dane z planu testu”:<br/>wymagani użytkownicy i MDE| S7
 ```
 
 1. **Przed testem** · [`01`](sql/01_przed_testem.sql) — wiersz z planowaną liczbą tygodni wpisujesz w Przed testem: Użytkownicy w tygodniu, Konwertujący w tygodniu.
@@ -34,7 +35,7 @@ flowchart LR
 4. **Start testu** · GTM — publikujesz tag losujący wariant ([Skrypty GTM](#skrypty-gtm)) w poniedziałek, bo `03` liczy pełne tygodnie.
 5. **W trakcie** — nie zaglądasz do wyniku.
 6. **Po teście** · [`03`](sql/03_po_tescie_warianty.sql) — wynik wpisujesz w Po teście: Użytkownicy A/B, Konwertujący A/B.
-7. **Po teście** · kalkulator — przychód wpisujesz ten sam co z kroku 2 (nie liczysz `02` ponownie): przychód z okresu testu zmienia już wariant B.
+7. **Po teście** · kalkulator — w Dane z planu testu wstawiasz z kroku 3 wymaganych użytkowników na wariant i MDE — zapisz je po kroku 3, bo „Wstaw z planu” działa tylko w tej samej karcie przeglądarki, a test trwa tygodnie; przychód wpisujesz ten sam co z kroku 2 (nie liczysz `02` ponownie): przychód z okresu testu zmienia już wariant B.
 
 Dlaczego okna, a nie jeden tydzień: test trwa kilka tygodni, a ludzie wracają. Każdy użytkownik liczy się w oknie raz, więc w oknie 4 tygodni unikalnych jest mniej niż 4 × tydzień — wartość „na tydzień” (okno / liczba tygodni) spada z długością okna. CR rośnie, bo użytkownik ma więcej czasu na zakup. Oba efekty działają w przeciwne strony, więc liczysz je na danych, w oknie tak długim jak test.
 
