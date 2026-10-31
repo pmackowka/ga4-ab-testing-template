@@ -1,122 +1,96 @@
 /*
  03 · PO TEŚCIE → kalkulator „Po teście A/B”
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
- Wariant z first-party cookie ustawianego w GTM:
- https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/
- Tagi GA4 wysyłają parametry ab_test (klucz ciasteczka = numer testu: ab1,
- ab2, ab3…) i ab_variant (wartość ciasteczka: v0 = wersja dotychczasowa,
- v1, v2 = warianty testowe) — na ab_assign i na każdym evencie, do którego
- je dodasz.
+ Liczy test z gtm/01_dwa_warianty.html (klucz ab1, v0/v1 po 50%): wariant
+ losuje tag w przeglądarce i zapisuje w first-party cookie, SQL tylko go czyta
+ (https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/). Inne tagi z gtm/:
+ zmień test_name i variants ('out' z 03/04 nie trafia do danych). Wymaga
+ konfiguracji z README, sekcja Skrypty GTM:
+ - krok 2 (obowiązkowy): tag GA4 Event ab_assign z parametrami ab_test
+   i ab_variant — z niego zapytanie wie, kto i kiedy wszedł do testu;
+ - krok 3 (zalecany): ab_test i ab_variant także na view_item i purchase —
+   bez nich excluded_mixed nie wyłapie ponownego losowania.
+ Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
 */
 
--- TRUE: przykładowy eksport GA4 nie ma testu, wariant z hasha user_pseudo_id;
--- na własnych danych ustaw FALSE — wariant z parametru ab_variant (losuje GTM)
-DECLARE demo_mode BOOL DEFAULT TRUE;
-DECLARE test_start DATE DEFAULT DATE '2020-12-07';  -- poniedziałek
-DECLARE test_end DATE DEFAULT DATE '2021-01-03';    -- niedziela
-DECLARE test_name STRING DEFAULT 'ab1';             -- ab_test = klucz ciasteczka: ab1, ab2, ab3…
-DECLARE control_variant STRING DEFAULT 'v0';       -- v0 = wersja dotychczasowa; v1, v2 = warianty testowe; brak v0 w danych = błąd
+DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- poniedziałek publikacji tagu
+DECLARE test_end DATE DEFAULT DATE '2026-10-04';    -- niedziela: ostatni dzień testu
+DECLARE test_name STRING DEFAULT 'ab1';             -- = TEST w gtm/01_dwa_warianty.html
+DECLARE control_variant STRING DEFAULT 'v0';        -- wersja dotychczasowa
+DECLARE variants ARRAY<STRING> DEFAULT ['v0', 'v1'];  -- = VARIANTS w tagu; inna wartość w danych = błąd
+DECLARE conversion_event STRING DEFAULT 'purchase';
 -- punkt ekspozycji: user wchodzi do testu na pierwszym z tych eventów z wariantem;
--- ab_assign zostaw, gdy losujesz na stronie testowej, usuń, gdy losujesz wcześniej
+-- tag z gtm/01 losuje na stronie testowej, więc ab_assign wystarcza, a view_item
+-- łapie powracających, którzy mają ciasteczko sprzed utraty _ga
 DECLARE exposure_events ARRAY<STRING> DEFAULT ['ab_assign', 'view_item'];
 
--- DAYOFWEEK w BigQuery liczy od niedzieli: 1 = niedziela, 2 = poniedziałek;
--- poniedziałek–niedziela gwarantuje pełne tygodnie
 ASSERT EXTRACT(DAYOFWEEK FROM test_start) = 2
   AS 'test_start musi być poniedziałkiem';
 ASSERT EXTRACT(DAYOFWEEK FROM test_end) = 1 AND test_end > test_start
   AS 'test_end musi być niedzielą po test_start: pełne tygodnie';
-
--- strażnik trybu demo: dane z parametrem ab_variant to prawdziwy test, a demo
--- policzyłoby wynik z symulowanego podziału zamiast z ciasteczka. IF w skrypcie
--- uruchamia zapytanie tylko przy demo_mode = TRUE — na własnych danych z FALSE
--- nic nie skanuje. Tabelę podmień w obu miejscach pliku.
-IF demo_mode THEN
-  ASSERT NOT EXISTS (
-    SELECT 1
-    FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`,
-      UNNEST(event_params) AS p
-    WHERE
-      _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', test_start)
-        AND FORMAT_DATE('%Y%m%d', test_end)
-      AND p.key = 'ab_variant'
-  ) AS 'dane mają parametr ab_variant: to prawdziwy test, ustaw demo_mode = FALSE';
-END IF;
+ASSERT control_variant IN UNNEST(variants)
+  AS 'control_variant musi być na liście variants';
+-- GA4 dopisuje zdarzenia do dziennej tabeli jeszcze do 72 h (spóźnione hity
+-- z aplikacji, przetwarzanie) — wcześniejsze uruchomienie zaniża ostatnie dni
+ASSERT test_end <= DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)
+  AS 'uruchom najwcześniej 3 dni po test_end: GA4 jeszcze dopisuje dane';
+-- brak dziennej tabeli (przerwa w eksporcie, limit) zaniża wynik po cichu;
+-- zapytanie czyta tylko pseudokolumnę _TABLE_SUFFIX, bez kolumn z danymi
+ASSERT (
+  SELECT COUNT(DISTINCT _TABLE_SUFFIX)
+  FROM `twoj-projekt.analytics_123456789.events_*`
+  WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', test_start)
+    AND FORMAT_DATE('%Y%m%d', test_end)
+) = DATE_DIFF(test_end, test_start, DAY) + 1
+  AS 'brakuje dziennych tabel eksportu w okresie testu';
 
 WITH events AS (
-  -- bez filtra na event_name: BigQuery liczy koszt od kolumn, nie wierszy,
-  -- a wariant z każdego eventu wyłapuje ponowne losowanie
+  -- bez filtra na event_name: koszt zależy od kolumn, nie wierszy, a wariant
+  -- z każdego eventu wyłapuje ponowne losowanie
   SELECT
     user_pseudo_id,
     event_name,
     event_timestamp,
-    -- event_params to tablica par {key, value}, a value ma osobne pola na typ
-    -- (string_value, int_value, double_value…). Podzapytanie robi z tablicy
-    -- jednego eventu wiersze (UNNEST), wybiera wiersz o danym kluczu i zwraca
-    -- jego tekst; brak klucza = NULL. Działa w obrębie jednego eventu, bez JOIN.
-    IF(
-      demo_mode,
-      test_name,
-      (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_test')
-    ) AS ab_test,
-    IF(
-      demo_mode,
-      -- TYLKO DEMO: symulacja przydziału, bo publiczny eksport nie ma testu.
-      -- Na własnych danych (demo_mode = FALSE) ta linia się nie wykonuje —
-      -- wariant losuje GTM, a SQL czyta go z parametru ab_variant niżej.
-      -- FARM_FINGERPRINT zamienia tekst na liczbę (hash) — zawsze tę samą
-      -- dla tego samego user_pseudo_id, więc user nie zmienia wariantu między
-      -- eventami. Hash bywa ujemny, stąd ABS; MOD(…, 2) = reszta z dzielenia
-      -- przez 2: parzyste → v0, nieparzyste → v1, czyli podział ok. 50/50
-      IF(MOD(ABS(FARM_FINGERPRINT(user_pseudo_id)), 2) = 0, 'v0', 'v1'),
-      (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_variant')
-    ) AS ab_variant
-  FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_test')
+      AS ab_test,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_variant')
+      AS ab_variant
+  FROM `twoj-projekt.analytics_123456789.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', test_start)
       AND FORMAT_DATE('%Y%m%d', test_end)
-    -- Consent Mode bez zgody wysyła eventy bez user_pseudo_id — bez filtra
-    -- GROUP BY skleiłby ich wszystkich w jednego użytkownika
+    -- Consent Mode bez zgody na analytics_storage wysyła eventy bez
+    -- user_pseudo_id; bez tego filtra wszyscy tacy userzy zlewają się
+    -- w jednego (GROUP BY NULL) z wariantem i zakupami wielu osób
     AND user_pseudo_id IS NOT NULL
 ),
 
 users_assigned AS (
   -- jeden wiersz na eksponowanego użytkownika: pierwsza ekspozycja, jej wariant
-  -- i liczba wariantów na WSZYSTKICH eventach testu (wygasłe cookie → nowe losowanie)
+  -- i liczba wariantów na wszystkich eventach testu (nowe losowanie = 2+)
   SELECT
     user_pseudo_id,
-    -- agregacja warunkowa: IF zwraca czas tylko dla eventów ekspozycji, dla
-    -- reszty NULL, a MIN pomija NULL → czas pierwszej ekspozycji;
-    -- „IN UNNEST(tablica)” sprawdza, czy event_name jest na liście
     MIN(IF(event_name IN UNNEST(exposure_events), event_timestamp, NULL))
       AS first_exposure_ts,
-    -- wariant z pierwszej ekspozycji: ARRAY_AGG zbiera warianty w tablicę
-    -- posortowaną po czasie, IGNORE NULLS pomija eventy spoza ekspozycji,
-    -- LIMIT 1 zostawia najwcześniejszy, a [SAFE_OFFSET(0)] wyjmuje go z tablicy
-    -- (NULL zamiast błędu, gdy tablica jest pusta)
     ARRAY_AGG(
       IF(event_name IN UNNEST(exposure_events), ab_variant, NULL)
       IGNORE NULLS ORDER BY event_timestamp LIMIT 1
     )[SAFE_OFFSET(0)] AS variant,
-    -- liczone ze wszystkich eventów testu, nie tylko z ekspozycji: 2+ = user
-    -- dostał nowy wariant, np. Safari skasowało ciasteczko testu po 7 dniach,
-    -- a _ga przetrwało — ten sam user_pseudo_id, nowe losowanie
     COUNT(DISTINCT ab_variant) AS variants_seen
   FROM events
   WHERE ab_test = test_name AND ab_variant IS NOT NULL
   GROUP BY user_pseudo_id
-  -- HAVING filtruje po agregacji: odpada user z wariantem, ale bez ekspozycji
   HAVING first_exposure_ts IS NOT NULL
 ),
 
 converters AS (
-  -- zakup PO pierwszej ekspozycji; DISTINCT = osoby, nie zamówienia;
-  -- zakup bez parametru też się liczy — wariant bierzemy z przypisania
+  -- konwersja PO pierwszej ekspozycji; DISTINCT = osoby, nie zamówienia, więc
+  -- zdublowany purchase (odświeżona strona podziękowania) nie zawyża wyniku
   SELECT DISTINCT u.user_pseudo_id
   FROM users_assigned AS u
   JOIN events AS p
     ON p.user_pseudo_id = u.user_pseudo_id
-    AND p.event_name = 'purchase'
+    AND p.event_name = conversion_event
     AND p.event_timestamp > u.first_exposure_ts
 )
 
@@ -129,7 +103,9 @@ converters AS (
 
  users: unikalni użytkownicy od pierwszej ekspozycji w okresie testu.
  converters: ci z nich, którzy kupili PO pierwszej ekspozycji; osoby, nie
- zamówienia. Brak control_variant w danych przerywa zapytanie błędem.
+ zamówienia. Zapytanie przerywa się błędem, gdy brakuje kontroli albo
+ wariantu albo w danych jest wariant spoza listy variants (tag z innymi
+ wartościami albo literówka w zmiennej GTM).
 
  excluded_mixed: użytkownicy z 2+ wariantami (variants_seen > 1), wyjęci
  z users i converters, bo nie wiadomo, któremu wariantowi przypisać ich
@@ -157,11 +133,12 @@ converters AS (
 */
 SELECT
   CASE
-    -- LOGICAL_OR(…) OVER () to funkcja okna liczona po GROUP BY na całym wyniku:
-    -- TRUE, gdy którykolwiek wiersz to kontrola. Gdy żaden — ERROR() przerywa
-    -- zapytanie z komunikatem, zamiast oddać wynik bez wiersza A
-    WHEN NOT LOGICAL_OR(u.variant = control_variant) OVER ()
-      THEN ERROR(FORMAT("brak wariantu kontrolnego '%s' w danych", control_variant))
+    -- funkcje okna po GROUP BY widzą cały wynik: brak któregoś wariantu
+    -- albo obcy wariant przerywa zapytanie, zamiast oddać niepełny wynik
+    WHEN LOGICAL_OR(u.variant NOT IN UNNEST(variants)) OVER ()
+      THEN ERROR('w danych jest wariant spoza listy variants — sprawdź tag i zmienną GTM')
+    WHEN COUNT(*) OVER () < ARRAY_LENGTH(variants)
+      THEN ERROR(FORMAT('w danych brakuje wariantu z listy %t', variants))
     WHEN u.variant = control_variant THEN 'A (kontrola)'
     ELSE CONCAT('B (wariant ', u.variant, ')')
   END AS calculator_field,
@@ -172,5 +149,4 @@ FROM users_assigned AS u
 LEFT JOIN converters AS c
   USING (user_pseudo_id)
 GROUP BY u.variant
--- porównanie daje TRUE/FALSE; DESC stawia TRUE (kontrolę) na górze
 ORDER BY u.variant = control_variant DESC, u.variant;
