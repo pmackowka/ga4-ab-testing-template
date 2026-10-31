@@ -7,6 +7,8 @@ SQL pod BigQuery (eksport GA4) do dwóch kalkulatorów testów A/B na pmdata.pl,
 
 Scenariusz: e-commerce testuje kartę produktu. Wejście do testu to `view_item`, konwersja to `purchase`. Każde zapytanie zwraca kolumny do wpisania w kalkulator (`03` dodatkowo kontrolę jakości `excluded_mixed`); opis i przykład wyniku stoją tuż nad końcowym `SELECT`.
 
+Wynik `03` dla wszystkich testów naraz, z testami danych, liczy też projekt dbt — konfiguracja i działanie w osobnym [README](dbt/README.md).
+
 ## Szybki start
 
 1. Podmień `twoj-projekt.analytics_123456789.events_*` na swój eksport GA4 — w każdym pliku w dwóch miejscach.
