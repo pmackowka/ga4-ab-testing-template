@@ -8,7 +8,7 @@
 (function () {
   var TEST = 'ab1';             // klucz ciasteczka = ab_test = test_name w sql/03; kolejne testy: ab2, ab3…
   var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa (kontrola), v1 = wariant testowy
-  var DAYS = 30;                // Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
+  var DAYS = 60;                // > najdłuższy test (8 tyg.); Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
 
   function getCookie(name) {
     var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
