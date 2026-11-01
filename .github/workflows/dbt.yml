@@ -60,19 +60,23 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # ta sama grupa co harmonogram (dbt-build.yml): dwa przebiegi naraz nadpisywałyby te same partycje
+    # Ta sama grupa co harmonogram (dbt-build.yml): dwa przebiegi naraz nadpisywałyby te same partycje.
+    # Grupa NIE kolejkuje: czeka najwyżej jeden przebieg, a nowszy anuluje starszy oczekujący.
+    # Anulowany deploy nic nie gubi, bo baza porównania to ostatni UDANY przebieg (krok niżej);
+    # anulowany cron nadrobi następny dzień, bo staging nadpisuje 3 dni wstecz.
     concurrency:
       group: dbt-prod
       cancel-in-progress: false
     permissions:
       contents: read
+      actions: read    # gh run list — ostatni udany przebieg jako baza porównania
       id-token: write
     env:
       BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # pełna historia, żeby odtworzyć stan sprzed pushu
+          fetch-depth: 0  # pełna historia, żeby odtworzyć stan z bazy porównania
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -81,17 +85,29 @@ jobs:
       - run: uv sync --locked
       - run: cp profiles.yml.example profiles.yml
       - run: uv run dbt deps
-      # Manifest sprzed pushu bez trzymania go w buckecie: dbt parse wersji z github.event.before.
-      # Parse nie łączy się z BigQuery. Gdy tamta wersja nie miała projektu dbt, manifestu nie będzie
-      # i krok niżej zbuduje całość.
-      - name: manifest sprzed pushu
+      # Baza = commit ostatniego udanego przebiegu tego workflow z pushu na main, nie github.event.before:
+      # gdy poprzedni deploy padł albo został anulowany, jego zmiany wejdą teraz razem z bieżącymi.
+      # Manifest bazy daje dbt parse tamtej wersji — bez bucketu i bez zapytań do BigQuery.
+      # Błąd parse zatrzymuje deploy: bez manifestu poleciałby cały projekt na prod.
+      - name: manifest ostatniego udanego deployu
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          BASE=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow dbt.yml --branch main \
+            --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
           PREV="$RUNNER_TEMP/prev"
-          git worktree add "$PREV" "${{ github.event.before }}"
-          if [ -d "$PREV/dbt" ]; then
-            cd "$PREV/dbt"
-            "$GITHUB_WORKSPACE/dbt/.venv/bin/dbt" deps
-            "$GITHUB_WORKSPACE/dbt/.venv/bin/dbt" parse --target prod_ci --profiles-dir "$GITHUB_WORKSPACE/dbt" || true
+          if [ -z "$BASE" ]; then
+            echo "::notice::Brak udanego deployu — pierwszy deploy buduje cały projekt."
+          else
+            echo "Baza porównania: $BASE"
+            git worktree add "$PREV" "$BASE"
+            if [ -f "$PREV/dbt/dbt_project.yml" ]; then
+              cd "$PREV/dbt"
+              "$GITHUB_WORKSPACE/dbt/.venv/bin/dbt" deps
+              "$GITHUB_WORKSPACE/dbt/.venv/bin/dbt" parse --target prod_ci --profiles-dir "$GITHUB_WORKSPACE/dbt"
+            else
+              echo "::notice::Baza $BASE nie ma projektu dbt — deploy buduje cały projekt."
+            fi
           fi
       - name: dbt build zmienionych modeli
         run: |
@@ -100,10 +116,12 @@ jobs:
           EXCLUDE=""
           if [ -f "$STATE/manifest.json" ]; then
             SELECT="--select state:modified+ --state $STATE"
-            # zmiana logiki modelu incremental wymaga --full-refresh (pełny skan GA4) — tej decyzji
-            # automat nie podejmuje: pomija staging i każe odpalić harmonogram z full_refresh
+            # Zmieniony plik stagingu wymaga --full-refresh (pełny skan GA4) — tej decyzji deploy
+            # nie podejmuje: pomija staging, a przyrostowy cron zatrzyma się na strażniku w modelu,
+            # dopóki ktoś nie odpali harmonogramu z full_refresh. state:modified.body = zmiana pliku,
+            # tak jak suma kontrolna strażnika; sama zmiana konfiguracji projektu go nie rusza.
             if uv run dbt --quiet ls --target prod_ci --profiles-dir . --resource-type model \
-                --select state:modified --state "$STATE" --output name | grep -qx stg_ga4__events; then
+                --select state:modified.body --state "$STATE" --output name | grep -qx stg_ga4__events; then
               echo "::warning::stg_ga4__events zmieniony — deploy go pomija. Odpal Actions → dbt build → Run workflow z full_refresh."
               EXCLUDE="--exclude stg_ga4__events"
             fi

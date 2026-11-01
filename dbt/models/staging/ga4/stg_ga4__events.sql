@@ -11,6 +11,13 @@
 
 	hours_to_expiration=none — nadpisuje 1 h z dbt_project.yml; inaczej w dev tabela znika przed
 	kolejnym przebiegiem i ścieżka incremental nigdy się nie wykonuje.
+
+	Strażnik logiki: przyrostowy przebieg z NOWĄ logiką nadpisałby tylko ostatnie dni i zostawił
+	w tabeli mieszankę starej i nowej logiki, bez błędu. Dlatego post_hook zapisuje w etykiecie
+	tabeli sumę kontrolną tego pliku, a przebieg przyrostowy z inną sumą przerywa się błędem —
+	niezależnie od tego, czy odpala go deploy, harmonogram czy laptop. Pełny rebuild
+	(--full-refresh) ustawia nową sumę. Suma liczy się z całego pliku, więc zmiana samego
+	komentarza też wymaga --full-refresh.
 #}
 {%- set lookback_days = 3 -%}
 
@@ -20,6 +27,7 @@
 		incremental_strategy='insert_overwrite',
 		hours_to_expiration=none,
 		on_schema_change='append_new_columns',
+		post_hook="ALTER TABLE {{ this }} SET OPTIONS (labels = [('logic_checksum', '{{ model.checksum.checksum[:40] }}')])",
 		partition_by={
 			"field": "event_date",
 			"data_type": "date",
@@ -27,6 +35,23 @@
 		}
 	)
 }}
+
+{%- if execute and is_incremental() %}
+	{%- set label_sql %}
+		SELECT REGEXP_EXTRACT(option_value, r'"logic_checksum", "([0-9a-f]+)"')
+		FROM `{{ this.database }}`.`{{ this.schema }}`.INFORMATION_SCHEMA.TABLE_OPTIONS
+		WHERE table_name = '{{ this.identifier }}' AND option_name = 'labels'
+	{%- endset %}
+	{%- set stored_checksum = run_query(label_sql).columns[0].values() | first %}
+	{%- if stored_checksum != model.checksum.checksum[:40] %}
+		{{ exceptions.raise_compiler_error(
+			"stg_ga4__events: logika modelu zmieniła się od ostatniego pełnego rebuildu. "
+			~ "Przyrostowy przebieg zostawiłby mieszankę starej i nowej logiki. "
+			~ "Odpal dbt build -s stg_ga4__events+ --full-refresh "
+			~ "(GitHub: Actions → dbt build → Run workflow → full_refresh)."
+		) }}
+	{%- endif %}
+{%- endif %}
 
 WITH source AS (
 	SELECT

@@ -104,7 +104,9 @@ flowchart LR
 `--full-refresh -s stg_ga4__events` jest potrzebny, gdy:
 - dodajesz test z `conversion_event`, którego nie ma jeszcze żaden test — staging trzyma tylko znane eventy konwersji;
 - przesuwasz `ga4_start_date` wstecz;
-- zmieniasz logikę stagingu.
+- zmieniasz plik stagingu.
+
+Ostatni przypadek pilnuje strażnik w modelu. Przyrostowy przebieg z nową logiką nadpisałby tylko ostatnie 3 dni i zostawił w tabeli mieszankę starej i nowej logiki, bez błędu. Dlatego każdy build zapisuje w etykiecie tabeli (`logic_checksum`) sumę kontrolną pliku modelu, a przebieg przyrostowy z inną sumą przerywa się błędem z instrukcją `--full-refresh`. Działa to dla deployu, harmonogramu i uruchomień lokalnych. Suma liczy się z całego pliku, więc zmiana samego komentarza też wymaga pełnego rebuildu.
 
 Limit kosztu: `maximum_bytes_billed` 10 GiB w dev, 100 GiB w prod. Zapytanie ponad limit pada bez opłaty. Przy dużym ruchu pełny rebuild może go przekroczyć — wtedy podnieś limit świadomie, zamiast go usuwać.
 
@@ -160,9 +162,9 @@ Alternatywy dla GitHub Actions:
 [`.github/workflows/dbt.yml`](../.github/workflows/dbt.yml) to trzy joby po kolei — każdy startuje tylko, gdy poprzedni przeszedł:
 1. **parse** — SQL, Jinja, YAML i `ref()`, bez BigQuery.
 2. **unit-tests** — `dbt build --empty` buduje seed i modele bez wierszy (unit testy biorą z nich typy kolumn), potem `dbt test --select test_type:unit`. Dataset `dbt_ci_ab_testing`, tabele wygasają po godzinie. Pod `--empty` staging pomija filtry na `_TABLE_SUFFIX`, bo dbt owija źródło w podzapytanie bez pseudokolumn.
-3. **deploy** (tylko push na `main`) — `dbt parse` wersji sprzed pushu daje manifest do porównania, a `dbt build --select state:modified+` buduje to, co się zmieniło, i wszystko za tym. Zmiana w `dbt_project.yml` dotyka konfiguracji każdego modelu, więc przebuduje całość. Zmieniony `stg_ga4__events` jest pomijany z ostrzeżeniem: zmiana logiki modelu incremental wymaga `--full-refresh`, czyli pełnego skanu GA4 — odpalasz go ręcznie: Actions → dbt build → Run workflow → `full_refresh`.
+3. **deploy** (tylko push na `main`) — bazą porównania jest commit ostatniego udanego przebiegu tego workflow, a nie commit sprzed pushu. Dzięki temu zmiany z deployu, który padł albo został anulowany, wchodzą z kolejnym. `dbt parse` tamtej wersji daje manifest, a `dbt build --select state:modified+` buduje to, co się zmieniło, i wszystko za tym. Błąd parse zatrzymuje deploy, żeby nie poleciał cały projekt. Zmiana w `dbt_project.yml` dotyka konfiguracji każdego modelu, więc przebuduje całość. Zmieniony plik `stg_ga4__events` (`state:modified.body`) jest pomijany z ostrzeżeniem, a przyrostowy cron zatrzyma się na strażniku logiki, dopóki nie odpalisz pełnego rebuildu: Actions → dbt build → Run workflow → `full_refresh`.
 
-Deploy i harmonogram są w jednej grupie `concurrency`, więc nie nadpisują partycji jednocześnie. CI i deploy czytają GA4 z `vars` w `dbt_project.yml` — przed pierwszym pushem wpisz tam prawdziwy projekt i dataset.
+Deploy i harmonogram są w jednej grupie `concurrency`, więc nie nadpisują partycji jednocześnie. Grupa nie kolejkuje: czeka najwyżej jeden przebieg, a nowszy anuluje starszy oczekujący. Anulowany deploy nic nie gubi (baza to ostatni udany), a anulowany cron nadrobi następny dzień. CI i deploy czytają GA4 z `vars` w `dbt_project.yml` — przed pierwszym pushem wpisz tam prawdziwy projekt i dataset.
 
 ### Harmonogram i konfiguracja GCP
 
@@ -207,4 +209,5 @@ Gdy eksport GA4 leży w innym projekcie, rolę `roles/bigquery.dataViewer` nadaj
 - Czy filtr przyrostowy na `_TABLE_SUFFIX` ze zmienną `_dbt_max_partition` ogranicza, ile tabel dziennych czyta BigQuery. Sprawdzisz to w `total_bytes_billed` drugiego przebiegu w `INFORMATION_SCHEMA.JOBS`.
 - Unit testy i modele nie były jeszcze uruchomione na BigQuery — dotąd przechodzi tylko `dbt parse`.
 - Workflow `dbt-build.yml` i joby `unit-tests`/`deploy` nie przeszły jeszcze ani jednego przebiegu — pierwszy harmonogram odpal ręcznie po konfiguracji WIF.
-- Czy `flags.EMPTY` w Jinja stagingu wyłącza filtry `_TABLE_SUFFIX` pod `--empty`. Porównanie stanu w deployu sprawdziłem lokalnie (`dbt ls --select state:modified`).
+- Czy `flags.EMPTY` w Jinja stagingu wyłącza filtry `_TABLE_SUFFIX` pod `--empty`. Porównanie stanu w deployu sprawdziłem lokalnie (`dbt ls --select state:modified.body` i `state:modified+`).
+- Strażnik logiki stagingu: zapis etykiety w `post_hook` i jej odczyt z `INFORMATION_SCHEMA.TABLE_OPTIONS` — składnia przechodzi `dbt parse`, ale na BigQuery nie był uruchomiony.

@@ -13,11 +13,12 @@ on:
   workflow_dispatch:  # ręczne uruchomienie z zakładki Actions
     inputs:
       full_refresh:
-        description: "Pełny rebuild (--full-refresh) — po zmianie stg_ga4__events; czyta GA4 od ga4_start_date"
+        description: "Pełny rebuild (--full-refresh) — po zmianie stg_ga4__events, inaczej staging zatrzyma się na strażniku logiki; czyta GA4 od ga4_start_date"
         type: boolean
         default: false
 
-# dwa przebiegi naraz nadpisywałyby te same partycje
+# Dwa przebiegi naraz nadpisywałyby te same partycje. Grupa nie kolejkuje: czeka najwyżej jeden
+# przebieg, nowszy (np. deploy) anuluje oczekujący cron — dzień nadrobi następny przebieg.
 concurrency:
   group: dbt-prod
   cancel-in-progress: false
