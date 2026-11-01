@@ -148,10 +148,10 @@ flowchart LR
 | `dbt.yml` | `deploy` | continuous deployment | zielony `unit-tests`, tylko push na `main` | `state:modified+` na prod: zmienione modele i wszystko za nimi, bez zmienionego `stg_ga4__events` |
 | `dbt-build.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (opcja `full_refresh`) | cały projekt na prod z ostatniego commita, dla którego `dbt.yml` był zielony; bez unit testów |
 
-- Czerwony job zatrzymuje kolejne, a harmonogram buduje ostatni zielony commit — prod zostaje na dobrym kodzie i dostaje świeże dane. Bez żadnego zielonego przebiegu harmonogram kończy się błędem.
-- `deploy` i harmonogram dzielą grupę `concurrency: dbt-prod`: nigdy naraz, czeka najwyżej jeden przebieg, nowszy anuluje starszy oczekujący.
-- Po zmianie `stg_ga4__events` deploy ją pomija z ostrzeżeniem, a harmonogram staje na strażniku, dopóki nie odpalisz Actions → dbt build → Run workflow → `full_refresh`.
-- Continuous delivery (prod po kliknięciu „Approve”) to tylko benchmark: przy jednej osobie pushującej na `main` zatwierdzałbyś własny commit.
+- Czerwone CI: prod zostaje na ostatnim zielonym kodzie, ale dostaje świeże dane.
+- `deploy` i `build` dzielą grupę `concurrency: dbt-prod` — nigdy naraz; nowszy anuluje oczekujący.
+- Zmiana `stg_ga4__events` czeka na Actions → dbt build → Run workflow → `full_refresh`.
+- Continuous delivery (prod po „Approve”) tylko jako benchmark — zatwierdzałbyś własny commit.
 - Alternatywy: GitLab CI/CD i Bitbucket Pipelines (ten sam model YAML), dbt Cloud (wszystko wbudowane, płatny dla zespołu), Jenkins (własny serwer i wtyczki).
 
 ### Konfiguracja GCP
