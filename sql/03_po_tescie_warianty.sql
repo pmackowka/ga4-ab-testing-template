@@ -8,14 +8,17 @@
  konfiguracji z README, sekcja Skrypty GTM:
  - krok 2 (obowiązkowy): tag GA4 Event ab_assign z parametrami ab_test
    i ab_variant — z niego zapytanie wie, kto i kiedy wszedł do testu;
- - krok 3 (zalecany): ab_test i ab_variant także na view_item i purchase —
-   bez nich excluded_mixed nie wyłapie ponownego losowania.
+ - krok 3 (zalecany): parametr o nazwie slotu (ab1…ab10) z wariantem na
+   wszystkich eventach — bez niego view_item nie jest ekspozycją, a
+   excluded_mixed nie wyłapie ponownego losowania.
+ Testy w innych slotach mogą trwać równolegle: zapytanie czyta tylko
+ parametr test_name, a z ab_assign tylko ten z ab_test = test_name.
  Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
 */
 
 DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- poniedziałek publikacji tagu
 DECLARE test_end DATE DEFAULT DATE '2026-10-04';    -- niedziela: ostatni dzień testu
-DECLARE test_name STRING DEFAULT 'ab1';             -- = TEST w gtm/01_dwa_warianty.html
+DECLARE test_name STRING DEFAULT 'ab1';             -- slot = TEST w tagu = nazwa parametru eventu
 DECLARE control_variant STRING DEFAULT 'v0';        -- wersja dotychczasowa
 DECLARE variants ARRAY<STRING> DEFAULT ['v0', 'v1'];  -- = VARIANTS w tagu; inna wartość w danych = błąd
 DECLARE conversion_event STRING DEFAULT 'purchase';
@@ -51,10 +54,18 @@ WITH events AS (
     user_pseudo_id,
     event_name,
     event_timestamp,
-    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_test')
-      AS ab_test,
-    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_variant')
-      AS ab_variant
+    -- ab_assign przypisuje do jednego testu: wariant tylko, gdy ab_test to nasz
+    -- slot (parametry slotów na ab_assign należą do innych testów); pozostałe
+    -- eventy niosą wariant w parametrze o nazwie slotu
+    IF(
+      event_name = 'ab_assign',
+      IF(
+        (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_test') = test_name,
+        (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_variant'),
+        NULL
+      ),
+      (SELECT value.string_value FROM UNNEST(event_params) WHERE key = test_name)
+    ) AS ab_variant
   FROM `twoj-projekt.analytics_123456789.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', test_start)
@@ -78,7 +89,7 @@ users_assigned AS (
     )[SAFE_OFFSET(0)] AS variant,
     COUNT(DISTINCT ab_variant) AS variants_seen
   FROM events
-  WHERE ab_test = test_name AND ab_variant IS NOT NULL
+  WHERE ab_variant IS NOT NULL
   GROUP BY user_pseudo_id
   HAVING first_exposure_ts IS NOT NULL
 ),

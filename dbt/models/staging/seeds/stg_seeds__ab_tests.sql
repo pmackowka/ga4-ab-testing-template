@@ -1,5 +1,7 @@
 -- Rejestr testów z listami jako ARRAY — modele niżej używają IN UNNEST zamiast parsować tekst.
 SELECT
+	-- slot (test_name) wraca w kolejnych testach, więc kluczem jest slot + przebieg (= RUN w tagu)
+	CONCAT(test_name, '_', FORMAT_DATE('%Y%m%d', test_start)) AS test_id,
 	test_name,
 	test_start,
 	test_end,

@@ -11,12 +11,16 @@ models:
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: [test_name, variant]
+            combination_of_columns: [test_id, variant]
     columns:
-      - name: test_name
+      - name: test_id
+        description: Klucz testu — slot i przebieg, np. ab1_20260907.
         data_type: string
         constraints:
           - type: not_null
+      - name: test_name
+        description: Slot testu (ab1–ab10).
+        data_type: string
       - name: variant
         data_type: string
         constraints:
@@ -52,11 +56,13 @@ models:
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: [test_name, variant, week_no]
+            combination_of_columns: [test_id, variant, week_no]
     columns:
-      - name: test_name
+      - name: test_id
         data_tests:
           - not_null
+      - name: test_name
+        description: Slot testu (ab1–ab10).
       - name: variant
         data_tests:
           - not_null

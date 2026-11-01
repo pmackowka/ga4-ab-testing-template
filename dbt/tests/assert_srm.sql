@@ -12,7 +12,7 @@
 
 WITH pairs AS (
 	SELECT
-		v.test_name,
+		v.test_id,
 		v.variant,
 		c.users AS users_control,
 		v.users AS users_variant,
@@ -20,7 +20,7 @@ WITH pairs AS (
 
 	FROM {{ ref('fct_ab_test_results') }} AS v
 	JOIN {{ ref('fct_ab_test_results') }} AS c
-		ON c.test_name = v.test_name
+		ON c.test_id = v.test_id
 		AND c.is_control
 	WHERE NOT v.is_control
 )

@@ -1,15 +1,18 @@
 /*
- Zmienna GTM → Custom JavaScript, nazwa np. „CJS - ab1” — jedna kopia na test.
- Wstaw ją jako parametr ab_variant w tagach GA4 (view_item, purchase…),
- a obok parametr ab_test = stała z kluczem testu (ab1). Zwraca wariant z ciasteczka
- albo undefined — wtedy GA4 nie wysyła parametru, więc 'out', brak ciasteczka
- i śmieciowe wartości nie trafią do analizy w sql/03.
- Przy teście 3-wariantowym (ab2) ustaw TEST = 'ab2' i dopisz 'v2' do VALID.
+ Zmienna GTM → Custom JavaScript, nazwa np. „CJS - ab1” — jedna kopia na slot
+ (ab1–ab10). W zmiennej „Ustawienia zdarzeń Google tag” dodaj wiersz:
+ parametr ab1 = {{CJS - ab1}} (i tak dla każdego slotu) — wtedy każdy event GA4
+ niesie wariant każdego testu, w którym jest użytkownik, pod nazwą slotu.
+ Zwraca wariant z ciasteczka albo undefined — wtedy GA4 nie wysyła parametru,
+ więc 'out', ciasteczko poprzedniego testu w slocie (inny RUN), brak ciasteczka
+ i śmieciowe wartości nie trafią do analizy.
+ Nowy test w slocie: zmień RUN i VALID tu i w tagu losującym.
 */
 function () {
-  var TEST = 'ab1';             // klucz ciasteczka: ab1, ab2, ab3… — jedna zmienna na test
-  var VALID = ['v0', 'v1'];
+  var TEST = 'ab1';             // slot = nazwa ciasteczka i parametru GA4
+  var RUN = '20260907';         // = RUN w tagu losującym tego slotu
+  var VALID = ['v0', 'v1'];     // = VARIANTS w tagu
   var m = document.cookie.match(new RegExp('(?:^|; )' + TEST + '=([^;]*)'));
-  var value = m ? decodeURIComponent(m[1]) : undefined;
-  return VALID.indexOf(value) > -1 ? value : undefined;
+  var parts = m ? decodeURIComponent(m[1]).split('.') : [];
+  return parts[1] === RUN && VALID.indexOf(parts[0]) > -1 ? parts[0] : undefined;
 }

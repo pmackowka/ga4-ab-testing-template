@@ -12,14 +12,14 @@
 {{ config(severity='warn') }}
 
 SELECT
-	v.test_name,
+	v.test_id,
 	v.variant,
 	c.excluded_mixed AS excluded_mixed_control,
 	v.excluded_mixed AS excluded_mixed_variant
 
 FROM {{ ref('fct_ab_test_results') }} AS v
 JOIN {{ ref('fct_ab_test_results') }} AS c
-	ON c.test_name = v.test_name
+	ON c.test_id = v.test_id
 	AND c.is_control
 WHERE NOT v.is_control
 	AND ABS(v.excluded_mixed - c.excluded_mixed) > 2 * SQRT(v.excluded_mixed + c.excluded_mixed)

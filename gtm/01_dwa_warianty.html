@@ -6,7 +6,8 @@
  cookie i wysyła ab_assign do dataLayer — z niego liczy sql/03.
 */
 (function () {
-  var TEST = 'ab1';             // klucz ciasteczka = ab_test = test_name w sql/03; kolejne testy: ab2, ab3…
+  var TEST = 'ab1';             // slot ab1–ab10 = nazwa ciasteczka i parametru GA4 = test_name w sql/03 i seedzie
+  var RUN = '20260907';         // przebieg = test_start z seeda (RRRRMMDD); nowy test w tym slocie = nowy RUN
   var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa (kontrola), v1 = wariant testowy
   var DAYS = 60;                // > najdłuższy test (8 tyg.); Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
 
@@ -22,13 +23,20 @@
       (location.protocol === 'https:' ? '; Secure' : '');
   }
 
+  // ciasteczko = wariant.RUN; ciasteczko z poprzedniego testu w tym slocie
+  // (inny RUN) traktujemy jak brak przydziału, więc slot można użyć ponownie
+  function getAssignment() {
+    var parts = (getCookie(TEST) || '').split('.');
+    return parts[1] === RUN ? parts[0] : null;
+  }
+
   // user ma już wariant — nie losuj ponownie, bo przeskoczyłby do innej grupy
-  if (getCookie(TEST)) return;
+  if (getAssignment()) return;
 
   // Math.random() daje liczbę z [0, 1); × liczba wariantów i zaokrąglenie
   // w dół daje indeks 0 albo 1 z równym prawdopodobieństwem
   var variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
-  setCookie(TEST, variant, DAYS);
+  setCookie(TEST, variant + '.' + RUN, DAYS);
 
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event: 'ab_assign', ab_test: TEST, ab_variant: variant });

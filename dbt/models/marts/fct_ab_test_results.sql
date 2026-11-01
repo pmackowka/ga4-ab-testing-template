@@ -10,7 +10,7 @@ WITH tests AS (
 
 seed_variants AS (
 	SELECT
-		t.test_name,
+		t.test_id,
 		variant
 
 	FROM tests AS t
@@ -21,7 +21,7 @@ observed AS (
 	-- users i converters bez ponownie wylosowanych: nie wiadomo, któremu wariantowi przypisać ich
 	-- zakup. excluded_mixed to kontrola jakości — opis progu w tests/assert_excluded_mixed_balanced.sql
 	SELECT
-		x.test_name,
+		x.test_id,
 		x.variant,
 		COUNTIF(x.variants_seen = 1) AS users,
 		COUNTIF(x.variants_seen = 1 AND c.user_pseudo_id IS NOT NULL) AS converters,
@@ -29,12 +29,13 @@ observed AS (
 
 	FROM {{ ref('int_ab__exposures') }} AS x
 	LEFT JOIN {{ ref('int_ab__conversions') }} AS c
-		USING (test_name, user_pseudo_id)
-	GROUP BY x.test_name, x.variant
+		USING (test_id, user_pseudo_id)
+	GROUP BY x.test_id, x.variant
 )
 
 SELECT
-	test_name,
+	test_id,
+	t.test_name,
 	variant,
 	variant = t.control_variant AS is_control,
 	IF(variant = t.control_variant, 'A (kontrola)', CONCAT('B (wariant ', variant, ')'))
@@ -46,6 +47,6 @@ SELECT
 
 FROM seed_variants
 FULL JOIN observed AS o
-	USING (test_name, variant)
+	USING (test_id, variant)
 JOIN tests AS t
-	USING (test_name)
+	USING (test_id)

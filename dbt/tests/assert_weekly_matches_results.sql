@@ -1,7 +1,7 @@
 -- Ostatni tydzień fct_ab_test_weekly musi dać te same liczby co fct_ab_test_results — inaczej
 -- jeden z modeli inaczej liczy wykluczenia albo konwersje. Wiersz = rozjazd.
 SELECT
-	r.test_name,
+	r.test_id,
 	r.variant,
 	r.users,
 	w.users AS users_weekly,
@@ -12,9 +12,9 @@ SELECT
 
 FROM {{ ref('fct_ab_test_results') }} AS r
 JOIN {{ ref('stg_seeds__ab_tests') }} AS t
-	USING (test_name)
+	USING (test_id)
 JOIN {{ ref('fct_ab_test_weekly') }} AS w
-	ON w.test_name = r.test_name
+	ON w.test_id = r.test_id
 	AND w.variant = r.variant
 	AND w.week_end = t.test_end
 WHERE r.users != w.users

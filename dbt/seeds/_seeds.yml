@@ -6,14 +6,15 @@ seeds:
       Rejestr testów A/B — jeden wiersz na test, zamiast DECLARE w sql/03. Nowy test = nowy wiersz.
       Listy rozdziela „|”, bo CSV nie ma typu tablicowego; stg_seeds__ab_tests robi z nich ARRAY.
       Wiersze odpowiadają tagom z gtm/: ab1 = 01_dwa_warianty, ab2 = 02_trzy_warianty,
-      ab3 = 03_dwa_warianty_50_procent i 04_rozszerzenie_do_100_procent (jeden test, ten sam klucz;
-      'out' nie ma ab_variant, więc nie ma go w variants). Testy idą po sobie, bo jeden parametr
-      ab_test na evencie mieści tylko jeden test naraz na tej samej stronie.
+      ab3 = 03_dwa_warianty_50_procent i 04_rozszerzenie_do_100_procent (jeden test, ten sam
+      klucz i RUN), ab4 = tag 01 z TEST = 'ab4' na checkoucie, równolegle z ab3 na karcie produktu.
+      Slot (test_name) wraca cyklicznie ab1…ab10 — kolejny test w slocie to nowy wiersz z nowym
+      test_start, który jest też RUN w tagu GTM; okna w jednym slocie nie mogą się nakładać.
     columns:
       - name: test_name
-        description: Klucz testu, = TEST w tagu GTM i parametr ab_test w GA4.
+        description: Slot ab1–ab10, = TEST w tagu GTM i nazwa parametru eventu GA4.
       - name: test_start
-        description: Poniedziałek publikacji tagu.
+        description: Poniedziałek publikacji tagu; w formacie RRRRMMDD to RUN w tagu i zmiennej GTM.
       - name: test_end
         description: Niedziela, ostatni dzień testu.
       - name: control_variant
@@ -24,7 +25,7 @@ seeds:
         description: >
           Nazwa eventu GA4 liczonego jako konwersja. Nowa nazwa, której nie ma jeszcze żaden test,
           wymaga `dbt build --full-refresh -s stg_ga4__events`: staging trzyma tylko eventy
-          z parametrem ab_test i eventy konwersji z tego seeda.
+          z wariantem dowolnego testu i eventy konwersji z tego seeda.
       - name: exposure_events
         description: >
           Eventy rozdzielone „|”, na których użytkownik wchodzi do testu (pierwszy z wariantem).

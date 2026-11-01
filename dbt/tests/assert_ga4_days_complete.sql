@@ -5,7 +5,7 @@
 #}
 WITH tests AS (
 	SELECT
-		test_name,
+		test_id,
 		test_start,
 		LEAST(test_end, DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)) AS checked_end
 
@@ -21,7 +21,7 @@ export_days AS (
 )
 
 SELECT
-	t.test_name,
+	t.test_id,
 	day AS missing_day
 
 FROM tests AS t

@@ -3,8 +3,9 @@ version: 2
 models:
   - name: stg_ga4__events
     description: >
-      Eventy GA4 z parametrem ab_test oraz eventy konwersji z seeda, bez użytkowników bez
-      user_pseudo_id. Partycje dzienne, ostatnie 3 dni nadpisywane przy każdym przebiegu.
+      Jeden wiersz na event i test: eventy z wariantem dowolnego testu (parametr slotu albo
+      ab_assign) oraz eventy konwersji z seeda, bez użytkowników bez user_pseudo_id.
+      Partycje dzienne, ostatnie 3 dni nadpisywane przy każdym przebiegu.
     columns:
       - name: event_date
         description: Dzień z sufiksu tabeli eksportu (strefa czasowa usługi GA4).
@@ -21,6 +22,6 @@ models:
       - name: event_name
         description: Nazwa eventu GA4.
       - name: ab_test
-        description: Parametr ab_test — klucz testu z tagu GTM.
+        description: Slot testu — z ab_test na ab_assign, z nazwy parametru (ab1…ab10) na pozostałych eventach; NULL dla konwersji bez testu.
       - name: ab_variant
-        description: Parametr ab_variant — wylosowany wariant.
+        description: Wariant — z ab_variant na ab_assign, z wartości parametru slotu na pozostałych eventach.

@@ -57,14 +57,19 @@ Jeden wiersz to jeden test. Nowy test dodajesz nowym wierszem, a potem uruchamia
 
 ```csv
 test_name,test_start,test_end,control_variant,variants,conversion_event,exposure_events
-ab1,2026-09-07,2026-10-04,v0,v0|v1,purchase,ab_assign|view_item
+ab3,2026-11-02,2026-12-13,v0,v0|v1,purchase,ab_assign|view_item
+ab4,2026-11-02,2026-11-29,v0,v0|v1,purchase,ab_assign|begin_checkout
 ```
+
+`test_name` to slot `ab1`–`ab10`, który wraca w kolejnych testach. Kluczem jest więc `test_id` = slot + `test_start` (np. `ab1_20260907`), a `test_start` w formacie RRRRMMDD to `RUN` w tagu GTM. Testy w różnych slotach mogą się nakładać, jak `ab3` i `ab4` wyżej. Ekspozycję wyznacza `exposure_events`: `view_item` z parametrem `ab4` nie wciąga nikogo do testu checkoutu.
 
 `assert_ab_tests_config_valid` zatrzyma build, gdy:
 - `test_start` nie wypada w poniedziałek albo `test_end` nie wypada w niedzielę;
 - kontroli nie ma na liście wariantów;
 - wariantów jest mniej niż dwa;
-- test zaczyna się przed `ga4_start_date`.
+- test zaczyna się przed `ga4_start_date`;
+- `test_name` nie ma postaci `abN`;
+- okno nakłada się na poprzedni test w tym samym slocie.
 
 ## Modele
 
@@ -83,8 +88,8 @@ flowchart LR
 
 | Model | Ziarno | Materializacja | Rola |
 |---|---|---|---|
-| `stg_ga4__events` | event | incremental, partycja dzienna | eventy z `ab_test` + eventy konwersji z seeda; bez pustego `user_pseudo_id` |
-| `stg_seeds__ab_tests` | test | view | seed z listami jako `ARRAY<STRING>` i flagą `is_final` |
+| `stg_ga4__events` | event × test | incremental, partycja dzienna | para (slot, wariant) z `ab_assign` albo z każdego parametru `abN`, plus eventy konwersji z seeda; bez pustego `user_pseudo_id` |
+| `stg_seeds__ab_tests` | test (`test_id`) | view | seed z kluczem `test_id`, listami jako `ARRAY<STRING>` i flagą `is_final` |
 | `int_ab__exposures` | test × użytkownik | view | pierwsza ekspozycja, jej wariant, `variants_seen`, `mixed_date` |
 | `int_ab__conversions` | test × użytkownik | view | pierwsza konwersja po ekspozycji, w oknie testu |
 | `fct_ab_test_results` | test × wariant | table, kontrakt | liczby do kalkulatora Po teście |
@@ -120,6 +125,7 @@ SRM i `excluded_mixed` mają ważność warn: build się kończy, a o tym, czy w
 
 Unit testy (`models/**/_*_unit_tests.yml`) sprawdzają logikę na zamockowanych wierszach:
 - ponowne losowanie;
+- równoległe testy w różnych slotach i ten sam slot w dwóch przebiegach;
 - ekspozycja poza oknem albo tylko na evencie spoza `exposure_events`;
 - zakup przed ekspozycją;
 - zdublowany `purchase`;

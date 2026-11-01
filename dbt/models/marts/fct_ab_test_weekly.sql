@@ -15,7 +15,7 @@ WITH tests AS (
 weeks AS (
 	-- tylko tygodnie, które już się zaczęły
 	SELECT
-		t.test_name,
+		t.test_id,
 		week_no,
 		DATE_ADD(t.test_start, INTERVAL 7 * week_no - 1 DAY) AS week_end
 
@@ -27,6 +27,7 @@ weeks AS (
 spine AS (
 	-- warianty z wyniku końcowego, więc także obcy wariant z danych
 	SELECT
+		r.test_id,
 		r.test_name,
 		r.variant,
 		w.week_no,
@@ -34,12 +35,12 @@ spine AS (
 
 	FROM {{ ref('fct_ab_test_results') }} AS r
 	JOIN weeks AS w
-		USING (test_name)
+		USING (test_id)
 ),
 
 users AS (
 	SELECT
-		x.test_name,
+		x.test_id,
 		x.variant,
 		x.first_exposure_date,
 		x.mixed_date,
@@ -47,10 +48,11 @@ users AS (
 
 	FROM {{ ref('int_ab__exposures') }} AS x
 	LEFT JOIN {{ ref('int_ab__conversions') }} AS c
-		USING (test_name, user_pseudo_id)
+		USING (test_id, user_pseudo_id)
 )
 
 SELECT
+	s.test_id,
 	s.test_name,
 	s.variant,
 	s.week_no,
@@ -70,7 +72,7 @@ SELECT
 
 FROM spine AS s
 LEFT JOIN users AS u
-	ON u.test_name = s.test_name
+	ON u.test_id = s.test_id
 	AND u.variant = s.variant
 	AND u.first_exposure_date <= s.week_end
-GROUP BY s.test_name, s.variant, s.week_no, s.week_end
+GROUP BY s.test_id, s.test_name, s.variant, s.week_no, s.week_end
