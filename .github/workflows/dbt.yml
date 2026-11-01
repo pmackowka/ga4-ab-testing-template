@@ -1,7 +1,9 @@
-# dbt parse na każdym PR i pushu do main: składnia SQL/Jinja, YAML, ref() i testy bez połączenia
-# z BigQuery. Unit testy i dbt build wymagają konta serwisowego — dochodzą, gdy CI dostanie
-# tożsamość przez Workload Identity Federation (bez pliku klucza w sekretach).
-name: dbt
+# CI/CD projektu dbt, trzy kroki po kolei — każdy startuje tylko, gdy poprzedni przeszedł:
+#   1. parse     — składnia SQL/Jinja/YAML i ref(), bez BigQuery
+#   2. unit-tests — logika modeli na zamockowanych wierszach, w datasecie dbt_ci_ab_testing
+#   3. deploy    — tylko push na main: dbt build zmienionych modeli i wszystkiego za nimi na prod
+# Logowanie do GCP przez Workload Identity Federation — konfiguracja: dbt/README.md, sekcja „Harmonogram i konfiguracja GCP”.
+name: dbt CI/CD
 
 on:
   pull_request:
@@ -10,12 +12,13 @@ on:
     branches: [main]
     paths: ["dbt/**", ".github/workflows/dbt.yml"]
 
+defaults:
+  run:
+    working-directory: dbt
+
 jobs:
   parse:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: dbt
     env:
       # parse renderuje profil, ale się nie łączy — wystarczą wartości zastępcze
       BIGQUERY_PROJECT: ci-placeholder
@@ -28,3 +31,81 @@ jobs:
       - run: cp profiles.yml.example profiles.yml
       - run: uv run dbt deps
       - run: uv run dbt parse --profiles-dir .
+
+  unit-tests:
+    needs: parse
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # token OIDC dla Workload Identity Federation
+    env:
+      BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: cp profiles.yml.example profiles.yml
+      - run: uv run dbt deps
+      # unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć: --empty buduje
+      # je bez wierszy (zero kosztu), --full-refresh omija ścieżkę incremental w stagingu
+      - run: uv run dbt build --target ci --profiles-dir . --empty --full-refresh --resource-type seed --resource-type model
+      - run: uv run dbt test --target ci --profiles-dir . --select test_type:unit
+
+  deploy:
+    needs: unit-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # ta sama grupa co harmonogram (dbt-build.yml): dwa przebiegi naraz nadpisywałyby te same partycje
+    concurrency:
+      group: dbt-prod
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # pełna historia, żeby odtworzyć stan sprzed pushu
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: cp profiles.yml.example profiles.yml
+      - run: uv run dbt deps
+      # Manifest sprzed pushu bez trzymania go w buckecie: dbt parse wersji z github.event.before.
+      # Parse nie łączy się z BigQuery. Gdy tamta wersja nie miała projektu dbt, manifestu nie będzie
+      # i krok niżej zbuduje całość.
+      - name: manifest sprzed pushu
+        run: |
+          PREV="$RUNNER_TEMP/prev"
+          git worktree add "$PREV" "${{ github.event.before }}"
+          if [ -d "$PREV/dbt" ]; then
+            cd "$PREV/dbt"
+            "$GITHUB_WORKSPACE/dbt/.venv/bin/dbt" deps
+            "$GITHUB_WORKSPACE/dbt/.venv/bin/dbt" parse --target prod_ci --profiles-dir "$GITHUB_WORKSPACE/dbt" || true
+          fi
+      - name: dbt build zmienionych modeli
+        run: |
+          STATE="$RUNNER_TEMP/prev/dbt/target"
+          SELECT=""
+          EXCLUDE=""
+          if [ -f "$STATE/manifest.json" ]; then
+            SELECT="--select state:modified+ --state $STATE"
+            # zmiana logiki modelu incremental wymaga --full-refresh (pełny skan GA4) — tej decyzji
+            # automat nie podejmuje: pomija staging i każe odpalić harmonogram z full_refresh
+            if uv run dbt --quiet ls --target prod_ci --profiles-dir . --resource-type model \
+                --select state:modified --state "$STATE" --output name | grep -qx stg_ga4__events; then
+              echo "::warning::stg_ga4__events zmieniony — deploy go pomija. Odpal Actions → dbt build → Run workflow z full_refresh."
+              EXCLUDE="--exclude stg_ga4__events"
+            fi
+          fi
+          uv run dbt build --target prod_ci --profiles-dir . $SELECT $EXCLUDE --exclude-resource-type unit_test

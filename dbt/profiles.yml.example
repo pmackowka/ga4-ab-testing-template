@@ -57,3 +57,17 @@ ab_testing: # musi pasować do `profile:` w dbt_project.yml
       job_execution_timeout_seconds: 300
       job_retries: 1
       maximum_bytes_billed: 107374182400  # 100 GiB
+
+    # CI (.github/workflows/dbt.yml): pusty build i unit testy przed wdrożeniem. Ten sam projekt
+    # i konto co prod_ci, ale osobny dataset, w którym tabele wygasają po godzinie.
+    ci:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
+      dataset: dbt_ci_ab_testing
+      location: EU
+      priority: interactive
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      maximum_bytes_billed: 1073741824  # 1 GiB — pusty build i unit testy czytają ułamki MB

@@ -139,15 +139,28 @@ uv run dbt run --select +fct_ab_test_weekly --empty --profiles-dir .
 uv run dbt test --select test_type:unit --profiles-dir .
 ```
 
-## CI
+## CI/CD i harmonogram
 
-[`.github/workflows/dbt.yml`](../.github/workflows/dbt.yml) uruchamia `uv sync --locked`, `dbt deps` i `dbt parse` przy każdym PR i pushu do `main`, który zmienia `dbt/`. Parse sprawdza SQL, Jinja, YAML i `ref()`, ale nie łączy się z BigQuery. Unit testy i `dbt build` w CI wymagają konta serwisowego przez Workload Identity Federation.
+| | CI | Continuous deployment | Harmonogram | Continuous delivery — benchmark, nie wdrażamy |
+|---|---|---|---|---|
+| Pytanie | czy kod jest poprawny? | czy zmiana już działa na prod? | czy dzisiejsze dane są przeliczone? | czy zmiana jest gotowa do wdrożenia? |
+| Wyzwalacz | push na `main` / PR zmieniający `dbt/` | push na `main`, po zielonym CI | cron 10:00 UTC albo ręcznie | push na `main`, po zielonym CI |
+| Co robi | `dbt parse` + unit testy w `dbt_ci_ab_testing` | `dbt build` zmienionych modeli i wszystkiego za nimi na prod | `dbt build` całości na prod | jak deployment, ale prod dopiero po kliknięciu „Approve” |
 
-## Harmonogram
+Continuous delivery nie ma sensu przy jednej osobie pushującej prosto na `main` — zatwierdzałbyś własny commit. Ochroną przed złą zmianą jest CI, które blokuje deploy.
 
-[`.github/workflows/dbt-build.yml`](../.github/workflows/dbt-build.yml) uruchamia codziennie o 10:00 UTC `dbt build --target prod_ci`, bez unit testów. Ręcznie odpalisz go z zakładki Actions → dbt build → Run workflow. Gdy przebieg padnie, GitHub wyśle maila, a `run_results.json` zostaje jako artefakt na 14 dni.
+[`.github/workflows/dbt.yml`](../.github/workflows/dbt.yml) to trzy joby po kolei — każdy startuje tylko, gdy poprzedni przeszedł:
+1. **parse** — SQL, Jinja, YAML i `ref()`, bez BigQuery.
+2. **unit-tests** — `dbt build --empty` buduje seed i modele bez wierszy (unit testy biorą z nich typy kolumn), potem `dbt test --select test_type:unit`. Dataset `dbt_ci_ab_testing`, tabele wygasają po godzinie. Pod `--empty` staging pomija filtry na `_TABLE_SUFFIX`, bo dbt owija źródło w podzapytanie bez pseudokolumn.
+3. **deploy** (tylko push na `main`) — `dbt parse` wersji sprzed pushu daje manifest do porównania, a `dbt build --select state:modified+` buduje to, co się zmieniło, i wszystko za tym. Zmiana w `dbt_project.yml` dotyka konfiguracji każdego modelu, więc przebuduje całość. Zmieniony `stg_ga4__events` jest pomijany z ostrzeżeniem: zmiana logiki modelu incremental wymaga `--full-refresh`, czyli pełnego skanu GA4 — odpalasz go ręcznie: Actions → dbt build → Run workflow → `full_refresh`.
 
-Jednorazowa konfiguracja (`PROJECT` = projekt prod, `PROJECT_NUMBER` z `gcloud projects describe $PROJECT`):
+Deploy i harmonogram są w jednej grupie `concurrency`, więc nie nadpisują partycji jednocześnie. CI i deploy czytają GA4 z `vars` w `dbt_project.yml` — przed pierwszym pushem wpisz tam prawdziwy projekt i dataset.
+
+### Harmonogram i konfiguracja GCP
+
+[`.github/workflows/dbt-build.yml`](../.github/workflows/dbt-build.yml) uruchamia codziennie o 10:00 UTC `dbt build --target prod_ci`, bez unit testów. Ręcznie odpalisz go z zakładki Actions → dbt build → Run workflow, z opcją `full_refresh` po zmianie stagingu. Gdy przebieg padnie, GitHub wyśle maila, a `run_results.json` zostaje jako artefakt na 14 dni.
+
+Jednorazowa konfiguracja dla CI, deployu i harmonogramu (`PROJECT` = projekt prod, `PROJECT_NUMBER` z `gcloud projects describe $PROJECT`):
 
 ```bash
 # 1. konto serwisowe, z którego dbt buduje prod
@@ -185,4 +198,5 @@ Gdy eksport GA4 leży w innym projekcie, rolę `roles/bigquery.dataViewer` nadaj
 
 - Czy filtr przyrostowy na `_TABLE_SUFFIX` ze zmienną `_dbt_max_partition` ogranicza, ile tabel dziennych czyta BigQuery. Sprawdzisz to w `total_bytes_billed` drugiego przebiegu w `INFORMATION_SCHEMA.JOBS`.
 - Unit testy i modele nie były jeszcze uruchomione na BigQuery — dotąd przechodzi tylko `dbt parse`.
-- Workflow `dbt-build.yml` nie przeszedł jeszcze ani jednego przebiegu — pierwszy odpal ręcznie po konfiguracji WIF.
+- Workflow `dbt-build.yml` i joby `unit-tests`/`deploy` nie przeszły jeszcze ani jednego przebiegu — pierwszy harmonogram odpal ręcznie po konfiguracji WIF.
+- Czy `flags.EMPTY` w Jinja stagingu wyłącza filtry `_TABLE_SUFFIX` pod `--empty`. Porównanie stanu w deployu sprawdziłem lokalnie (`dbt ls --select state:modified`).

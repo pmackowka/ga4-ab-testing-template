@@ -1,6 +1,6 @@
 # Codzienny dbt build na prod. GitHub loguje się do GCP przez Workload Identity Federation:
 # dostaje krótkotrwały token dla konta serwisowego, bez pliku klucza w sekretach.
-# Jednorazowa konfiguracja GCP i sekretów: dbt/README.md, sekcja Harmonogram.
+# Jednorazowa konfiguracja GCP i sekretów: dbt/README.md, sekcja „Harmonogram i konfiguracja GCP”.
 name: dbt build
 
 on:
@@ -9,6 +9,11 @@ on:
     # nadrobi kolejny przebieg, bo staging nadpisuje 3 dni wstecz. Cron GitHuba bywa opóźniony.
     - cron: "0 10 * * *"
   workflow_dispatch:  # ręczne uruchomienie z zakładki Actions
+    inputs:
+      full_refresh:
+        description: "Pełny rebuild (--full-refresh) — po zmianie stg_ga4__events; czyta GA4 od ga4_start_date"
+        type: boolean
+        default: false
 
 # dwa przebiegi naraz nadpisywałyby te same partycje
 concurrency:
@@ -38,7 +43,7 @@ jobs:
       - run: cp profiles.yml.example profiles.yml
       - run: uv run dbt deps
       # unit testy sprawdzają logikę, nie dane — biegną przy zmianie kodu, nie co dzień na prod
-      - run: uv run dbt build --target prod_ci --profiles-dir . --exclude-resource-type unit_test
+      - run: uv run dbt build --target prod_ci --profiles-dir . --exclude-resource-type unit_test ${{ inputs.full_refresh && '--full-refresh' || '' }}
       # run_results.json pokazuje, który model albo test padł; artefakt żyje 14 dni
       - uses: actions/upload-artifact@v4
         if: always()

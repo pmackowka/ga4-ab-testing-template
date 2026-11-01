@@ -30,23 +30,28 @@
 
 WITH source AS (
 	SELECT
-		PARSE_DATE('%Y%m%d', _TABLE_SUFFIX) AS event_date,
+		-- event_date z kolumny, nie z _TABLE_SUFFIX: w tabelach dziennych to ta sama data, a pod
+		-- --empty (CI przed unit testami) dbt owija źródło w podzapytanie bez pseudokolumn
+		PARSE_DATE('%Y%m%d', event_date) AS event_date,
 		TIMESTAMP_MICROS(event_timestamp) AS event_ts,
 		user_pseudo_id,
 		event_name,
 		event_params
 
 	FROM {{ source('ga4', 'events') }}
-	-- filtry na _TABLE_SUFFIX ze stałymi ograniczają, które tabele dzienne BigQuery w ogóle czyta
-	WHERE REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
-	{% if is_incremental() %}
+	-- Consent Mode bez zgody na analytics_storage wysyła eventy bez user_pseudo_id; bez filtra
+	-- wszyscy tacy użytkownicy zlewają się w jednego z wariantem i zakupami wielu osób
+	WHERE user_pseudo_id IS NOT NULL
+	{%- if not flags.EMPTY %}
+		-- filtry na _TABLE_SUFFIX ze stałymi ograniczają, które tabele dzienne BigQuery w ogóle czyta;
+		-- 8 cyfr odcina events_intraday_*
+		AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
+		{%- if is_incremental() %}
 		AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE_SUB(_dbt_max_partition, INTERVAL {{ lookback_days }} DAY))
-	{% else %}
+		{%- else %}
 		AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE '{{ var("ga4_start_date") }}')
-	{% endif %}
-		-- Consent Mode bez zgody na analytics_storage wysyła eventy bez user_pseudo_id; bez filtra
-		-- wszyscy tacy użytkownicy zlewają się w jednego z wariantem i zakupami wielu osób
-		AND user_pseudo_id IS NOT NULL
+		{%- endif %}
+	{%- endif %}
 ),
 
 event_tests AS (

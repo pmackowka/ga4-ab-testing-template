@@ -24,8 +24,8 @@ models:
     +persist_docs:
       relation: true
       columns: true
-    # Dev: tabele znikają po 1 h. Prod: bez wygasania, bo expiration kasuje tabelę bez błędu w dbt.
-    +hours_to_expiration: "{{ 1 if target.name == 'dev' else none }}"
+    # Dev i CI: tabele znikają po 1 h. Prod: bez wygasania, bo expiration kasuje tabelę bez błędu w dbt.
+    +hours_to_expiration: "{{ 1 if target.name in ['dev', 'ci'] else none }}"
     staging:
       +materialized: view
     # view: intermediate czytają tylko marty, osobna tabela byłaby kopią bez odbiorcy
