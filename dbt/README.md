@@ -28,30 +28,28 @@ Target `prod` ma osobne zmienne (`BIGQUERY_PROD_PROJECT`, `BIGQUERY_PROD_KEYFILE
 
 ## Pliki
 
+Każdy plik albo piszesz ręcznie (✍), albo generuje go komenda (⚙) — wygenerowanego nie edytujesz.
+
 ```
 dbt/
-├── pyproject.toml          # wersja Pythona i dbt-bigquery, które instaluje uv — piszesz ręcznie
-├── .python-version         # wersja interpretera Pythona (3.11) dla uv
-├── uv.lock                 # pełne drzewo pakietów Pythona z wersjami; generuje `uv lock`, nie edytujesz
-├── dbt_project.yml         # nazwa projektu, zmienne GA4 i domyślne materializacje folderów
-├── profiles.yml.example    # szablon połączenia z BigQuery; kopia profiles.yml zostaje poza gitem
-├── packages.yml            # pakiety makr dbt (dbt_utils) do pobrania przez `dbt deps`
-├── package-lock.yml        # dokładna wersja pobranych pakietów dbt; generuje `dbt deps`
-├── .gitignore              # wyklucza z gita .venv, target, dbt_packages i poświadczenia
-├── seeds/
-│   ├── ab_tests.csv        # rejestr testów A/B — jeden wiersz na test
-│   └── _seeds.yml          # typy kolumn i opisy seeda
-├── models/
-│   ├── staging/ga4/        # źródło GA4 i stg_ga4__events — eventy testów i konwersji z eksportu
-│   ├── staging/seeds/      # stg_seeds__ab_tests — seed z listami jako ARRAY
-│   ├── intermediate/       # przypisania i konwersje na użytkownika + ich unit testy
-│   └── marts/              # wynik do kalkulatora i wynik tygodniowy + ich unit testy
-└── tests/
-    ├── assert_*.sql        # testy singularne — każdy zwrócony wiersz to problem w danych
-    └── generic/            # test variant_in_seed, używany w plikach .yml modeli
+├── pyproject.toml          ✍                wersja Pythona i dbt-bigquery dla uv
+├── .python-version         ✍                wersja interpretera (3.11)
+├── uv.lock                 ⚙ uv lock        pełne drzewo pakietów Pythona z pyproject.toml
+├── .venv/                  ⚙ uv sync        środowisko Pythona z dbt, odtworzone z uv.lock (poza gitem)
+├── dbt_project.yml         ✍                nazwa projektu, zmienne GA4, materializacje folderów
+├── profiles.yml.example    ✍                szablon połączenia z BigQuery
+├── profiles.yml            ✍ cp z .example  Twoje połączenie (poza gitem)
+├── packages.yml            ✍                pakiety makr dbt (dbt_utils)
+├── package-lock.yml        ⚙ dbt deps       dokładne wersje pakietów z packages.yml
+├── dbt_packages/           ⚙ dbt deps       pobrane pakiety dbt (poza gitem)
+├── target/                 ⚙ dbt parse/build skompilowany SQL i manifest (poza gitem)
+├── .gitignore              ✍                co nie trafia do gita
+├── seeds/                  ✍                rejestr testów ab_tests.csv i jego opis
+├── models/                 ✍                modele SQL, ich opisy, testy i unit testy (.yml)
+└── tests/                  ✍                testy singularne i generyczny variant_in_seed
 ```
 
-Poza `dbt/`: `.github/workflows/dbt.yml` uruchamia `dbt parse` przy każdym PR. Lokalnie powstają też `.venv/` (środowisko Pythona z `uv sync`), `dbt_packages/` (z `dbt deps`) i `target/` (skompilowany SQL) — żadnego z nich nie ma w gicie.
+Kolejność: `pyproject.toml` → `uv lock` → `uv sync` → `packages.yml` → `uv run dbt deps` → modele → `uv run dbt build`.
 
 ## Rejestr testów: `seeds/ab_tests.csv`
 
