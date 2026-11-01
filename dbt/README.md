@@ -143,10 +143,10 @@ flowchart LR
 
 | Plik | Job | Rola | Wyzwalacz | Co robi |
 |---|---|---|---|---|
-| `dbt.yml` | `parse` | CI | push na `main` / PR zmieniający `dbt/` | `dbt parse`: SQL, Jinja, YAML, `ref()` — bez BigQuery |
+| `dbt.yml` | `parse` | CI | push na `main` / PR zmieniający `dbt/` | SQL, Jinja, YAML, `ref()` — bez BigQuery |
 | `dbt.yml` | `unit-tests` | CI | zielony `parse` | puste tabele (`--empty`) w `dbt_ci_ab_testing` + unit testy |
 | `dbt.yml` | `deploy` | continuous deployment | zielony `unit-tests`, tylko push na `main` | `state:modified+` na prod: zmienione modele i wszystko za nimi, bez zmienionego `stg_ga4__events` |
-| `dbt-build.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (opcja `full_refresh`) | cały projekt na prod z ostatniego commita, dla którego `dbt.yml` był zielony; bez unit testów |
+| `dbt-build.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (`full_refresh`) | cały projekt na prod z ostatniego commita, dla którego `dbt.yml` był zielony; bez unit testów |
 
 - Czerwone CI: prod zostaje na ostatnim zielonym kodzie, ale dostaje świeże dane.
 - `deploy` i `build` dzielą grupę `concurrency: dbt-prod` — nigdy naraz; nowszy anuluje oczekujący.
