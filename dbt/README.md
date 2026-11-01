@@ -144,13 +144,13 @@ uv run dbt test --select test_type:unit --profiles-dir .
 | | CI | Continuous deployment | Harmonogram | Continuous delivery — benchmark, nie wdrażamy |
 |---|---|---|---|---|
 | Pytanie | czy kod jest poprawny? | czy zmiana już działa na prod? | czy dzisiejsze dane są przeliczone? | czy zmiana jest gotowa do wdrożenia? |
-| Wyzwalacz | push na `main` / PR zmieniający `dbt/` | push na `main`, po zielonym CI | cron 10:00 UTC albo ręcznie | push na `main`, po zielonym CI |
+| Wyzwalacz | push na `main` / PR zmieniający `dbt/` | push na `main`, po zielonym CI | cron 10:00 UTC albo ręcznie; buduje ostatni commit z zielonym CI | push na `main`, po zielonym CI |
 | Co robi | `dbt parse` + unit testy w `dbt_ci_ab_testing` | `dbt build` zmienionych modeli i wszystkiego za nimi na prod | `dbt build` całości na prod | jak deployment, ale prod dopiero po kliknięciu „Approve” |
 | Plik | `.github/workflows/dbt.yml`, joby `parse` i `unit-tests` | `.github/workflows/dbt.yml`, job `deploy` | `.github/workflows/dbt-build.yml` | — (byłby to job `deploy` z `environment: production`) |
 
 Continuous delivery nie ma sensu przy jednej osobie pushującej prosto na `main` — zatwierdzałbyś własny commit. Ochroną przed złą zmianą jest CI, które blokuje deploy.
 
-Zależności: deploy siedzi w tym samym pliku co CI i startuje tylko po zielonym `unit-tests` — czerwone CI blokuje deploy. Harmonogram to osobny plik i działa niezależnie od CI: przy czerwonym CI nadal codziennie zbuduje to, co jest na `main`, także kod, który CI odrzuciło. Łączy je tylko grupa `concurrency`, która nie pozwala im działać jednocześnie.
+Zależności: deploy siedzi w tym samym pliku co CI i startuje tylko po zielonym `unit-tests` — czerwone CI blokuje deploy. Harmonogram to osobny plik, ale buduje ostatni commit z `main`, dla którego cały przebieg dbt CI/CD skończył się na zielono, a nie głowę `main`. Przy czerwonym CI prod zostaje na ostatnim dobrym kodzie i dostaje tylko świeże dane. Gdy zielonego przebiegu nie ma wcale, harmonogram kończy się błędem. Oba workflow są w jednej grupie `concurrency`, więc nie działają jednocześnie.
 
 Alternatywy dla GitHub Actions:
 - **GitLab CI/CD** (`.gitlab-ci.yml`) i **Bitbucket Pipelines** (`bitbucket-pipelines.yml`) — ten sam model: YAML w repo, joby na runnerach, harmonogramy. Kroki przenoszą się prawie 1:1, zmienia się składnia i sposób logowania do GCP.
@@ -166,7 +166,7 @@ Deploy i harmonogram są w jednej grupie `concurrency`, więc nie nadpisują par
 
 ### Harmonogram i konfiguracja GCP
 
-[`.github/workflows/dbt-build.yml`](../.github/workflows/dbt-build.yml) uruchamia codziennie o 10:00 UTC `dbt build --target prod_ci`, bez unit testów. Ręcznie odpalisz go z zakładki Actions → dbt build → Run workflow, z opcją `full_refresh` po zmianie stagingu. Gdy przebieg padnie, GitHub wyśle maila, a `run_results.json` zostaje jako artefakt na 14 dni.
+[`.github/workflows/dbt-build.yml`](../.github/workflows/dbt-build.yml) uruchamia codziennie o 10:00 UTC `dbt build --target prod_ci`, bez unit testów, na ostatnim commicie z zielonym CI. Ręcznie odpalisz go z zakładki Actions → dbt build → Run workflow, z opcją `full_refresh` po zmianie stagingu. Gdy przebieg padnie, GitHub wyśle maila, a `run_results.json` zostaje jako artefakt na 14 dni.
 
 Jednorazowa konfiguracja dla CI, deployu i harmonogramu (`PROJECT` = projekt prod, `PROJECT_NUMBER` z `gcloud projects describe $PROJECT`):
 
