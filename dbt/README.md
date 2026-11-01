@@ -129,24 +129,26 @@ flowchart LR
     PUSH(["push / PR<br/>zmiana w dbt/"]) --> PARSE
     subgraph F1["dbt.yml"]
         PARSE["CI · parse<br/>składnia"] --> UNIT["CI · unit-tests<br/>logika na mockach"]
-        UNIT -->|tylko push na main| DEPLOY["CD · deploy<br/>zmienione modele"]
+        UNIT -->|tylko push na main| DEPLOY["CD · deploy"]
     end
     CRON(["cron 10:00 UTC<br/>albo ręcznie"]) --> BUILD
     subgraph F2["dbt-build.yml"]
-        BUILD["harmonogram · build<br/>cały projekt"]
+        BUILD["harmonogram · build"]
     end
-    F1 -.->|ostatni zielony commit| BUILD
-    UNIT --> CIDS[("dbt_ci_ab_testing")]
-    DEPLOY --> PROD[("dbt_prod_ab_testing")]
-    BUILD --> PROD
+    F1 -->|kod z ostatniego<br/>zielonego przebiegu| BUILD
+    UNIT -.->|puste tabele,<br/>wygasają po 1 h| CIDS[("dbt_ci_ab_testing")]
+    DEPLOY -.->|zmienione modele<br/>i zależne od nich| PROD[("dbt_prod_ab_testing")]
+    BUILD -.->|cały projekt,<br/>świeże dane GA4| PROD
 ```
+
+Linia ciągła: kolejność i źródło kodu. Przerywana: zapis do BigQuery.
 
 | Plik | Job | Rola | Wyzwalacz | Co robi |
 |---|---|---|---|---|
-| `dbt.yml` | `parse` | CI | push na `main` / PR zmieniający `dbt/` | SQL, Jinja, YAML, `ref()` — bez BigQuery |
-| `dbt.yml` | `unit-tests` | CI | zielony `parse` | puste tabele (`--empty`) w `dbt_ci_ab_testing` + unit testy |
-| `dbt.yml` | `deploy` | continuous deployment | zielony `unit-tests`, tylko push na `main` | `state:modified+` na prod: zmienione modele i wszystko za nimi, bez zmienionego `stg_ga4__events` |
-| `dbt-build.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (`full_refresh`) | cały projekt na prod z ostatniego commita, dla którego `dbt.yml` był zielony; bez unit testów |
+| `dbt.yml` | `parse` | CI | push / PR w `dbt/` | SQL, Jinja, YAML, bez BigQuery |
+| `dbt.yml` | `unit-tests` | CI | zielony `parse` | `dbt build --empty`, potem unit testy |
+| `dbt.yml` | `deploy` | CD | zielony `unit-tests` + push na `main` | `dbt build --select state:modified+`, bez zmienionego `stg_ga4__events` |
+| `dbt-build.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (`full_refresh`) | `dbt build` bez unit testów |
 
 - Czerwone CI: prod zostaje na ostatnim zielonym kodzie, ale dostaje świeże dane.
 - `deploy` i `build` dzielą grupę `concurrency: dbt-prod` — nigdy naraz; nowszy anuluje oczekujący.
