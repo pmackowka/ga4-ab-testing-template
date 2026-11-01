@@ -1,0 +1,48 @@
+# Codzienny dbt build na prod. GitHub loguje się do GCP przez Workload Identity Federation:
+# dostaje krótkotrwały token dla konta serwisowego, bez pliku klucza w sekretach.
+# Jednorazowa konfiguracja GCP i sekretów: dbt/README.md, sekcja Harmonogram.
+name: dbt build
+
+on:
+  schedule:
+    # UTC. Dzienna tabela GA4 pojawia się o różnych porach następnego dnia; spóźniony dzień
+    # nadrobi kolejny przebieg, bo staging nadpisuje 3 dni wstecz. Cron GitHuba bywa opóźniony.
+    - cron: "0 10 * * *"
+  workflow_dispatch:  # ręczne uruchomienie z zakładki Actions
+
+# dwa przebiegi naraz nadpisywałyby te same partycje
+concurrency:
+  group: dbt-prod
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write  # token OIDC dla Workload Identity Federation
+    defaults:
+      run:
+        working-directory: dbt
+    env:
+      BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: cp profiles.yml.example profiles.yml
+      - run: uv run dbt deps
+      # unit testy sprawdzają logikę, nie dane — biegną przy zmianie kodu, nie co dzień na prod
+      - run: uv run dbt build --target prod_ci --profiles-dir . --exclude-resource-type unit_test
+      # run_results.json pokazuje, który model albo test padł; artefakt żyje 14 dni
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dbt-run-results
+          path: dbt/target/run_results.json
+          retention-days: 14

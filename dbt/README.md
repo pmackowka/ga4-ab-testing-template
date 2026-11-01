@@ -143,7 +143,46 @@ uv run dbt test --select test_type:unit --profiles-dir .
 
 [`.github/workflows/dbt.yml`](../.github/workflows/dbt.yml) uruchamia `uv sync --locked`, `dbt deps` i `dbt parse` przy każdym PR i pushu do `main`, który zmienia `dbt/`. Parse sprawdza SQL, Jinja, YAML i `ref()`, ale nie łączy się z BigQuery. Unit testy i `dbt build` w CI wymagają konta serwisowego przez Workload Identity Federation.
 
+## Harmonogram
+
+[`.github/workflows/dbt-build.yml`](../.github/workflows/dbt-build.yml) uruchamia codziennie o 10:00 UTC `dbt build --target prod_ci`, bez unit testów. Ręcznie odpalisz go z zakładki Actions → dbt build → Run workflow. Gdy przebieg padnie, GitHub wyśle maila, a `run_results.json` zostaje jako artefakt na 14 dni.
+
+Jednorazowa konfiguracja (`PROJECT` = projekt prod, `PROJECT_NUMBER` z `gcloud projects describe $PROJECT`):
+
+```bash
+# 1. konto serwisowe, z którego dbt buduje prod
+gcloud iam service-accounts create dbt-prod --project=$PROJECT
+SA=dbt-prod@$PROJECT.iam.gserviceaccount.com
+for ROLE in roles/bigquery.jobUser roles/bigquery.dataEditor roles/bigquery.dataViewer; do
+  gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=$ROLE
+done
+
+# 2. pula i dostawca Workload Identity: GCP ufa tokenom GitHuba, ale tylko z tego repo
+gcloud iam workload-identity-pools create github --project=$PROJECT --location=global
+gcloud iam workload-identity-pools providers create-oidc github --project=$PROJECT \
+  --location=global --workload-identity-pool=github \
+  --issuer-uri=https://token.actions.githubusercontent.com \
+  --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
+  --attribute-condition="assertion.repository=='<owner>/ab-test-bigquery'"
+
+# 3. workflow z tego repo może działać jako konto dbt-prod
+gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT \
+  --role=roles/iam.workloadIdentityUser \
+  --member=principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/<owner>/ab-test-bigquery
+```
+
+Sekrety w GitHub → Settings → Secrets and variables → Actions:
+
+| Sekret | Wartość |
+|---|---|
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github` |
+| `GCP_SERVICE_ACCOUNT` | `dbt-prod@PROJECT.iam.gserviceaccount.com` |
+| `BIGQUERY_PROD_PROJECT` | `PROJECT` |
+
+Gdy eksport GA4 leży w innym projekcie, rolę `roles/bigquery.dataViewer` nadaj kontu na tamtym datasecie zamiast w projekcie prod.
+
 ## Niesprawdzone
 
 - Czy filtr przyrostowy na `_TABLE_SUFFIX` ze zmienną `_dbt_max_partition` ogranicza, ile tabel dziennych czyta BigQuery. Sprawdzisz to w `total_bytes_billed` drugiego przebiegu w `INFORMATION_SCHEMA.JOBS`.
 - Unit testy i modele nie były jeszcze uruchomione na BigQuery — dotąd przechodzi tylko `dbt parse`.
+- Workflow `dbt-build.yml` nie przeszedł jeszcze ani jednego przebiegu — pierwszy odpal ręcznie po konfiguracji WIF.

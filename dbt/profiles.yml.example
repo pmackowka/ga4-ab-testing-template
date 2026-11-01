@@ -42,3 +42,18 @@ ab_testing: # musi pasować do `profile:` w dbt_project.yml
       job_execution_timeout_seconds: 300
       job_retries: 1
       maximum_bytes_billed: 107374182400  # 100 GiB
+
+    # Prod z harmonogramu GitHub Actions (.github/workflows/dbt-build.yml). oauth = Application
+    # Default Credentials, które ustawia google-github-actions/auth z tokenu Workload Identity
+    # Federation — bez pliku klucza. service-account nie przyjmie poświadczeń external_account z WIF.
+    prod_ci:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
+      dataset: dbt_prod_ab_testing
+      location: EU
+      priority: interactive
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      maximum_bytes_billed: 107374182400  # 100 GiB
