@@ -146,8 +146,16 @@ uv run dbt test --select test_type:unit --profiles-dir .
 | Pytanie | czy kod jest poprawny? | czy zmiana już działa na prod? | czy dzisiejsze dane są przeliczone? | czy zmiana jest gotowa do wdrożenia? |
 | Wyzwalacz | push na `main` / PR zmieniający `dbt/` | push na `main`, po zielonym CI | cron 10:00 UTC albo ręcznie | push na `main`, po zielonym CI |
 | Co robi | `dbt parse` + unit testy w `dbt_ci_ab_testing` | `dbt build` zmienionych modeli i wszystkiego za nimi na prod | `dbt build` całości na prod | jak deployment, ale prod dopiero po kliknięciu „Approve” |
+| Plik | `.github/workflows/dbt.yml`, joby `parse` i `unit-tests` | `.github/workflows/dbt.yml`, job `deploy` | `.github/workflows/dbt-build.yml` | — (byłby to job `deploy` z `environment: production`) |
 
 Continuous delivery nie ma sensu przy jednej osobie pushującej prosto na `main` — zatwierdzałbyś własny commit. Ochroną przed złą zmianą jest CI, które blokuje deploy.
+
+Zależności: deploy siedzi w tym samym pliku co CI i startuje tylko po zielonym `unit-tests` — czerwone CI blokuje deploy. Harmonogram to osobny plik i działa niezależnie od CI: przy czerwonym CI nadal codziennie zbuduje to, co jest na `main`, także kod, który CI odrzuciło. Łączy je tylko grupa `concurrency`, która nie pozwala im działać jednocześnie.
+
+Alternatywy dla GitHub Actions:
+- **GitLab CI/CD** (`.gitlab-ci.yml`) i **Bitbucket Pipelines** (`bitbucket-pipelines.yml`) — ten sam model: YAML w repo, joby na runnerach, harmonogramy. Kroki przenoszą się prawie 1:1, zmienia się składnia i sposób logowania do GCP.
+- **dbt Cloud** — CI na PR, deploy i harmonogram wbudowane, z UI i historią przebiegów. Płatny przy zespole (plan Developer dla jednej osoby jest darmowy, z limitami).
+- **Jenkins** — darmowa licencja, ale najdroższy w utrzymaniu: własny serwer, wtyczki, aktualizacje i konfiguracja pipeline'ów w Groovy. Ma sens tam, gdzie firma już go utrzymuje.
 
 [`.github/workflows/dbt.yml`](../.github/workflows/dbt.yml) to trzy joby po kolei — każdy startuje tylko, gdy poprzedni przeszedł:
 1. **parse** — SQL, Jinja, YAML i `ref()`, bez BigQuery.
