@@ -1,10 +1,10 @@
 # dbt — wyniki testów A/B
 
-Liczy to samo co [`sql/03`](../sql/03_po_tescie_warianty.sql), ale dla wszystkich testów naraz. Konfigurację testu zapisujesz w seedzie, nie w `DECLARE`, a zamiast `ASSERT` działają testy danych. Tagowanie, kalkulatory i znaczenie kolumn opisuje [README w katalogu głównym](../README.md).
+To samo co [`sql/03`](../sql/03_po_tescie_warianty.sql), ale dla wszystkich testów naraz: konfiguracja w seedzie zamiast `DECLARE`, testy danych zamiast `ASSERT`. Tagowanie i kalkulatory: [README główne](../README.md).
 
 ## Uruchomienie
 
-Wymaga [uv](https://docs.astral.sh/uv/) i konta serwisowego z rolami BigQuery Data Viewer na datasecie GA4, Data Editor na datasecie docelowym i Job User w projekcie.
+Wymaga [uv](https://docs.astral.sh/uv/) i konta serwisowego z rolami BigQuery Data Viewer (GA4), Data Editor (dataset docelowy) i Job User.
 
 ```bash
 cd dbt
@@ -22,13 +22,13 @@ Przed pierwszym uruchomieniem ustaw w `dbt_project.yml`:
 |---|---|
 | `vars.ga4_project`, `vars.ga4_dataset` | projekt i dataset eksportu GA4 (`events_YYYYMMDD`) |
 | `vars.ga4_start_date` | najwcześniejszy `test_start` z seeda — od tego dnia czyta `--full-refresh` |
-| `location` w `profiles.yml` | region datasetu GA4 (domyślnie `EU`); BigQuery nie łączy danych między regionami |
+| `location` w `profiles.yml` | region datasetu GA4 (domyślnie `EU`) |
 
-Target `prod` ma osobne zmienne (`BIGQUERY_PROD_PROJECT`, `BIGQUERY_PROD_KEYFILE`) bez fallbacku na dev. W dev tabele wygasają po godzinie, z wyjątkiem `stg_ga4__events`.
+Target `prod` ma osobne zmienne (`BIGQUERY_PROD_*`) bez fallbacku na dev. W dev tabele wygasają po godzinie, z wyjątkiem `stg_ga4__events`.
 
 ## Pliki
 
-Każdy plik albo piszesz ręcznie (✍), albo generuje go komenda (⚙) — wygenerowanego nie edytujesz.
+✍ piszesz ręcznie, ⚙ generuje komenda (nie edytujesz).
 
 ```
 dbt/
@@ -49,11 +49,9 @@ dbt/
 └── tests/                  ✍                testy singularne i generyczny variant_in_seed
 ```
 
-Kolejność: `pyproject.toml` → `uv lock` → `uv sync` → `packages.yml` → `uv run dbt deps` → modele → `uv run dbt build`.
-
 ## Rejestr testów: `seeds/ab_tests.csv`
 
-Jeden wiersz to jeden test. Nowy test dodajesz nowym wierszem, a potem uruchamiasz `dbt build`. Listy rozdziela się znakiem `|`, bo CSV nie ma typu tablicowego.
+Wiersz = test; nowy test to nowy wiersz + `dbt build`. Listy rozdziela `|`.
 
 ```csv
 test_name,test_start,test_end,control_variant,variants,conversion_event,exposure_events
@@ -61,15 +59,9 @@ ab3,2026-11-02,2026-12-13,v0,v0|v1,purchase,ab_assign|view_item
 ab4,2026-11-02,2026-11-29,v0,v0|v1,purchase,ab_assign|begin_checkout
 ```
 
-`test_name` to slot `ab1`–`ab10`, który wraca w kolejnych testach. Kluczem jest więc `test_id` = slot + `test_start` (np. `ab1_20260907`), a `test_start` w formacie RRRRMMDD to `RUN` w tagu GTM. Testy w różnych slotach mogą się nakładać, jak `ab3` i `ab4` wyżej. Ekspozycję wyznacza `exposure_events`: `view_item` z parametrem `ab4` nie wciąga nikogo do testu checkoutu.
+`test_name` to slot `ab1`–`ab10`, który wraca w kolejnych testach, więc kluczem jest `test_id` = slot + `test_start` (np. `ab1_20260907`); `test_start` jako RRRRMMDD to `RUN` w tagu GTM. Ekspozycję wyznacza `exposure_events`: `view_item` z parametrem `ab4` nie wciąga nikogo do testu checkoutu.
 
-`assert_ab_tests_config_valid` zatrzyma build, gdy:
-- `test_start` nie wypada w poniedziałek albo `test_end` nie wypada w niedzielę;
-- kontroli nie ma na liście wariantów;
-- wariantów jest mniej niż dwa;
-- test zaczyna się przed `ga4_start_date`;
-- `test_name` nie ma postaci `abN`;
-- okno nakłada się na poprzedni test w tym samym slocie.
+`assert_ab_tests_config_valid` zatrzyma build, gdy start nie jest poniedziałkiem albo koniec niedzielą, kontroli nie ma wśród wariantów, wariantów jest mniej niż dwa, test zaczyna się przed `ga4_start_date`, `test_name` nie ma postaci `abN` albo okno nakłada się na poprzedni test w tym samym slocie.
 
 ## Modele
 
@@ -88,27 +80,25 @@ flowchart LR
 
 | Model | Ziarno | Materializacja | Rola |
 |---|---|---|---|
-| `stg_ga4__events` | event × test | incremental, partycja dzienna | para (slot, wariant) z `ab_assign` albo z każdego parametru `abN`, plus eventy konwersji z seeda; bez pustego `user_pseudo_id` |
-| `stg_seeds__ab_tests` | test (`test_id`) | view | seed z kluczem `test_id`, listami jako `ARRAY<STRING>` i flagą `is_final` |
+| `stg_ga4__events` | event × test | incremental, partycja dzienna | para (slot, wariant) z `ab_assign` albo parametru `abN` + eventy konwersji z seeda |
+| `stg_seeds__ab_tests` | test | view | seed z `test_id`, listami jako `ARRAY<STRING>` i flagą `is_final` |
 | `int_ab__exposures` | test × użytkownik | view | pierwsza ekspozycja, jej wariant, `variants_seen`, `mixed_date` |
 | `int_ab__conversions` | test × użytkownik | view | pierwsza konwersja po ekspozycji, w oknie testu |
 | `fct_ab_test_results` | test × wariant | table, kontrakt | liczby do kalkulatora Po teście |
-| `fct_ab_test_weekly` | test × wariant × tydzień | table | te same liczby narastająco; ostatni tydzień = wynik końcowy |
+| `fct_ab_test_weekly` | test × wariant × tydzień | table | te same liczby narastająco |
 
-`fct_ab_test_results` ma wiersz dla każdego wariantu z seeda, także gdy wariant ma 0 użytkowników. Ma też wiersz dla wariantu, który jest w danych, ale nie w seedzie — po to, żeby testy go wyłapały, a nie żeby zniknął po cichu. W `fct_ab_test_weekly` użytkownik wylosowany ponownie w tygodniu 3 liczy się w tygodniach 1–2 jako zwykły użytkownik, a od tygodnia 3 trafia do `excluded_mixed`.
+`fct_ab_test_results` ma wiersz dla każdego wariantu z seeda (także z 0 użytkowników) i dla wariantu spoza seeda, żeby testy go wyłapały. W `fct_ab_test_weekly` ponownie wylosowany trafia do `excluded_mixed` od tygodnia losowania.
 
 ## Przyrost i pełny rebuild
 
-`stg_ga4__events` używa strategii `insert_overwrite`. Każdy przebieg nadpisuje ostatnie 3 dni licząc od najnowszej partycji w tabeli, bo GA4 dopisuje dane do 72 h, a eksport nie ma klucza eventu, który pozwoliłby na `merge`. Liczenie od najnowszej partycji, a nie od dzisiejszej daty, sprawia, że kilkudniowa przerwa w harmonogramie nie zostawia dziury.
+`stg_ga4__events` (`insert_overwrite`) nadpisuje ostatnie 3 dni od najnowszej partycji w tabeli, bo GA4 dopisuje dane do 72 h, a eksport nie ma klucza eventu do `merge`. Liczenie od partycji, nie od dziś, sprawia, że przerwa w harmonogramie nie zostawia dziury.
 
 `--full-refresh -s stg_ga4__events` jest potrzebny, gdy:
-- dodajesz test z `conversion_event`, którego nie ma jeszcze żaden test — staging trzyma tylko znane eventy konwersji;
+- dodajesz `conversion_event`, którego nie ma jeszcze żaden test;
 - przesuwasz `ga4_start_date` wstecz;
-- zmieniasz plik stagingu.
+- zmieniasz plik stagingu — pilnuje tego strażnik: build zapisuje sumę kontrolną pliku w etykiecie tabeli (`logic_checksum`), a przebieg przyrostowy z inną sumą przerywa się błędem, zamiast zostawić mieszankę starej i nowej logiki. Zmiana samego komentarza też się liczy.
 
-Ostatni przypadek pilnuje strażnik w modelu. Przyrostowy przebieg z nową logiką nadpisałby tylko ostatnie 3 dni i zostawił w tabeli mieszankę starej i nowej logiki, bez błędu. Dlatego każdy build zapisuje w etykiecie tabeli (`logic_checksum`) sumę kontrolną pliku modelu, a przebieg przyrostowy z inną sumą przerywa się błędem z instrukcją `--full-refresh`. Działa to dla deployu, harmonogramu i uruchomień lokalnych. Suma liczy się z całego pliku, więc zmiana samego komentarza też wymaga pełnego rebuildu.
-
-Limit kosztu: `maximum_bytes_billed` 10 GiB w dev, 100 GiB w prod. Zapytanie ponad limit pada bez opłaty. Przy dużym ruchu pełny rebuild może go przekroczyć — wtedy podnieś limit świadomie, zamiast go usuwać.
+`maximum_bytes_billed`: 10 GiB dev, 100 GiB prod — zapytanie ponad limit pada bez opłaty.
 
 ## Testy
 
@@ -116,25 +106,16 @@ Limit kosztu: `maximum_bytes_billed` 10 GiB w dev, 100 GiB w prod. Zapytanie pon
 |---|---|---|
 | `assert_ab_tests_config_valid` | error | błędna konfiguracja w seedzie |
 | `assert_ga4_days_complete` | error | brak dziennej tabeli eksportu w oknie testu (do dziś − 3 dni) |
-| `variant_in_seed` (generyczny) | error | wariant w danych spoza seeda: inny tag albo literówka w zmiennej GTM |
-| `assert_all_variants_have_users` | error | wariant z 0 użytkowników, gdy inne warianty ich mają |
-| `assert_weekly_matches_results` | error | rozjazd między ostatnim tygodniem a wynikiem końcowym |
-| `assert_srm` | warn | ta sama reguła co kalkulator: para kontrola–wariant, χ² > 10,828 (p < 0,001) |
+| `variant_in_seed` (generyczny) | error | wariant spoza seeda: inny tag albo literówka w zmiennej GTM |
+| `assert_all_variants_have_users` | error | wariant z 0 użytkowników, gdy inne je mają |
+| `assert_weekly_matches_results` | error | rozjazd ostatniego tygodnia z wynikiem końcowym |
+| `assert_srm` | warn | para kontrola–wariant, χ² > 10,828 (p < 0,001), jak w kalkulatorze |
 | `assert_excluded_mixed_balanced` | warn | różnica `excluded_mixed` względem kontroli > 2 × √(suma) |
 | `unique_combination_of_columns`, `not_null` | error | klucze modeli |
 
-SRM i `excluded_mixed` mają ważność warn: build się kończy, a o tym, czy wynikowi ufać, decyduje człowiek. Wiersze z wynikiem testu pokazują, którą parę sprawdzić: `dbt test --select assert_srm --store-failures`.
+Przy warn decyduje człowiek; parę wskaże `dbt test --select assert_srm --store-failures`.
 
-Unit testy (`models/**/_*_unit_tests.yml`) sprawdzają logikę na zamockowanych wierszach:
-- ponowne losowanie;
-- równoległe testy w różnych slotach i ten sam slot w dwóch przebiegach;
-- ekspozycja poza oknem albo tylko na evencie spoza `exposure_events`;
-- zakup przed ekspozycją;
-- zdublowany `purchase`;
-- wariant bez użytkowników;
-- wykluczenie od tygodnia ponownego losowania.
-
-Biegną w BigQuery bez czytania GA4. dbt bierze typy kolumn z modeli nadrzędnych, więc najpierw muszą one istnieć:
+Unit testy (`models/**/_*_unit_tests.yml`) sprawdzają na zamockowanych wierszach: ponowne losowanie, równoległe testy i ten sam slot w dwóch przebiegach, ekspozycję poza oknem, zakup przed ekspozycją, zdublowany `purchase`, wariant bez użytkowników. Typy kolumn biorą z modeli nadrzędnych, więc te muszą istnieć:
 
 ```bash
 uv run dbt run --select +fct_ab_test_weekly --empty --profiles-dir .
@@ -143,34 +124,36 @@ uv run dbt test --select test_type:unit --profiles-dir .
 
 ## CI/CD i harmonogram
 
-| | CI | Continuous deployment | Harmonogram | Continuous delivery — benchmark, nie wdrażamy |
-|---|---|---|---|---|
-| Pytanie | czy kod jest poprawny? | czy zmiana już działa na prod? | czy dzisiejsze dane są przeliczone? | czy zmiana jest gotowa do wdrożenia? |
-| Wyzwalacz | push na `main` / PR zmieniający `dbt/` | push na `main`, po zielonym CI | cron 10:00 UTC albo ręcznie; buduje ostatni commit z zielonym CI | push na `main`, po zielonym CI |
-| Co robi | `dbt parse` + unit testy w `dbt_ci_ab_testing` | `dbt build` zmienionych modeli i wszystkiego za nimi na prod | `dbt build` całości na prod | jak deployment, ale prod dopiero po kliknięciu „Approve” |
-| Plik | `.github/workflows/dbt.yml`, joby `parse` i `unit-tests` | `.github/workflows/dbt.yml`, job `deploy` | `.github/workflows/dbt-build.yml` | — (byłby to job `deploy` z `environment: production`) |
+```mermaid
+flowchart TD
+    PUSH["push na main albo PR<br/>ze zmianą w dbt/"] --> PARSE
+    subgraph CICD["dbt.yml"]
+        subgraph CI["CI"]
+            PARSE["parse<br/>SQL, Jinja, YAML, ref()<br/>bez BigQuery"] -->|zielony| UNIT["unit-tests<br/>build --empty w dbt_ci_ab_testing<br/>+ unit testy"]
+        end
+        subgraph CD["continuous deployment"]
+            DEPLOY["deploy<br/>baza: ostatni udany przebieg dbt.yml<br/>build state:modified+ na prod<br/>bez zmienionego stg_ga4__events"]
+        end
+        UNIT -->|"zielony, tylko push na main"| DEPLOY
+    end
+    CRON["cron 10:00 UTC<br/>albo ręcznie z full_refresh"] --> BUILD
+    subgraph SCHED["dbt-build.yml — harmonogram"]
+        BUILD["build całości na prod<br/>bez unit testów"]
+    end
+    CICD -.->|"commit ostatniego zielonego przebiegu"| BUILD
+    DEPLOY --> PROD[("BigQuery<br/>dbt_prod_ab_testing")]
+    BUILD --> PROD
+```
 
-Continuous delivery nie ma sensu przy jednej osobie pushującej prosto na `main` — zatwierdzałbyś własny commit. Ochroną przed złą zmianą jest CI, które blokuje deploy.
+- Czerwony job zatrzymuje kolejne, a harmonogram buduje ostatni zielony commit — prod zostaje na dobrym kodzie i dostaje świeże dane. Bez żadnego zielonego przebiegu harmonogram kończy się błędem.
+- `deploy` i harmonogram dzielą grupę `concurrency: dbt-prod`: nigdy naraz, czeka najwyżej jeden przebieg, nowszy anuluje starszy oczekujący.
+- Po zmianie `stg_ga4__events` deploy ją pomija z ostrzeżeniem, a harmonogram staje na strażniku, dopóki nie odpalisz Actions → dbt build → Run workflow → `full_refresh`.
+- Continuous delivery (prod po kliknięciu „Approve”) to tylko benchmark: przy jednej osobie pushującej na `main` zatwierdzałbyś własny commit.
+- Alternatywy: GitLab CI/CD i Bitbucket Pipelines (ten sam model YAML), dbt Cloud (wszystko wbudowane, płatny dla zespołu), Jenkins (własny serwer i wtyczki).
 
-Zależności: deploy siedzi w tym samym pliku co CI i startuje tylko po zielonym `unit-tests` — czerwone CI blokuje deploy. Harmonogram to osobny plik, ale buduje ostatni commit z `main`, dla którego cały przebieg dbt CI/CD skończył się na zielono, a nie głowę `main`. Przy czerwonym CI prod zostaje na ostatnim dobrym kodzie i dostaje tylko świeże dane. Gdy zielonego przebiegu nie ma wcale, harmonogram kończy się błędem. Oba workflow są w jednej grupie `concurrency`, więc nie działają jednocześnie.
+### Konfiguracja GCP
 
-Alternatywy dla GitHub Actions:
-- **GitLab CI/CD** (`.gitlab-ci.yml`) i **Bitbucket Pipelines** (`bitbucket-pipelines.yml`) — ten sam model: YAML w repo, joby na runnerach, harmonogramy. Kroki przenoszą się prawie 1:1, zmienia się składnia i sposób logowania do GCP.
-- **dbt Cloud** — CI na PR, deploy i harmonogram wbudowane, z UI i historią przebiegów. Płatny przy zespole (plan Developer dla jednej osoby jest darmowy, z limitami).
-- **Jenkins** — darmowa licencja, ale najdroższy w utrzymaniu: własny serwer, wtyczki, aktualizacje i konfiguracja pipeline'ów w Groovy. Ma sens tam, gdzie firma już go utrzymuje.
-
-[`.github/workflows/dbt.yml`](../.github/workflows/dbt.yml) to trzy joby po kolei — każdy startuje tylko, gdy poprzedni przeszedł:
-1. **parse** — SQL, Jinja, YAML i `ref()`, bez BigQuery.
-2. **unit-tests** — `dbt build --empty` buduje seed i modele bez wierszy (unit testy biorą z nich typy kolumn), potem `dbt test --select test_type:unit`. Dataset `dbt_ci_ab_testing`, tabele wygasają po godzinie. Pod `--empty` staging pomija filtry na `_TABLE_SUFFIX`, bo dbt owija źródło w podzapytanie bez pseudokolumn.
-3. **deploy** (tylko push na `main`) — bazą porównania jest commit ostatniego udanego przebiegu tego workflow, a nie commit sprzed pushu. Dzięki temu zmiany z deployu, który padł albo został anulowany, wchodzą z kolejnym. `dbt parse` tamtej wersji daje manifest, a `dbt build --select state:modified+` buduje to, co się zmieniło, i wszystko za tym. Błąd parse zatrzymuje deploy, żeby nie poleciał cały projekt. Zmiana w `dbt_project.yml` dotyka konfiguracji każdego modelu, więc przebuduje całość. Zmieniony plik `stg_ga4__events` (`state:modified.body`) jest pomijany z ostrzeżeniem, a przyrostowy cron zatrzyma się na strażniku logiki, dopóki nie odpalisz pełnego rebuildu: Actions → dbt build → Run workflow → `full_refresh`.
-
-Deploy i harmonogram są w jednej grupie `concurrency`, więc nie nadpisują partycji jednocześnie. Grupa nie kolejkuje: czeka najwyżej jeden przebieg, a nowszy anuluje starszy oczekujący. Anulowany deploy nic nie gubi (baza to ostatni udany), a anulowany cron nadrobi następny dzień. CI i deploy czytają GA4 z `vars` w `dbt_project.yml` — przed pierwszym pushem wpisz tam prawdziwy projekt i dataset.
-
-### Harmonogram i konfiguracja GCP
-
-[`.github/workflows/dbt-build.yml`](../.github/workflows/dbt-build.yml) uruchamia codziennie o 10:00 UTC `dbt build --target prod_ci`, bez unit testów, na ostatnim commicie z zielonym CI. Ręcznie odpalisz go z zakładki Actions → dbt build → Run workflow, z opcją `full_refresh` po zmianie stagingu. Gdy przebieg padnie, GitHub wyśle maila, a `run_results.json` zostaje jako artefakt na 14 dni.
-
-Jednorazowa konfiguracja dla CI, deployu i harmonogramu (`PROJECT` = projekt prod, `PROJECT_NUMBER` z `gcloud projects describe $PROJECT`):
+Jednorazowo dla CI, deployu i harmonogramu (`PROJECT` = projekt prod, `PROJECT_NUMBER` z `gcloud projects describe $PROJECT`):
 
 ```bash
 # 1. konto serwisowe, z którego dbt buduje prod
@@ -180,7 +163,7 @@ for ROLE in roles/bigquery.jobUser roles/bigquery.dataEditor roles/bigquery.data
   gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=$ROLE
 done
 
-# 2. pula i dostawca Workload Identity: GCP ufa tokenom GitHuba, ale tylko z tego repo
+# 2. Workload Identity: GCP ufa tokenom GitHuba, ale tylko z tego repo
 gcloud iam workload-identity-pools create github --project=$PROJECT --location=global
 gcloud iam workload-identity-pools providers create-oidc github --project=$PROJECT \
   --location=global --workload-identity-pool=github \
@@ -188,26 +171,23 @@ gcloud iam workload-identity-pools providers create-oidc github --project=$PROJE
   --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
   --attribute-condition="assertion.repository=='<owner>/ab-test-bigquery'"
 
-# 3. workflow z tego repo może działać jako konto dbt-prod
+# 3. workflow z tego repo może działać jako dbt-prod
 gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT \
   --role=roles/iam.workloadIdentityUser \
   --member=principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/<owner>/ab-test-bigquery
 ```
 
-Sekrety w GitHub → Settings → Secrets and variables → Actions:
-
-| Sekret | Wartość |
+| Sekret (Settings → Secrets and variables → Actions) | Wartość |
 |---|---|
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github` |
 | `GCP_SERVICE_ACCOUNT` | `dbt-prod@PROJECT.iam.gserviceaccount.com` |
 | `BIGQUERY_PROD_PROJECT` | `PROJECT` |
 
-Gdy eksport GA4 leży w innym projekcie, rolę `roles/bigquery.dataViewer` nadaj kontu na tamtym datasecie zamiast w projekcie prod.
+Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym datasecie.
 
 ## Niesprawdzone
 
-- Czy filtr przyrostowy na `_TABLE_SUFFIX` ze zmienną `_dbt_max_partition` ogranicza, ile tabel dziennych czyta BigQuery. Sprawdzisz to w `total_bytes_billed` drugiego przebiegu w `INFORMATION_SCHEMA.JOBS`.
-- Unit testy i modele nie były jeszcze uruchomione na BigQuery — dotąd przechodzi tylko `dbt parse`.
-- Workflow `dbt-build.yml` i joby `unit-tests`/`deploy` nie przeszły jeszcze ani jednego przebiegu — pierwszy harmonogram odpal ręcznie po konfiguracji WIF.
-- Czy `flags.EMPTY` w Jinja stagingu wyłącza filtry `_TABLE_SUFFIX` pod `--empty`. Porównanie stanu w deployu sprawdziłem lokalnie (`dbt ls --select state:modified.body` i `state:modified+`).
-- Strażnik logiki stagingu: zapis etykiety w `post_hook` i jej odczyt z `INFORMATION_SCHEMA.TABLE_OPTIONS` — składnia przechodzi `dbt parse`, ale na BigQuery nie był uruchomiony.
+Poza `dbt parse` nic jeszcze nie biegło — `unit-tests`, `deploy` i harmonogram czekają na WIF. Do potwierdzenia:
+- czy `_dbt_max_partition` w filtrze na `_TABLE_SUFFIX` ogranicza czytane tabele (`total_bytes_billed` w `INFORMATION_SCHEMA.JOBS`);
+- czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
+- czy strażnik logiki zapisuje etykietę w `post_hook` i czyta ją z `INFORMATION_SCHEMA.TABLE_OPTIONS`.

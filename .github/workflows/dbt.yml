@@ -2,7 +2,7 @@
 #   1. parse     — składnia SQL/Jinja/YAML i ref(), bez BigQuery
 #   2. unit-tests — logika modeli na zamockowanych wierszach, w datasecie dbt_ci_ab_testing
 #   3. deploy    — tylko push na main: dbt build zmienionych modeli i wszystkiego za nimi na prod
-# Logowanie do GCP przez Workload Identity Federation — konfiguracja: dbt/README.md, sekcja „Harmonogram i konfiguracja GCP”.
+# Logowanie do GCP przez Workload Identity Federation — konfiguracja: dbt/README.md, sekcja „Konfiguracja GCP”.
 name: dbt CI/CD
 
 on:

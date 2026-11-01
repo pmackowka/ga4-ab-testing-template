@@ -2,7 +2,7 @@
 # skończył się na zielono, a nie z głowy main: kod odrzucony przez CI nie trafia na prod
 # także harmonogramem. GitHub loguje się do GCP przez Workload Identity Federation:
 # dostaje krótkotrwały token dla konta serwisowego, bez pliku klucza w sekretach.
-# Jednorazowa konfiguracja GCP i sekretów: dbt/README.md, sekcja „Harmonogram i konfiguracja GCP”.
+# Jednorazowa konfiguracja GCP i sekretów: dbt/README.md, sekcja „Konfiguracja GCP”.
 name: dbt build
 
 on:
