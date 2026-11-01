@@ -75,7 +75,7 @@ sequenceDiagram
     BQ-->>DBT: tabele i wyniki testów
 ```
 
-Na innym komputerze albo w CI kroki 1–8 już się nie powtarzają. `uv sync` czyta `uv.lock` i odtwarza dokładnie to samo `.venv`, a `uv run dbt deps` czyta `package-lock.yml`.
+Na innym komputerze albo w CI nie powtarzasz tworzenia plików (`uv init`, `uv add`, pisanie `packages.yml`). `uv sync` czyta `uv.lock` i odtwarza dokładnie to samo `.venv`, a `uv run dbt deps` czyta `package-lock.yml`.
 
 Skąd się bierze wersja:
 
