@@ -126,23 +126,27 @@ uv run dbt test --select test_type:unit --profiles-dir .
 
 ```mermaid
 flowchart LR
-    PUSH(["push / PR"]) --> PARSE
-    subgraph CICD["dbt.yml"]
-        PARSE["parse"] --> UNIT["unit-tests"]
-        UNIT -->|push na main| DEPLOY["deploy"]
+    PUSH(["push / PR<br/>zmiana w dbt/"]) --> PARSE
+    subgraph F1["dbt.yml"]
+        PARSE["CI · parse<br/>składnia"] --> UNIT["CI · unit-tests<br/>logika na mockach"]
+        UNIT -->|tylko push na main| DEPLOY["CD · deploy<br/>zmienione modele"]
     end
-    CICD -.->|zielony commit| BUILD
-    CRON(["cron 10:00 UTC"]) --> BUILD["dbt-build.yml"]
-    DEPLOY --> PROD[("prod")]
+    CRON(["cron 10:00 UTC<br/>albo ręcznie"]) --> BUILD
+    subgraph F2["dbt-build.yml"]
+        BUILD["harmonogram · build<br/>cały projekt"]
+    end
+    F1 -.->|ostatni zielony commit| BUILD
+    UNIT --> CIDS[("dbt_ci_ab_testing")]
+    DEPLOY --> PROD[("dbt_prod_ab_testing")]
     BUILD --> PROD
 ```
 
-| Job | Rola | Co robi |
-|---|---|---|
-| `parse` | CI | SQL, Jinja, YAML, `ref()` — bez BigQuery |
-| `unit-tests` | CI | `build --empty` w `dbt_ci_ab_testing` + unit testy |
-| `deploy` | continuous deployment | `build state:modified+` na prod względem ostatniego udanego przebiegu, bez zmienionego `stg_ga4__events` |
-| `dbt-build.yml` | harmonogram | build całości na prod z ostatniego zielonego commita, bez unit testów; ręcznie z `full_refresh` |
+| Plik | Job | Rola | Wyzwalacz | Co robi |
+|---|---|---|---|---|
+| `dbt.yml` | `parse` | CI | push na `main` / PR zmieniający `dbt/` | `dbt parse`: SQL, Jinja, YAML, `ref()` — bez BigQuery |
+| `dbt.yml` | `unit-tests` | CI | zielony `parse` | puste tabele (`--empty`) w `dbt_ci_ab_testing` + unit testy |
+| `dbt.yml` | `deploy` | continuous deployment | zielony `unit-tests`, tylko push na `main` | `state:modified+` na prod: zmienione modele i wszystko za nimi, bez zmienionego `stg_ga4__events` |
+| `dbt-build.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (opcja `full_refresh`) | cały projekt na prod z ostatniego commita, dla którego `dbt.yml` był zielony; bez unit testów |
 
 - Czerwony job zatrzymuje kolejne, a harmonogram buduje ostatni zielony commit — prod zostaje na dobrym kodzie i dostaje świeże dane. Bez żadnego zielonego przebiegu harmonogram kończy się błędem.
 - `deploy` i harmonogram dzielą grupę `concurrency: dbt-prod`: nigdy naraz, czeka najwyżej jeden przebieg, nowszy anuluje starszy oczekujący.
