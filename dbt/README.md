@@ -26,82 +26,32 @@ Przed pierwszym uruchomieniem ustaw w `dbt_project.yml`:
 
 Target `prod` ma osobne zmienne (`BIGQUERY_PROD_PROJECT`, `BIGQUERY_PROD_KEYFILE`) bez fallbacku na dev. W dev tabele wygasają po godzinie, z wyjątkiem `stg_ga4__events`.
 
-## Jak powstaje projekt od zera
+## Pliki
 
-Konfiguracja ma dwie niezależne warstwy z osobnymi plikami blokad:
-- **Python** (uv): interpreter i pakiety Pythona, w tym dbt. Ręcznie piszesz `pyproject.toml` i `.python-version`, a `uv.lock` generuje komenda.
-- **dbt** (dbt deps): pakiety makr dbt, np. `dbt_utils`. Ręcznie piszesz `packages.yml`, a `package-lock.yml` generuje komenda.
-
-Pliki `*.lock` i `package-lock.yml` generują komendy — nikt ich nie pisze ręcznie.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Ty
-    participant UV as uv
-    participant PyPI as PyPI (pakiety Pythona)
-    participant DBT as dbt (w .venv)
-    participant Hub as hub.getdbt.com (pakiety dbt)
-    participant BQ as BigQuery
-
-    Note over Ty,UV: Warstwa Python
-    Ty->>UV: uv init --bare
-    UV-->>Ty: pyproject.toml (pusty szkielet)
-    Ty->>Ty: wpisuje requires-python i package = false
-    Ty->>UV: uv python pin 3.11
-    UV-->>Ty: .python-version
-    Ty->>UV: uv add dbt-bigquery==1.12.0
-    UV->>PyPI: rozwiąż zależności dbt-bigquery
-    PyPI-->>UV: dbt-core, dbt-adapters, google-cloud-bigquery…
-    UV-->>Ty: wpis w pyproject.toml + uv.lock (~2700 wierszy) + .venv/
-
-    Note over Ty,DBT: Szkielet projektu dbt
-    Ty->>Ty: pisze dbt_project.yml, profiles.yml.example, .gitignore
-    Ty->>Ty: pisze packages.yml (dbt_utils 1.4.1)
-    Ty->>DBT: uv run dbt deps
-    DBT->>Hub: pobierz dbt_utils 1.4.1
-    Hub-->>DBT: makra
-    DBT-->>Ty: dbt_packages/ + package-lock.yml
-
-    Note over Ty,DBT: Treść projektu
-    Ty->>Ty: pisze seed, source, modele, testy, unit testy (.sql, .yml)
-    Ty->>DBT: uv run dbt parse
-    DBT-->>Ty: błędy składni Jinja/YAML/ref() albo OK, bez łączenia z BigQuery
-
-    Note over Ty,BQ: Uruchomienie
-    Ty->>Ty: cp profiles.yml.example profiles.yml, export BIGQUERY_*
-    Ty->>DBT: uv run dbt build
-    DBT->>BQ: seed → modele → testy, w kolejności z ref()
-    BQ-->>DBT: tabele i wyniki testów
+```
+dbt/
+├── pyproject.toml          # wersja Pythona i dbt-bigquery, które instaluje uv — piszesz ręcznie
+├── .python-version         # wersja interpretera Pythona (3.11) dla uv
+├── uv.lock                 # pełne drzewo pakietów Pythona z wersjami; generuje `uv lock`, nie edytujesz
+├── dbt_project.yml         # nazwa projektu, zmienne GA4 i domyślne materializacje folderów
+├── profiles.yml.example    # szablon połączenia z BigQuery; kopia profiles.yml zostaje poza gitem
+├── packages.yml            # pakiety makr dbt (dbt_utils) do pobrania przez `dbt deps`
+├── package-lock.yml        # dokładna wersja pobranych pakietów dbt; generuje `dbt deps`
+├── .gitignore              # wyklucza z gita .venv, target, dbt_packages i poświadczenia
+├── seeds/
+│   ├── ab_tests.csv        # rejestr testów A/B — jeden wiersz na test
+│   └── _seeds.yml          # typy kolumn i opisy seeda
+├── models/
+│   ├── staging/ga4/        # źródło GA4 i stg_ga4__events — eventy testów i konwersji z eksportu
+│   ├── staging/seeds/      # stg_seeds__ab_tests — seed z listami jako ARRAY
+│   ├── intermediate/       # przypisania i konwersje na użytkownika + ich unit testy
+│   └── marts/              # wynik do kalkulatora i wynik tygodniowy + ich unit testy
+└── tests/
+    ├── assert_*.sql        # testy singularne — każdy zwrócony wiersz to problem w danych
+    └── generic/            # test variant_in_seed, używany w plikach .yml modeli
 ```
 
-Na innym komputerze albo w CI nie powtarzasz tworzenia plików (`uv init`, `uv add`, pisanie `packages.yml`). `uv sync` czyta `uv.lock` i odtwarza dokładnie to samo `.venv`, a `uv run dbt deps` czyta `package-lock.yml`.
-
-Skąd się bierze wersja:
-
-| Co | Gdzie się to ustawia | Kto pisze |
-|---|---|---|
-| wersja Pythona | `.python-version` (3.11), granica w `requires-python` w `pyproject.toml` (≥ 3.11) | Ty (albo `uv python pin`) |
-| wersja adaptera dbt-bigquery | `dependencies` w `pyproject.toml` (`==1.12.0`) | Ty (albo `uv add`) |
-| wersja dbt-core i ~100 pozostałych pakietów | `uv.lock` (dbt-core 1.12.6, dbt-adapters 1.24.5…) | `uv lock` / `uv add` |
-| wersja dbt_utils | `packages.yml` (1.4.1) | Ty |
-| hash pobranej paczki dbt_utils | `package-lock.yml` | `dbt deps` |
-
-dbt-core nie jest wpisany nigdzie ręcznie. Wymaga go dbt-bigquery, a uv wybrał najnowszą wersję zgodną z wymaganiami adaptera i zapisał ją w `uv.lock`. Świadome podbicie wersji: `uv lock --upgrade-package dbt-core`.
-
-### Słownik
-
-- **uv** — menedżer projektów i pakietów Pythona firmy Astral, napisany w Ruście, nie w Pythonie. Zastępuje kilka narzędzi naraz: `pyenv` (instaluje interpreter), `venv` (tworzy środowisko), `pip` (instaluje pakiety) i `pip-tools` (blokuje wersje). Jest szybki, bo rozwiązuje zależności równolegle i trzyma globalny cache.
-- **pyproject.toml** — standardowy plik projektu Pythona (PEP 621) z listą zależności wybranych świadomie. Tylko bezpośrednie zależności, tu jedna.
-- **uv.lock** — pełne drzewo zależności: każda paczka, dokładna wersja, hash pliku i wersje dla każdego systemu i Pythona z zakresu `requires-python`. Stąd ~2700 wierszy. Commitujesz go, nie edytujesz.
-- **.python-version** — wersja interpretera dla projektu. `uv sync` pobierze ją sama, jeśli nie ma jej w systemie.
-- **.venv/** — izolowane środowisko projektu: własny interpreter i pakiety, osobne od systemowego Pythona i od innych projektów. Jest w `.gitignore`, bo `uv sync` odtwarza je z `uv.lock`.
-- **uv sync** — doprowadza `.venv` do stanu z `uv.lock`: doinstalowuje brakujące pakiety i usuwa nadmiarowe. Z flagą `--locked` kończy się błędem, gdy `uv.lock` nie pasuje do `pyproject.toml` (używa tego CI).
-- **uv run** — uruchamia komendę w `.venv` bez ręcznego `source .venv/bin/activate`, a wcześniej robi szybkie `uv sync`.
-- **PyPI** — publiczne repozytorium pakietów Pythona, z którego uv pobiera dbt i resztę.
-- **dbt-core / dbt-bigquery** — dbt to program w Pythonie. dbt-core kompiluje Jinja do SQL i ustala kolejność modeli z `ref()`, a adapter dbt-bigquery wysyła ten SQL do BigQuery.
-- **packages.yml / package-lock.yml / dbt deps** — to samo co pyproject/uv.lock/uv sync, tylko dla pakietów makr dbt z hub.getdbt.com. Instaluje do `dbt_packages/` (w `.gitignore`).
-- **profiles.yml** — dane połączenia z hurtownią (projekt, klucz, dataset). Poza repo, bo zawiera ścieżkę do poświadczeń; w repo jest tylko szablon `.example`.
+Poza `dbt/`: `.github/workflows/dbt.yml` uruchamia `dbt parse` przy każdym PR. Lokalnie powstają też `.venv/` (środowisko Pythona z `uv sync`), `dbt_packages/` (z `dbt deps`) i `target/` (skompilowany SQL) — żadnego z nich nie ma w gicie.
 
 ## Rejestr testów: `seeds/ab_tests.csv`
 
