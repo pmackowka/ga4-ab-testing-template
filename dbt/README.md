@@ -152,7 +152,7 @@ flowchart LR
 - `deploy` i `build` dzielą grupę `concurrency: dbt-prod` — nigdy naraz; nowszy anuluje oczekujący.
 - Zmiana `stg_ga4__events` czeka na Actions → dbt build → Run workflow → `full_refresh`.
 - Continuous delivery (prod po „Approve”) tylko jako benchmark — zatwierdzałbyś własny commit.
-- Alternatywy: GitLab CI/CD i Bitbucket Pipelines (ten sam model YAML), dbt Cloud (wszystko wbudowane, płatny dla zespołu), Jenkins (własny serwer i wtyczki).
+- Alternatywy: GitLab CI/CD, Bitbucket Pipelines (ten sam model), dbt Cloud (płatny w zespole), Jenkins (własny serwer).
 
 ### Konfiguracja GCP
 
