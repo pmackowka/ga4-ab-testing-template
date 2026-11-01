@@ -125,25 +125,24 @@ uv run dbt test --select test_type:unit --profiles-dir .
 ## CI/CD i harmonogram
 
 ```mermaid
-flowchart TD
-    PUSH["push na main albo PR<br/>ze zmianą w dbt/"] --> PARSE
+flowchart LR
+    PUSH(["push / PR"]) --> PARSE
     subgraph CICD["dbt.yml"]
-        subgraph CI["CI"]
-            PARSE["parse<br/>SQL, Jinja, YAML, ref()<br/>bez BigQuery"] -->|zielony| UNIT["unit-tests<br/>build --empty w dbt_ci_ab_testing<br/>+ unit testy"]
-        end
-        subgraph CD["continuous deployment"]
-            DEPLOY["deploy<br/>baza: ostatni udany przebieg dbt.yml<br/>build state:modified+ na prod<br/>bez zmienionego stg_ga4__events"]
-        end
-        UNIT -->|"zielony, tylko push na main"| DEPLOY
+        PARSE["parse"] --> UNIT["unit-tests"]
+        UNIT -->|push na main| DEPLOY["deploy"]
     end
-    CRON["cron 10:00 UTC<br/>albo ręcznie z full_refresh"] --> BUILD
-    subgraph SCHED["dbt-build.yml — harmonogram"]
-        BUILD["build całości na prod<br/>bez unit testów"]
-    end
-    CICD -.->|"commit ostatniego zielonego przebiegu"| BUILD
-    DEPLOY --> PROD[("BigQuery<br/>dbt_prod_ab_testing")]
+    CICD -.->|zielony commit| BUILD
+    CRON(["cron 10:00 UTC"]) --> BUILD["dbt-build.yml"]
+    DEPLOY --> PROD[("prod")]
     BUILD --> PROD
 ```
+
+| Job | Rola | Co robi |
+|---|---|---|
+| `parse` | CI | SQL, Jinja, YAML, `ref()` — bez BigQuery |
+| `unit-tests` | CI | `build --empty` w `dbt_ci_ab_testing` + unit testy |
+| `deploy` | continuous deployment | `build state:modified+` na prod względem ostatniego udanego przebiegu, bez zmienionego `stg_ga4__events` |
+| `dbt-build.yml` | harmonogram | build całości na prod z ostatniego zielonego commita, bez unit testów; ręcznie z `full_refresh` |
 
 - Czerwony job zatrzymuje kolejne, a harmonogram buduje ostatni zielony commit — prod zostaje na dobrym kodzie i dostaje świeże dane. Bez żadnego zielonego przebiegu harmonogram kończy się błędem.
 - `deploy` i harmonogram dzielą grupę `concurrency: dbt-prod`: nigdy naraz, czeka najwyżej jeden przebieg, nowszy anuluje starszy oczekujący.
