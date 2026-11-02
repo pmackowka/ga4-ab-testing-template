@@ -1,0 +1,41 @@
+# Opisy testów z tego folderu — trafiają do dbt docs i manifest.json. Logika i progi: komentarze
+# w plikach .sql. Wiersz wyniku testu singularnego = błąd; ważność ustawia config() w pliku.
+version: 2
+
+data_tests:
+  - name: assert_ab_tests_config_valid
+    description: >
+      Błędna konfiguracja w seeds/ab_tests.csv: start nie w poniedziałek, koniec nie w niedzielę,
+      kontrola spoza wariantów, mniej niż dwa warianty, start przed ga4_start_date, test_name
+      inny niż abN albo okno nakładające się na poprzedni test w tym samym slocie.
+
+  - name: assert_ga4_days_complete
+    description: >
+      Brak dziennej tabeli eksportu GA4 w oknie testu, sprawdzany do dziś minus 3 dni.
+      Wiersz = brakujący dzień.
+
+  - name: assert_all_variants_have_users
+    description: >
+      Wariant z seeda z 0 użytkowników, gdy inne warianty testu ich mają: tag nie losuje tego
+      wariantu albo zmienna GTM go odrzuca.
+
+  - name: assert_weekly_matches_results
+    description: >
+      Ostatni tydzień fct_ab_test_weekly różni się od fct_ab_test_results — jeden z modeli
+      inaczej liczy wykluczenia albo konwersje.
+
+  - name: assert_srm
+    description: >
+      Sample ratio mismatch w parze kontrola–wariant: χ² > 10,828 (p < 0,001), ta sama reguła co
+      w kalkulatorze „Po teście A/B”. Ważność warn — o tym, czy ufać wynikowi, decyduje człowiek.
+
+  - name: assert_excluded_mixed_balanced
+    description: >
+      Różnica excluded_mixed między wariantem a kontrolą większa niż 2 × √(suma obu): błąd
+      zapisu cookie w tagu albo wariant zmienia częstotliwość powrotów. Ważność warn.
+
+macros:
+  - name: test_variant_in_seed
+    description: >
+      Test generyczny variant_in_seed: wariant spoza listy variants testu w seedzie, czyli tag
+      z innymi wartościami albo literówka w zmiennej GTM. Model musi mieć kolumnę test_id.
