@@ -38,7 +38,7 @@ jobs:
       BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
     steps:
       # Zielony = cały przebieg dbt CI/CD (parse, unit-tests i deploy). Commity bez zmian w dbt/
-      # nie odpalają CI, ale niczego w dbt nie zmieniają, więc ostatni zielony ma ten sam kod.
+      # albo tylko w *.md nie odpalają CI, ale nie zmieniają modeli, więc ostatni zielony ma ten sam kod.
       - name: ostatni commit z zielonym CI
         id: green
         working-directory: .

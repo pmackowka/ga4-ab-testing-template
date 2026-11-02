@@ -5,12 +5,13 @@
 # Logowanie do GCP przez Workload Identity Federation — konfiguracja: dbt/README.md, sekcja „Konfiguracja GCP”.
 name: dbt CI/CD
 
+# sama dokumentacja (*.md) nie zmienia modeli, więc nie odpala CI
 on:
   pull_request:
-    paths: ["dbt/**", ".github/workflows/dbt.yml"]
+    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt.yml"]
   push:
     branches: [main]
-    paths: ["dbt/**", ".github/workflows/dbt.yml"]
+    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt.yml"]
 
 defaults:
   run:
