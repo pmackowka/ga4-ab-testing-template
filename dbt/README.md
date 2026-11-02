@@ -46,7 +46,7 @@ dbt/
 ├── .gitignore              ✍                co nie trafia do gita
 ├── seeds/                  ✍                rejestr testów ab_tests.csv i jego opis
 ├── models/                 ✍                modele SQL, ich opisy, testy i unit testy (.yml)
-└── tests/                  ✍                testy singularne, generyczny variant_in_seed, opisy w _tests.yml
+└── tests/                  ✍                testy singularne i generyczny variant_in_seed
 ```
 
 ## Rejestr testów: `seeds/ab_tests.csv`
