@@ -102,26 +102,27 @@ flowchart LR
 
 ## Testy
 
-| Typ | Sprawdza | Plik | Kiedy biegnie |
-|---|---|---|---|
-| generic | czy **dane** są poprawne | YAML: `data_tests:` przy kolumnie w `_*_models.yml` | w `dbt build` po zbudowaniu modelu: deploy (zmienione modele) i harmonogram; CI ich nie odpala |
-| singular | czy **dane** są poprawne | SQL: `tests/*.sql`, wiersz wyniku = błąd | jak generic |
-| unit | czy **logika** jest poprawna | YAML: `_*_unit_tests.yml`, mockowane wiersze | tylko w CI (`unit-tests`), przed modelem; prod je pomija |
+Czym jest każdy typ, co sprawdza i kiedy biegnie, opisują komentarze na początku plików z testami: w `tests/` (generic i singular) oraz w `models/` (użycie generic w `_*_models.yml`, unit testy w `_*_unit_tests.yml`). Testy generic mają dwa miejsca: definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać) — dlatego `not_null`, `unique` i `unique_combination_of_columns` widać tylko w `models/`, a w `tests/generic/` jest jedynie własny `variant_in_seed`.
 
-| Test | Typ | Źródło definicji | Ważność | Co łapie |
-|---|---|---|---|---|
-| `not_null`, `unique` | generic | wbudowany w dbt | error | puste i zdublowane klucze |
-| `unique_combination_of_columns` | generic | pakiet dbt_utils (`dbt deps`) | error | zdublowane ziarno modelu, np. `test_id` × `user_pseudo_id` |
-| `variant_in_seed` | generic | własny, `tests/generic/` | error | wariant spoza seeda: inny tag albo literówka w zmiennej GTM |
-| `assert_ab_tests_config_valid` | singular | własny, `tests/` | error | błędna konfiguracja w seedzie |
-| `assert_ga4_days_complete` | singular | własny, `tests/` | error | brak dziennej tabeli eksportu w oknie testu (do dziś − 3 dni) |
-| `assert_all_variants_have_users` | singular | własny, `tests/` | error | wariant z 0 użytkowników, gdy inne je mają |
-| `assert_weekly_matches_results` | singular | własny, `tests/` | error | rozjazd ostatniego tygodnia z wynikiem końcowym |
-| `assert_srm` | singular | własny, `tests/` | warn | para kontrola–wariant, χ² > 10,828 (p < 0,001), jak w kalkulatorze |
-| `assert_excluded_mixed_balanced` | singular | własny, `tests/` | warn | różnica `excluded_mixed` względem kontroli > 2 × √(suma) |
-| `exposures_*`, `conversions_*`, `results_*`, `weekly_*` (6) | unit | własny, `_*_unit_tests.yml` | error | ponowne losowanie, równoległe sloty, ekspozycja poza oknem, zakup przed ekspozycją, dubel `purchase`, wariant bez użytkowników |
-
-Generic ma definicję (makro: jak sprawdzać) i użycie (`data_tests:` w YAML przy modelu: co sprawdzać) — dlatego w `tests/generic/` jest tylko `variant_in_seed`, a wbudowane i z dbt_utils tylko przypinasz.
+```
+generic — sprawdza dane
+├── (wbudowane w dbt)                          not_null, unique — bez pliku w repo
+├── dbt_packages/dbt_utils/                    unique_combination_of_columns — z dbt deps, poza gitem
+├── tests/generic/test_variant_in_seed.sql     variant_in_seed — własny
+└── models/**/_*_models.yml                    użycie: data_tests: przy kolumnach i modelach (23)
+singular — sprawdza dane, jeden plik .sql = jeden test
+└── tests/
+    ├── assert_ab_tests_config_valid.sql       konfiguracja seeda
+    ├── assert_ga4_days_complete.sql           brakujące dni eksportu GA4
+    ├── assert_all_variants_have_users.sql     wariant z 0 użytkowników
+    ├── assert_weekly_matches_results.sql      weekly = wynik końcowy
+    ├── assert_srm.sql                         SRM (warn)
+    └── assert_excluded_mixed_balanced.sql     nierówne excluded_mixed (warn)
+unit — sprawdza logikę na mockach
+└── models/
+    ├── intermediate/_int_ab__unit_tests.yml   exposures_*, conversions_* (4)
+    └── marts/_marts__unit_tests.yml           results_*, weekly_* (2)
+```
 
 Przy warn decyduje człowiek; parę wskaże `dbt test --select assert_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć:
 

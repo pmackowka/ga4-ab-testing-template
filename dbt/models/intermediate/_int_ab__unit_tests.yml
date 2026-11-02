@@ -1,4 +1,6 @@
-# Unit testy logiki przypisania i konwersji na zamockowanych wierszach — zamiast trybu demo.
+# Unit testy: sprawdzają, czy LOGIKA modelu jest poprawna — wiersze z given zamiast ref(),
+# wynik porównany z expect. Plik YAML. Biegną tylko w CI (job unit-tests), przed modelem;
+# deploy i harmonogram je pomijają. Tu: logika przypisania i konwersji — zamiast trybu demo.
 # Uruchamiają się w BigQuery, ale nie czytają GA4: dbt wstawia wiersze z given jako CTE.
 # Przed pierwszym uruchomieniem modele nadrzędne muszą istnieć (dbt bierze z nich typy kolumn):
 #   uv run dbt run --select +fct_ab_test_weekly --empty

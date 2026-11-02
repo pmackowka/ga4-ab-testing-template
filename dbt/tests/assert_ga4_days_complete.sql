@@ -1,3 +1,5 @@
+-- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
+-- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 {#
 	Brak dziennej tabeli eksportu (przerwa, limit) zaniża wynik po cichu. Sprawdza każdy dzień
 	każdego testu do dziś minus 3 dni — późniejsze dni GA4 jeszcze dopisuje. Wiersz = brakujący dzień.

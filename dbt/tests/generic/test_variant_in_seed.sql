@@ -1,4 +1,9 @@
 {#
+	Test generic: sprawdza, czy DANE są poprawne. Ten plik to definicja (makro: jak sprawdzać),
+	użycie to `data_tests: - variant_in_seed` przy kolumnie w YAML modelu (co sprawdzać). Wbudowane
+	not_null i unique oraz dbt_utils.unique_combination_of_columns nie mają definicji w repo — tylko
+	użycie w YAML. Biegnie w dbt build po modelu (deploy, harmonogram); CI go nie odpala.
+
 	Wariant spoza listy variants testu w seeds/ab_tests.csv = błąd: tag z innymi wartościami albo
 	literówka w zmiennej GTM. Model musi mieć kolumnę test_id.
 #}

@@ -1,3 +1,5 @@
+-- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
+-- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 {#
 	SRM (sample ratio mismatch): podział users między kontrolę a wariant odbiega od 50/50 bardziej,
 	niż tłumaczy przypadek. Ta sama reguła co w kalkulatorze „Po teście A/B” (srmCheck): para

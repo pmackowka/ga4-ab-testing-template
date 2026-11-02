@@ -1,3 +1,5 @@
+-- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
+-- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 -- Ostatni tydzień fct_ab_test_weekly musi dać te same liczby co fct_ab_test_results — inaczej
 -- jeden z modeli inaczej liczy wykluczenia albo konwersje. Wiersz = rozjazd.
 SELECT

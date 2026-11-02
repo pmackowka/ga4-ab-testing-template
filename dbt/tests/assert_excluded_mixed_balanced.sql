@@ -1,3 +1,5 @@
+-- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
+-- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 {#
 	excluded_mixed to ok. połowa ponownie wylosowanych — druga połowa trafiła w ten sam wariant
 	i jest niewidoczna. Przy podobnych users różnica excluded_mixed między wariantem a kontrolą
