@@ -110,14 +110,14 @@ flowchart LR
 
 | Test | Typ | Ważność | Co łapie |
 |---|---|---|---|
+| `variant_in_seed` | generic | error | wariant spoza seeda: inny tag albo literówka w zmiennej GTM |
+| `unique_combination_of_columns`, `not_null` | generic | error | klucze modeli |
 | `assert_ab_tests_config_valid` | singular | error | błędna konfiguracja w seedzie |
 | `assert_ga4_days_complete` | singular | error | brak dziennej tabeli eksportu w oknie testu (do dziś − 3 dni) |
 | `assert_all_variants_have_users` | singular | error | wariant z 0 użytkowników, gdy inne je mają |
 | `assert_weekly_matches_results` | singular | error | rozjazd ostatniego tygodnia z wynikiem końcowym |
 | `assert_srm` | singular | warn | para kontrola–wariant, χ² > 10,828 (p < 0,001), jak w kalkulatorze |
 | `assert_excluded_mixed_balanced` | singular | warn | różnica `excluded_mixed` względem kontroli > 2 × √(suma) |
-| `variant_in_seed` | generic | error | wariant spoza seeda: inny tag albo literówka w zmiennej GTM |
-| `unique_combination_of_columns`, `not_null` | generic | error | klucze modeli |
 | `exposures_*`, `conversions_*`, `results_*`, `weekly_*` (6) | unit | error | ponowne losowanie, równoległe sloty, ekspozycja poza oknem, zakup przed ekspozycją, dubel `purchase`, wariant bez użytkowników |
 
 Przy warn decyduje człowiek; parę wskaże `dbt test --select assert_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć:
