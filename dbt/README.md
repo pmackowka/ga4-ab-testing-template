@@ -102,20 +102,25 @@ flowchart LR
 
 ## Testy
 
-| Test | Ważność | Co łapie |
-|---|---|---|
-| `assert_ab_tests_config_valid` | error | błędna konfiguracja w seedzie |
-| `assert_ga4_days_complete` | error | brak dziennej tabeli eksportu w oknie testu (do dziś − 3 dni) |
-| `variant_in_seed` (generyczny) | error | wariant spoza seeda: inny tag albo literówka w zmiennej GTM |
-| `assert_all_variants_have_users` | error | wariant z 0 użytkowników, gdy inne je mają |
-| `assert_weekly_matches_results` | error | rozjazd ostatniego tygodnia z wynikiem końcowym |
-| `assert_srm` | warn | para kontrola–wariant, χ² > 10,828 (p < 0,001), jak w kalkulatorze |
-| `assert_excluded_mixed_balanced` | warn | różnica `excluded_mixed` względem kontroli > 2 × √(suma) |
-| `unique_combination_of_columns`, `not_null` | error | klucze modeli |
+| Typ | Sprawdza | Plik | Kiedy biegnie |
+|---|---|---|---|
+| generic | czy **dane** są poprawne | YAML: `data_tests:` przy kolumnie w `_*_models.yml` | w `dbt build` po zbudowaniu modelu — CI (na pustych tabelach), deploy, harmonogram |
+| singular | czy **dane** są poprawne | SQL: `tests/*.sql`, wiersz wyniku = błąd | jak generic |
+| unit | czy **logika** jest poprawna | YAML: `_*_unit_tests.yml`, mockowane wiersze | tylko w CI (`unit-tests`), przed modelem; prod je pomija |
 
-Przy warn decyduje człowiek; parę wskaże `dbt test --select assert_srm --store-failures`.
+| Test | Typ | Ważność | Co łapie |
+|---|---|---|---|
+| `assert_ab_tests_config_valid` | singular | error | błędna konfiguracja w seedzie |
+| `assert_ga4_days_complete` | singular | error | brak dziennej tabeli eksportu w oknie testu (do dziś − 3 dni) |
+| `assert_all_variants_have_users` | singular | error | wariant z 0 użytkowników, gdy inne je mają |
+| `assert_weekly_matches_results` | singular | error | rozjazd ostatniego tygodnia z wynikiem końcowym |
+| `assert_srm` | singular | warn | para kontrola–wariant, χ² > 10,828 (p < 0,001), jak w kalkulatorze |
+| `assert_excluded_mixed_balanced` | singular | warn | różnica `excluded_mixed` względem kontroli > 2 × √(suma) |
+| `variant_in_seed` | generic | error | wariant spoza seeda: inny tag albo literówka w zmiennej GTM |
+| `unique_combination_of_columns`, `not_null` | generic | error | klucze modeli |
+| `exposures_*`, `conversions_*`, `results_*`, `weekly_*` (6) | unit | error | ponowne losowanie, równoległe sloty, ekspozycja poza oknem, zakup przed ekspozycją, dubel `purchase`, wariant bez użytkowników |
 
-Unit testy (`models/**/_*_unit_tests.yml`) sprawdzają na zamockowanych wierszach: ponowne losowanie, równoległe testy i ten sam slot w dwóch przebiegach, ekspozycję poza oknem, zakup przed ekspozycją, zdublowany `purchase`, wariant bez użytkowników. Typy kolumn biorą z modeli nadrzędnych, więc te muszą istnieć:
+Przy warn decyduje człowiek; parę wskaże `dbt test --select assert_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć:
 
 ```bash
 uv run dbt run --select +fct_ab_test_weekly --empty --profiles-dir .
