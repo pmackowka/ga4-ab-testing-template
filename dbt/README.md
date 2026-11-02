@@ -104,7 +104,7 @@ flowchart LR
 
 | Typ | Sprawdza | Plik | Kiedy biegnie |
 |---|---|---|---|
-| generic | czy **dane** są poprawne | YAML: `data_tests:` przy kolumnie w `_*_models.yml` | w `dbt build` po zbudowaniu modelu — CI (na pustych tabelach), deploy, harmonogram |
+| generic | czy **dane** są poprawne | YAML: `data_tests:` przy kolumnie w `_*_models.yml` | w `dbt build` po zbudowaniu modelu: deploy (zmienione modele) i harmonogram; CI ich nie odpala |
 | singular | czy **dane** są poprawne | SQL: `tests/*.sql`, wiersz wyniku = błąd | jak generic |
 | unit | czy **logika** jest poprawna | YAML: `_*_unit_tests.yml`, mockowane wiersze | tylko w CI (`unit-tests`), przed modelem; prod je pomija |
 
