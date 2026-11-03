@@ -1,3 +1,5 @@
+-- SINGULAR
+
 -- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
 -- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 -- Reguły z ASSERT-ów sql/03 dla każdego wiersza seeds/ab_tests.csv. Wiersz wyniku = błąd konfiguracji.

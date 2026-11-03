@@ -1,3 +1,5 @@
+-- SINGULAR
+
 -- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
 -- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 -- Wariant z seeda bez użytkowników, gdy inne warianty tego testu je mają: tag nie losuje tego

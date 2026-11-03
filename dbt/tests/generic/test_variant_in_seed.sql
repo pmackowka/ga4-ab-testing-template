@@ -1,3 +1,5 @@
+-- GENERIC
+
 {#
 	Test generic: sprawdza, czy DANE są poprawne. Ten plik to definicja (makro: jak sprawdzać),
 	użycie to `data_tests: - variant_in_seed` przy kolumnie w YAML modelu (co sprawdzać). Wbudowane

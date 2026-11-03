@@ -1,3 +1,5 @@
+# UNIT
+
 # Unit testy: sprawdzają, czy LOGIKA modelu jest poprawna — wiersze z given zamiast ref(),
 # wynik porównany z expect. Plik YAML. Biegną tylko w CI (job unit-tests), przed modelem;
 # deploy i harmonogram je pomijają. Tu: logika przypisania i konwersji — zamiast trybu demo.
