@@ -3,38 +3,31 @@
 	ab1…ab10 albo ab_assign) i eventy konwersji z seeds/rejestr_testow.csv. Reszta ruchu nie trafia
 	do tabeli, więc jest mała mimo dużego eksportu.
 
-	insert_overwrite, nie merge: eksport GA4 nie ma klucza eventu, a jednostką poprawki jest dzień —
-	GA4 dopisuje do dziennej tabeli jeszcze do 72 h. Każdy przebieg nadpisuje w całości ostatnie
-	dni (dni_wstecz) od najnowszej partycji w tabeli, więc spóźnione eventy wchodzą bez duplikatów.
-	Liczone od _dbt_max_partition (zmienna, którą dbt deklaruje w skrypcie insert_overwrite), a nie od
-	CURRENT_DATE(), żeby kilkudniowa przerwa w harmonogramie nie zostawiła dziury w danych.
-
-	hours_to_expiration=none — nadpisuje 1 h z dbt_project.yml; inaczej w dev tabela znika przed
-	kolejnym przebiegiem i ścieżka incremental nigdy się nie wykonuje.
+	Przyrost: każdy przebieg nadpisuje w całości ostatnie dni_wstecz dni od najnowszej partycji
+	w tabeli (_dbt_max_partition — zmienna, którą dbt deklaruje w skrypcie insert_overwrite), a nie
+	od CURRENT_DATE(), żeby kilkudniowa przerwa w harmonogramie nie zostawiła dziury w danych.
 
 	Strażnik logiki: przyrostowy przebieg z NOWĄ logiką nadpisałby tylko ostatnie dni i zostawił
-	w tabeli mieszankę starej i nowej logiki, bez błędu. Dlatego post_hook zapisuje w etykiecie
-	tabeli sumę kontrolną tego pliku, a przebieg przyrostowy z inną sumą przerywa się błędem —
-	niezależnie od tego, czy odpala go deploy, harmonogram czy laptop. Pełny rebuild
-	(--full-refresh) ustawia nową sumę. Suma liczy się z całego pliku, więc zmiana samego
+	w tabeli mieszankę starej i nowej logiki, bez błędu. Blok niżej porównuje sumę kontrolną pliku
+	z etykietą tabeli (zapisuje ją post_hook) i przerywa przebieg przy różnicy — niezależnie od tego,
+	czy odpala go deploy, harmonogram czy laptop. Suma liczy się z całego pliku, więc zmiana samego
 	komentarza też wymaga --full-refresh.
 #}
 {%- set dni_wstecz = 3 -%}
+	{# GA4 dopisuje do dziennej tabeli jeszcze do 72 h #}
 
-{{
-	config(
-		materialized='incremental',
-		incremental_strategy='insert_overwrite',
-		hours_to_expiration=none,
-		on_schema_change='append_new_columns',
-		post_hook="ALTER TABLE {{ this }} SET OPTIONS (labels = [('suma_logiki', '{{ model.checksum.checksum[:40] }}')])",
-		partition_by={
-			"field": "data_zdarzenia",
-			"data_type": "date",
-			"granularity": "day"
-		}
-	)
-}}
+{{ config(materialized='incremental') }}
+	{# tabela dopisywana przyrostowo, nie przeliczana od zera #}
+{{ config(incremental_strategy='insert_overwrite') }}
+	{# podmienia całe partycje-dni; merge niemożliwy, bo eksport GA4 nie ma klucza eventu #}
+{{ config(hours_to_expiration=none) }}
+	{# bez wygasania, wbrew 1 h z dbt_project.yml — inaczej w dev tabela znika i ścieżka incremental nigdy się nie wykonuje #}
+{{ config(on_schema_change='append_new_columns') }}
+	{# nowa kolumna w modelu dochodzi do tabeli bez pełnego rebuildu #}
+{{ config(post_hook="ALTER TABLE {{ this }} SET OPTIONS (labels = [('suma_logiki', '{{ model.checksum.checksum[:40] }}')])") }}
+	{# po każdym buildzie zapisuje sumę kontrolną pliku w etykiecie tabeli; --full-refresh ustawia nową #}
+{{ config(partition_by={"field": "data_zdarzenia", "data_type": "date", "granularity": "day"}) }}
+	{# partycja = dzień z kolumny data_zdarzenia: jednostka nadpisywania i filtr ograniczający skan #}
 
 {%- if execute and is_incremental() %}
 	{%- set zapytanie_etykiety %}

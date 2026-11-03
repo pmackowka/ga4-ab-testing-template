@@ -4,16 +4,16 @@
 -- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 {#
 	wykluczeni_mieszani to ok. połowa ponownie wylosowanych — druga połowa trafiła w ten sam wariant
-	i jest niewidoczna. Przy podobnych uzytkownicy różnica wykluczeni_mieszani między wariantem a kontrolą
+	i jest niewidoczna. Przy podobnej liczbie użytkowników różnica wykluczeni_mieszani między wariantem a kontrolą
 	większa niż 2 × √(suma obu) jest podejrzana. Przykład: 410 vs 398 → różnica 12, próg
 	2 × √808 ≈ 57 → w normie.
 	Dwie możliwe przyczyny alarmu:
 	- błąd: tag losuje ponownie mimo cookie albo zapisuje je tylko w jednym wariancie;
 	- efekt wariantu: wariant zmienia, jak często ludzie wracają, więc częściej tracą cookie —
 	  z jednego wariantu wypadają akurat najbardziej zaangażowani i wynik jest obciążony.
-	warn: w obu przypadkach nie ufaj wynikowi bez wyjaśnienia różnicy, ale decyduje człowiek.
 #}
 {{ config(severity='warn') }}
+	{# warn, nie error: w obu przypadkach nie ufaj wynikowi bez wyjaśnienia różnicy, ale decyduje człowiek — build się kończy #}
 
 SELECT
 	v.id_testu,

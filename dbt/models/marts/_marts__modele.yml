@@ -11,7 +11,9 @@ models:
       wariant (B). Do kalkulatora bierz tylko wiersze z czy_koncowy = true.
     config:
       contract:
+        # kontrakt: kształt tabeli, na którym polega kalkulator
         enforced: true
+          # build pada, gdy SQL zwraca inne kolumny albo typy niż data_type niżej, a constraints trafiają do DDL tabeli
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -77,7 +79,7 @@ models:
       - name: uzytkownicy
         description: Użytkownicy narastająco na koniec tygodnia, bez wylosowanych ponownie do tego dnia.
       - name: konwertujacy
-        description: Ci z uzytkownicy, którzy skonwertowali do końca tygodnia.
+        description: Użytkownicy z kolumny uzytkownicy, którzy skonwertowali do końca tygodnia.
       - name: wykluczeni_mieszani
         description: Użytkownicy z 2+ wariantami do końca tygodnia.
       - name: czy_koncowy
