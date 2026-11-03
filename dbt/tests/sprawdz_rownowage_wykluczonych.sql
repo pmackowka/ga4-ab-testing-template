@@ -3,8 +3,8 @@
 -- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
 -- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 {#
-	excluded_mixed to ok. połowa ponownie wylosowanych — druga połowa trafiła w ten sam wariant
-	i jest niewidoczna. Przy podobnych users różnica excluded_mixed między wariantem a kontrolą
+	wykluczeni_mieszani to ok. połowa ponownie wylosowanych — druga połowa trafiła w ten sam wariant
+	i jest niewidoczna. Przy podobnych uzytkownicy różnica wykluczeni_mieszani między wariantem a kontrolą
 	większa niż 2 × √(suma obu) jest podejrzana. Przykład: 410 vs 398 → różnica 12, próg
 	2 × √808 ≈ 57 → w normie.
 	Dwie możliwe przyczyny alarmu:
@@ -16,14 +16,14 @@
 {{ config(severity='warn') }}
 
 SELECT
-	v.test_id,
-	v.variant,
-	c.excluded_mixed AS excluded_mixed_control,
-	v.excluded_mixed AS excluded_mixed_variant
+	v.id_testu,
+	v.wariant,
+	c.wykluczeni_mieszani AS wykluczeni_mieszani_kontrola,
+	v.wykluczeni_mieszani AS wykluczeni_mieszani_wariant
 
-FROM {{ ref('fct_ab_test_results') }} AS v
-JOIN {{ ref('fct_ab_test_results') }} AS c
-	ON c.test_id = v.test_id
-	AND c.is_control
-WHERE NOT v.is_control
-	AND ABS(v.excluded_mixed - c.excluded_mixed) > 2 * SQRT(v.excluded_mixed + c.excluded_mixed)
+FROM {{ ref('fct_wyniki_testow_ab') }} AS v
+JOIN {{ ref('fct_wyniki_testow_ab') }} AS c
+	ON c.id_testu = v.id_testu
+	AND c.czy_kontrola
+WHERE NOT v.czy_kontrola
+	AND ABS(v.wykluczeni_mieszani - c.wykluczeni_mieszani) > 2 * SQRT(v.wykluczeni_mieszani + c.wykluczeni_mieszani)

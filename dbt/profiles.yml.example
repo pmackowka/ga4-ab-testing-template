@@ -9,7 +9,7 @@
 #
 # Konto serwisowe potrzebuje: BigQuery Data Viewer na datasecie GA4, BigQuery Data Editor
 # na datasecie docelowym, BigQuery Job User w projekcie.
-ab_testing: # musi pasować do `profile:` w dbt_project.yml
+testy_ab: # musi pasować do `profile:` w dbt_project.yml
   target: dev
   outputs:
     dev:
@@ -17,7 +17,7 @@ ab_testing: # musi pasować do `profile:` w dbt_project.yml
       method: service-account
       keyfile: "{{ env_var('BIGQUERY_KEYFILE') }}"
       project: "{{ env_var('BIGQUERY_PROJECT') }}"
-      dataset: dbt_dev_ab_testing
+      dataset: dbt_dev_testy_ab
       # Musi się zgadzać z lokalizacją datasetu GA4 — BigQuery nie łączy danych między regionami.
       location: EU
       priority: interactive
@@ -25,7 +25,7 @@ ab_testing: # musi pasować do `profile:` w dbt_project.yml
       job_execution_timeout_seconds: 300
       job_retries: 1
       # Twardy limit bajtów na zapytanie: po przekroczeniu zapytanie pada bez opłaty.
-      # Pierwszy --full-refresh stg_ga4__events czyta kilka kolumn z każdego dnia od ga4_start_date —
+      # Pierwszy --full-refresh stg_ga4__zdarzenia czyta kilka kolumn z każdego dnia od ga4_data_startu —
       # przy dużym ruchu podnieś limit świadomie, zamiast go usuwać.
       maximum_bytes_billed: 10737418240   # 10 GiB
 
@@ -35,7 +35,7 @@ ab_testing: # musi pasować do `profile:` w dbt_project.yml
       method: service-account
       keyfile: "{{ env_var('BIGQUERY_PROD_KEYFILE') }}"
       project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
-      dataset: dbt_prod_ab_testing
+      dataset: dbt_prod_testy_ab
       location: EU
       priority: interactive
       threads: 4
@@ -50,7 +50,7 @@ ab_testing: # musi pasować do `profile:` w dbt_project.yml
       type: bigquery
       method: oauth
       project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
-      dataset: dbt_prod_ab_testing
+      dataset: dbt_prod_testy_ab
       location: EU
       priority: interactive
       threads: 4
@@ -64,7 +64,7 @@ ab_testing: # musi pasować do `profile:` w dbt_project.yml
       type: bigquery
       method: oauth
       project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
-      dataset: dbt_ci_ab_testing
+      dataset: dbt_ci_testy_ab
       location: EU
       priority: interactive
       threads: 4

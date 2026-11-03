@@ -1,31 +1,31 @@
 version: 2
 
 seeds:
-  - name: ab_tests
+  - name: rejestr_testow
     description: >
       Rejestr testów A/B — jeden wiersz na test, zamiast DECLARE w sql/03. Nowy test = nowy wiersz.
-      Listy rozdziela „|”, bo CSV nie ma typu tablicowego; stg_seeds__ab_tests robi z nich ARRAY.
+      Listy rozdziela „|”, bo CSV nie ma typu tablicowego; stg_seeds__rejestr_testow robi z nich ARRAY.
       Wiersze odpowiadają tagom z gtm/: ab1 = 01_dwa_warianty, ab2 = 02_trzy_warianty,
       ab3 = 03_dwa_warianty_50_procent i 04_rozszerzenie_do_100_procent (jeden test, ten sam
       klucz i RUN), ab4 = tag 01 z TEST = 'ab4' na checkoucie, równolegle z ab3 na karcie produktu.
-      Slot (test_name) wraca cyklicznie ab1…ab10 — kolejny test w slocie to nowy wiersz z nowym
-      test_start, który jest też RUN w tagu GTM; okna w jednym slocie nie mogą się nakładać.
+      Slot wraca cyklicznie ab1…ab10 — kolejny test w slocie to nowy wiersz z nowym
+      start_testu, który jest też RUN w tagu GTM; okna w jednym slocie nie mogą się nakładać.
     columns:
-      - name: test_name
+      - name: slot
         description: Slot ab1–ab10, = TEST w tagu GTM i nazwa parametru eventu GA4.
-      - name: test_start
+      - name: start_testu
         description: Poniedziałek publikacji tagu; w formacie RRRRMMDD to RUN w tagu i zmiennej GTM.
-      - name: test_end
+      - name: koniec_testu
         description: Niedziela, ostatni dzień testu.
-      - name: control_variant
-        description: Wersja dotychczasowa, musi być na liście variants.
-      - name: variants
+      - name: wariant_kontrolny
+        description: Wersja dotychczasowa, musi być na liście warianty.
+      - name: warianty
         description: Warianty rozdzielone „|”, = VARIANTS w tagu GTM.
-      - name: conversion_event
+      - name: zdarzenie_konwersji
         description: >
           Nazwa eventu GA4 liczonego jako konwersja. Nowa nazwa, której nie ma jeszcze żaden test,
-          wymaga `dbt build --full-refresh -s stg_ga4__events`: staging trzyma tylko eventy
+          wymaga `dbt build --full-refresh -s stg_ga4__zdarzenia`: staging trzyma tylko eventy
           z wariantem dowolnego testu i eventy konwersji z tego seeda.
-      - name: exposure_events
+      - name: zdarzenia_ekspozycji
         description: >
           Eventy rozdzielone „|”, na których użytkownik wchodzi do testu (pierwszy z wariantem).

@@ -1,31 +1,31 @@
 # GENERIC
 
 # data_tests: = użycie testów generic, które sprawdzają, czy DANE są poprawne. Definicje: not_null
-# i unique wbudowane w dbt, dbt_utils.* z pakietu (dbt deps), variant_in_seed w tests/generic/.
+# i unique wbudowane w dbt, dbt_utils.* z pakietu (dbt deps), wariant_w_seedzie w tests/generic/.
 version: 2
 
 models:
-  - name: stg_ga4__events
+  - name: stg_ga4__zdarzenia
     description: >
       Jeden wiersz na event i test: eventy z wariantem dowolnego testu (parametr slotu albo
       ab_assign) oraz eventy konwersji z seeda, bez użytkowników bez user_pseudo_id.
       Partycje dzienne, ostatnie 3 dni nadpisywane przy każdym przebiegu.
     columns:
-      - name: event_date
+      - name: data_zdarzenia
         description: Dzień z sufiksu tabeli eksportu (strefa czasowa usługi GA4).
         data_tests:
           - not_null
-      - name: event_ts
+      - name: czas_zdarzenia
         description: Czas eventu (UTC).
         data_tests:
           - not_null
-      - name: user_pseudo_id
-        description: Identyfikator przeglądarki z cookie _ga.
+      - name: id_uzytkownika
+        description: user_pseudo_id z GA4 — identyfikator przeglądarki z cookie _ga.
         data_tests:
           - not_null
-      - name: event_name
-        description: Nazwa eventu GA4.
-      - name: ab_test
+      - name: nazwa_zdarzenia
+        description: event_name z GA4.
+      - name: slot
         description: Slot testu — z ab_test na ab_assign, z nazwy parametru (ab1…ab10) na pozostałych eventach; NULL dla konwersji bez testu.
-      - name: ab_variant
+      - name: wariant
         description: Wariant — z ab_variant na ab_assign, z wartości parametru slotu na pozostałych eventach.

@@ -1,39 +1,39 @@
 # GENERIC
 
 # data_tests: = użycie testów generic, które sprawdzają, czy DANE są poprawne. Definicje: not_null
-# i unique wbudowane w dbt, dbt_utils.* z pakietu (dbt deps), variant_in_seed w tests/generic/.
+# i unique wbudowane w dbt, dbt_utils.* z pakietu (dbt deps), wariant_w_seedzie w tests/generic/.
 version: 2
 
 models:
-  - name: stg_seeds__ab_tests
-    description: Rejestr testów z seeds/ab_tests.csv z listami jako ARRAY<STRING>.
+  - name: stg_seeds__rejestr_testow
+    description: Rejestr testów z seeds/rejestr_testow.csv z listami jako ARRAY<STRING>.
     columns:
-      - name: test_id
+      - name: id_testu
         description: Klucz testu — slot i przebieg, np. ab1_20260907; przebieg = RUN w tagu GTM.
         data_tests:
           - unique
           - not_null
-      - name: test_name
+      - name: slot
         description: Slot ab1–ab10 — nazwa ciasteczka i parametru eventu; wraca w kolejnych testach.
         data_tests:
           - not_null
-      - name: test_start
+      - name: start_testu
         data_tests:
           - not_null
-      - name: test_end
+      - name: koniec_testu
         data_tests:
           - not_null
-      - name: control_variant
+      - name: wariant_kontrolny
         data_tests:
           - not_null
-      - name: variants
-      - name: conversion_event
+      - name: warianty
+      - name: zdarzenie_konwersji
         data_tests:
           - not_null
-      - name: exposure_events
-      - name: test_days
+      - name: zdarzenia_ekspozycji
+      - name: dni_testu
         description: Długość testu w dniach.
-      - name: is_final
+      - name: czy_koncowy
         description: >
-          true, gdy od test_end minęły co najmniej 3 dni i GA4 nie dopisze już danych.
-          Do kalkulatora bierz tylko wiersze z is_final = true.
+          true, gdy od koniec_testu minęły co najmniej 3 dni i GA4 nie dopisze już danych.
+          Do kalkulatora bierz tylko wiersze z czy_koncowy = true.

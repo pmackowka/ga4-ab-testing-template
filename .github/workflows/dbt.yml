@@ -1,6 +1,6 @@
 # CI/CD projektu dbt, trzy kroki po kolei — każdy startuje tylko, gdy poprzedni przeszedł:
 #   1. parse     — składnia SQL/Jinja/YAML i ref(), bez BigQuery
-#   2. unit-tests — logika modeli na zamockowanych wierszach, w datasecie dbt_ci_ab_testing
+#   2. unit-tests — logika modeli na zamockowanych wierszach, w datasecie dbt_ci_testy_ab
 #   3. deploy    — tylko push na main: dbt build zmienionych modeli i wszystkiego za nimi na prod
 # Logowanie do GCP przez Workload Identity Federation — konfiguracja: dbt/README.md, sekcja „Konfiguracja GCP”.
 name: dbt CI/CD
@@ -122,9 +122,9 @@ jobs:
             # dopóki ktoś nie odpali harmonogramu z full_refresh. state:modified.body = zmiana pliku,
             # tak jak suma kontrolna strażnika; sama zmiana konfiguracji projektu go nie rusza.
             if uv run dbt --quiet ls --target prod_ci --profiles-dir . --resource-type model \
-                --select state:modified.body --state "$STATE" --output name | grep -qx stg_ga4__events; then
-              echo "::warning::stg_ga4__events zmieniony — deploy go pomija. Odpal Actions → dbt build → Run workflow z full_refresh."
-              EXCLUDE="--exclude stg_ga4__events"
+                --select state:modified.body --state "$STATE" --output name | grep -qx stg_ga4__zdarzenia; then
+              echo "::warning::stg_ga4__zdarzenia zmieniony — deploy go pomija. Odpal Actions → dbt build → Run workflow z full_refresh."
+              EXCLUDE="--exclude stg_ga4__zdarzenia"
             fi
           fi
           uv run dbt build --target prod_ci --profiles-dir . $SELECT $EXCLUDE --exclude-resource-type unit_test

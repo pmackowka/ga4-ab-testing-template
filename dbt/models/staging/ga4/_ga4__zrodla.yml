@@ -3,12 +3,12 @@ version: 2
 sources:
   - name: ga4
     description: Eksport GA4 do BigQuery, jedna tabela na dzień (events_YYYYMMDD).
-    database: "{{ var('ga4_project') }}"
-    schema: "{{ var('ga4_dataset') }}"
+    database: "{{ var('ga4_projekt') }}"
+    schema: "{{ var('ga4_zbior_danych') }}"
     tables:
-      - name: events
+      - name: zdarzenia
         # Wildcard: dzień wybiera _TABLE_SUFFIX. Pasuje też do events_intraday_*, dlatego
-        # stg_ga4__events przepuszcza tylko sufiksy z 8 cyfr.
+        # stg_ga4__zdarzenia przepuszcza tylko sufiksy z 8 cyfr.
         identifier: "events_*"
         # Bez freshness: dbt liczy ją z kolumny, a o świeżości tabel dziennych mówi to, czy dzień
-        # w ogóle jest — sprawdza to tests/assert_ga4_days_complete.sql.
+        # w ogóle jest — sprawdza to tests/sprawdz_komplet_dni_ga4.sql.

@@ -7,12 +7,12 @@
  z kontrolą wpisz do kalkulatora osobno, z „Liczba wariantów” = 3
  (kalkulator zaostrza wtedy próg p-value — korekta Bonferroniego).
  W sql/03 ustaw test_name = 'ab2' i variants = ['v0', 'v1', 'v2'] (w dbt: wiersz ab2 z v0|v1|v2
- w dbt/seeds/ab_tests.csv); zmienna GTM (zmienna_ab_variant.js) musi mieć TEST = 'ab2',
+ w dbt/seeds/rejestr_testow.csv); zmienna GTM (zmienna_ab_variant.js) musi mieć TEST = 'ab2',
  ten sam RUN i v2 na liście VALID.
 */
 (function () {
   var TEST = 'ab2';                   // osobny numer — nie mieszaj z testem ab1
-  var RUN = '20261005';         // przebieg = test_start z seeda (RRRRMMDD); nowy test w tym slocie = nowy RUN
+  var RUN = '20261005';         // przebieg = start_testu z seeda (RRRRMMDD); nowy test w tym slocie = nowy RUN
   var VARIANTS = ['v0', 'v1', 'v2'];  // v0 = wersja dotychczasowa, v1 i v2 = warianty testowe
   var DAYS = 60;
 

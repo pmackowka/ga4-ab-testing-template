@@ -1,0 +1,114 @@
+# UNIT
+
+# Unit testy: sprawdzają, czy LOGIKA modelu jest poprawna — wiersze z given zamiast ref(),
+# wynik porównany z expect. Plik YAML. Biegną tylko w CI (job unit-testy), przed modelem;
+# deploy i harmonogram je pomijają. Tu: logika przypisania i konwersji — zamiast trybu demo.
+# Uruchamiają się w BigQuery, ale nie czytają GA4: dbt wstawia wiersze z given jako CTE.
+# Przed pierwszym uruchomieniem modele nadrzędne muszą istnieć (dbt bierze z nich typy kolumn):
+#   uv run dbt run --select +fct_wyniki_testow_ab_tygodniowo --empty
+#   uv run dbt test --select test_type:unit
+version: 2
+
+unit_tests:
+  - name: ekspozycje_ponownie_wylosowany_jest_mieszany
+    description: >
+      Użytkownik traci cookie i dostaje drugi wariant: wariant = pierwsza ekspozycja,
+      liczba_wariantow = 2, data_mieszania = dzień drugiego wariantu.
+    model: int_ab__ekspozycje
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab1_20260907' AS id_testu, 'ab1' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+      - input: ref('stg_ga4__zdarzenia')
+        rows:
+          - {data_zdarzenia: 2026-09-08, czas_zdarzenia: '2026-09-08 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: ab_assign, slot: ab1, wariant: v1}
+          - {data_zdarzenia: 2026-09-20, czas_zdarzenia: '2026-09-20 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: ab_assign, slot: ab1, wariant: v0}
+          - {data_zdarzenia: 2026-09-09, czas_zdarzenia: '2026-09-09 10:00:00', id_uzytkownika: u2, nazwa_zdarzenia: ab_assign, slot: ab1, wariant: v0}
+    expect:
+      rows:
+        - {id_testu: ab1_20260907, id_uzytkownika: u1, wariant: v1, data_pierwszej_ekspozycji: 2026-09-08, liczba_wariantow: 2, data_mieszania: 2026-09-20}
+        - {id_testu: ab1_20260907, id_uzytkownika: u2, wariant: v0, data_pierwszej_ekspozycji: 2026-09-09, liczba_wariantow: 1, data_mieszania: null}
+
+  - name: ekspozycje_tylko_z_eventu_ekspozycji_w_oknie
+    description: >
+      Wariant tylko na evencie spoza zdarzenia_ekspozycji (u1) albo ekspozycja poza oknem testu (u2)
+      albo inny slot (u3) — użytkownik nie wchodzi do testu. Ekspozycja na view_item się liczy (u4).
+      Wariant ab1 na evencie spoza okna to poprzedni test w tym slocie (u2) — też się nie liczy.
+    model: int_ab__ekspozycje
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab1_20260907' AS id_testu, 'ab1' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+      - input: ref('stg_ga4__zdarzenia')
+        rows:
+          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: purchase, slot: ab1, wariant: v1}
+          - {data_zdarzenia: 2026-10-05, czas_zdarzenia: '2026-10-05 10:00:00', id_uzytkownika: u2, nazwa_zdarzenia: ab_assign, slot: ab1, wariant: v1}
+          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 10:00:00', id_uzytkownika: u3, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-09-11, czas_zdarzenia: '2026-09-11 10:00:00', id_uzytkownika: u4, nazwa_zdarzenia: view_item, slot: ab1, wariant: v1}
+    expect:
+      rows:
+        - {id_testu: ab1_20260907, id_uzytkownika: u4, wariant: v1, liczba_wariantow: 1}
+
+  - name: konwersje_po_ekspozycji_raz_na_uzytkownika
+    description: >
+      Zakup przed ekspozycją się nie liczy (u1), zdublowany purchase daje jeden wiersz z pierwszym
+      zakupem po ekspozycji (u2), zakup po koniec_testu się nie liczy (u3).
+    model: int_ab__konwersje
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab1_20260907' AS id_testu, 'ab1' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+      - input: ref('int_ab__ekspozycje')
+        rows:
+          - {id_testu: ab1_20260907, id_uzytkownika: u1, wariant: v0, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
+          - {id_testu: ab1_20260907, id_uzytkownika: u2, wariant: v1, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
+          - {id_testu: ab1_20260907, id_uzytkownika: u3, wariant: v1, czas_pierwszej_ekspozycji: '2026-10-04 12:00:00'}
+      - input: ref('stg_ga4__zdarzenia')
+        rows:
+          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 11:00:00', id_uzytkownika: u1, nazwa_zdarzenia: purchase}
+          - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 09:00:00', id_uzytkownika: u2, nazwa_zdarzenia: purchase}
+          - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 09:00:30', id_uzytkownika: u2, nazwa_zdarzenia: purchase}
+          - {data_zdarzenia: 2026-10-05, czas_zdarzenia: '2026-10-05 09:00:00', id_uzytkownika: u3, nazwa_zdarzenia: purchase}
+    expect:
+      rows:
+        - {id_testu: ab1_20260907, id_uzytkownika: u2, czas_pierwszej_konwersji: '2026-09-12 09:00:00', data_pierwszej_konwersji: 2026-09-12}
+
+  - name: ekspozycje_rownolegle_testy_i_powtorzony_slot
+    description: >
+      Slot ab1 w dwóch przebiegach (wrzesień i grudzień) daje dwa osobne testy (u1, u2). Równoległy
+      ab4 na checkoucie: view_item z parametrem ab4 nie jest ekspozycją ab4 (u1), dopiero
+      begin_checkout (u3). Jeden event niesie oba sloty jako dwa wiersze stagingu.
+    model: int_ab__ekspozycje
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab1_20260907' AS id_testu, 'ab1' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+          UNION ALL
+          SELECT 'ab1_20261207', 'ab1', DATE '2026-12-07', DATE '2027-01-03',
+            'v0', ['v0', 'v1'], 'purchase', ['ab_assign', 'view_item'], 28, FALSE
+          UNION ALL
+          SELECT 'ab4_20260907', 'ab4', DATE '2026-09-07', DATE '2026-10-04',
+            'v0', ['v0', 'v1'], 'purchase', ['ab_assign', 'begin_checkout'], 28, TRUE
+      - input: ref('stg_ga4__zdarzenia')
+        rows:
+          - {data_zdarzenia: 2026-09-08, czas_zdarzenia: '2026-09-08 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: view_item, slot: ab1, wariant: v1}
+          - {data_zdarzenia: 2026-09-08, czas_zdarzenia: '2026-09-08 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: view_item, slot: ab4, wariant: v0}
+          - {data_zdarzenia: 2026-12-08, czas_zdarzenia: '2026-12-08 10:00:00', id_uzytkownika: u2, nazwa_zdarzenia: view_item, slot: ab1, wariant: v0}
+          - {data_zdarzenia: 2026-09-09, czas_zdarzenia: '2026-09-09 10:00:00', id_uzytkownika: u3, nazwa_zdarzenia: begin_checkout, slot: ab4, wariant: v1}
+    expect:
+      rows:
+        - {id_testu: ab1_20260907, id_uzytkownika: u1, wariant: v1, liczba_wariantow: 1}
+        - {id_testu: ab1_20261207, id_uzytkownika: u2, wariant: v0, liczba_wariantow: 1}
+        - {id_testu: ab4_20260907, id_uzytkownika: u3, wariant: v1, liczba_wariantow: 1}

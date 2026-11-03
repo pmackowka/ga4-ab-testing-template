@@ -6,8 +6,8 @@
  cookie i wysyła ab_assign do dataLayer — z niego liczy sql/03.
 */
 (function () {
-  var TEST = 'ab1';             // slot ab1–ab10 = nazwa ciasteczka i parametru GA4 = test_name w sql/03 i seedzie
-  var RUN = '20260907';         // przebieg = test_start z seeda (RRRRMMDD); nowy test w tym slocie = nowy RUN
+  var TEST = 'ab1';             // slot ab1–ab10 = nazwa ciasteczka i parametru GA4 = test_name w sql/03 i slot w seedzie
+  var RUN = '20260907';         // przebieg = start_testu z seeda (RRRRMMDD); nowy test w tym slocie = nowy RUN
   var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa (kontrola), v1 = wariant testowy
   var DAYS = 60;                // > najdłuższy test (8 tyg.); Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
 

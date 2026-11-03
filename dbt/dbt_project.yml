@@ -1,8 +1,8 @@
 # Projekt dbt: wyniki testów A/B z eksportu GA4 (odpowiednik sql/03).
-name: 'ab_testing'  # nie 'dbt_bigquery' — tę nazwę zajmuje wewnętrzny pakiet makr adaptera
+name: 'testy_ab'  # nie 'dbt_bigquery' — tę nazwę zajmuje wewnętrzny pakiet makr adaptera
 version: '1.0.0'
 config-version: 2
-profile: 'ab_testing'
+profile: 'testy_ab'
 
 model-paths: ["models"]
 test-paths: ["tests"]
@@ -13,14 +13,14 @@ clean-targets: ["target", "dbt_packages"]
 
 vars:
   # Eksport GA4: projekt i dataset z tabelami events_YYYYMMDD — jedyne miejsce do podmiany.
-  ga4_project: 'twoj-projekt'
-  ga4_dataset: 'analytics_123456789'
-  # Pierwszy dzień, który czyta pełny rebuild stg_ga4__events (--full-refresh). Ustaw na
-  # najwcześniejszy test_start z seeds/ab_tests.csv: każdy dzień wcześniej to koszt bez pożytku.
-  ga4_start_date: '2026-09-07'
+  ga4_projekt: 'twoj-projekt'
+  ga4_zbior_danych: 'analytics_123456789'
+  # Pierwszy dzień, który czyta pełny rebuild stg_ga4__zdarzenia (--full-refresh). Ustaw na
+  # najwcześniejszy start_testu z seeds/rejestr_testow.csv: każdy dzień wcześniej to koszt bez pożytku.
+  ga4_data_startu: '2026-09-07'
 
 models:
-  ab_testing:
+  testy_ab:
     +persist_docs:
       relation: true
       columns: true
@@ -35,13 +35,13 @@ models:
       +materialized: table
 
 seeds:
-  ab_testing:
-    ab_tests:
+  testy_ab:
+    rejestr_testow:
       +column_types:
-        test_name: string
-        test_start: date
-        test_end: date
-        control_variant: string
-        variants: string
-        conversion_event: string
-        exposure_events: string
+        slot: string
+        start_testu: date
+        koniec_testu: date
+        wariant_kontrolny: string
+        warianty: string
+        zdarzenie_konwersji: string
+        zdarzenia_ekspozycji: string
