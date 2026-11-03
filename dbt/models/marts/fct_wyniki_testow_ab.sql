@@ -50,3 +50,14 @@ FULL JOIN zaobserwowane AS o
 	USING (id_testu, wariant)
 JOIN testy AS t
 	USING (id_testu)
+
+{#
+	Przykładowy wynik (dane syntetyczne) — uzytkownicy i konwertujacy idą do kalkulatora „Po teście A/B”,
+	ale tylko przy czy_koncowy = true (tu: ab1):
+	id_testu     | slot | wariant | czy_kontrola | pole_kalkulatora | uzytkownicy | konwertujacy | wykluczeni_mieszani | czy_koncowy
+	ab1_20260907 | ab1  | v0      | true         | A (kontrola)     | 10234       | 412          | 37                  | true
+	ab1_20260907 | ab1  | v1      | false        | B (wariant v1)   | 10198       | 455          | 41                  | true
+	ab2_20261005 | ab2  | v0      | true         | A (kontrola)     | 9870        | 380          | 22                  | false
+	ab2_20261005 | ab2  | v1      | false        | B (wariant v1)   | 9912        | 401          | 25                  | false
+	ab2_20261005 | ab2  | v2      | false        | B (wariant v2)   | 9801        | 366          | 19                  | false
+#}

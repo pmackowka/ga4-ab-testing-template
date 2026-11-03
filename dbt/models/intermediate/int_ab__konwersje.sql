@@ -19,3 +19,13 @@ JOIN {{ ref('stg_ga4__zdarzenia') }} AS e
 	AND e.czas_zdarzenia > x.czas_pierwszej_ekspozycji
 	AND e.data_zdarzenia <= t.koniec_testu
 GROUP BY x.id_testu, x.id_uzytkownika
+
+{#
+	Przykładowy wynik (dane syntetyczne) — tylko użytkownicy z konwersją, jeden wiersz na osobę i test:
+	id_testu     | id_uzytkownika | czas_pierwszej_konwersji | data_pierwszej_konwersji
+	ab1_20260907 | 1234.5678      | 2026-09-12 18:30:00      | 2026-09-12
+	ab1_20260907 | 3333.0002      | 2026-09-11 07:05:00      | 2026-09-11
+	ab1_20260907 | 4444.0003      | 2026-09-16 21:47:00      | 2026-09-16
+	ab1_20260907 | 5555.0004      | 2026-09-30 13:12:00      | 2026-09-30
+	ab2_20261005 | 6666.0005      | 2026-10-07 10:20:00      | 2026-10-07
+#}

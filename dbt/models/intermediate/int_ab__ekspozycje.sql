@@ -81,3 +81,14 @@ SELECT
 FROM eksponowani AS x
 LEFT JOIN mieszani AS m
 	USING (id_testu, id_uzytkownika)
+
+{#
+	Przykładowy wynik (dane syntetyczne). 3333.0002 zgubił cookie i 23.09 dostał v0 — liczba_wariantow
+	= 2, więc w wyniku trafi do wykluczeni_mieszani:
+	id_testu     | slot | id_uzytkownika | wariant | czas_pierwszej_ekspozycji | data_pierwszej_ekspozycji | liczba_wariantow | data_mieszania
+	ab1_20260907 | ab1  | 1234.5678      | v1      | 2026-09-08 10:00:00       | 2026-09-08                | 1                | NULL
+	ab1_20260907 | ab1  | 2222.0001      | v0      | 2026-09-09 08:15:00       | 2026-09-09                | 1                | NULL
+	ab1_20260907 | ab1  | 3333.0002      | v1      | 2026-09-10 20:41:00       | 2026-09-10                | 2                | 2026-09-23
+	ab1_20260907 | ab1  | 4444.0003      | v0      | 2026-09-15 12:00:00       | 2026-09-15                | 1                | NULL
+	ab4_20261102 | ab4  | 1234.5678      | v1      | 2026-11-02 09:00:00       | 2026-11-02                | 1                | NULL
+#}

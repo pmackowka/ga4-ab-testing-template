@@ -76,3 +76,14 @@ LEFT JOIN uzytkownicy AS u
 	AND u.wariant = s.wariant
 	AND u.data_pierwszej_ekspozycji <= s.koniec_tygodnia
 GROUP BY s.id_testu, s.slot, s.wariant, s.nr_tygodnia, s.koniec_tygodnia
+
+{#
+	Przykładowy wynik (dane syntetyczne) — liczby rosną tydzień po tygodniu; tydzień 4 (koniec testu)
+	równa się wierszowi z fct_wyniki_testow_ab:
+	id_testu     | slot | wariant | nr_tygodnia | koniec_tygodnia | uzytkownicy | konwertujacy | wykluczeni_mieszani | czy_koncowy
+	ab1_20260907 | ab1  | v0      | 1           | 2026-09-13      | 3120        | 98           | 4                   | true
+	ab1_20260907 | ab1  | v0      | 2           | 2026-09-20      | 5980        | 210          | 12                  | true
+	ab1_20260907 | ab1  | v0      | 3           | 2026-09-27      | 8410        | 318          | 25                  | true
+	ab1_20260907 | ab1  | v0      | 4           | 2026-10-04      | 10234       | 412          | 37                  | true
+	ab1_20260907 | ab1  | v1      | 4           | 2026-10-04      | 10198       | 455          | 41                  | true
+#}
