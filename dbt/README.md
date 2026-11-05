@@ -100,6 +100,21 @@ flowchart LR
 
 `maximum_bytes_billed`: 10 GiB dev, 100 GiB prod — zapytanie ponad limit pada bez opłaty.
 
+Ta sama decyzja co przy ładowaniu z API w Pythonie — dbt i skrypt różnią się składnią, nie mechanizmem:
+
+| Metoda | Gdzie | Parametry | Co robi z istniejącymi danymi | Czego wymaga od ziarna | Kiedy |
+|---|---|---|---|---|---|
+| `insert_overwrite` | dbt | `incremental_strategy='insert_overwrite'`, `partition_by`, okno od `_dbt_max_partition` (u nas `dni_wstecz = 3`) | podmienia całe partycje-dni z okna; usuwa też wiersze, które GA4 skasował przy ponownym przetworzeniu | nic — klucz zbędny | źródło oddaje cały dzień naraz; **u nas** |
+| `merge` (domyślna w dbt-bigquery) | dbt | `unique_key` = ziarno modelu (np. `data_zdarzenia` + `id_sesji`) | aktualizuje pasujące, dopisuje nowe; nie usuwa wierszy, których nie ma już w źródle | klucz unikalny w każdym przebiegu | dane kawałkami albo jako zmiany; u nas niemożliwy — eksport GA4 nie ma klucza eventu |
+| `microbatch` (dbt ≥ 1.9) | dbt | `event_time`, `batch_size`, `begin`, `lookback` + `partition_by` | jak `insert_overwrite`, ale osobne zapytanie na każdy dzień — partie można ponawiać pojedynczo | nic — `unique_key` w BigQuery nie dotyczy | długa historia, której jeden przebieg nie uniesie |
+| load job `WRITE_TRUNCATE` na `tabela$RRRRMMDD` | Python | `write_disposition`, dekorator partycji w nazwie tabeli | podmienia tylko wskazaną partycję; bez dekoratora nadpisuje całą tabelę | nic | odpowiednik `insert_overwrite`: dzień z API w całości |
+| `MERGE` po kluczu | Python (SQL) | `ON` = ziarno (np. `date` + `campaign_id`) | jak dbt `merge`; usuwanie tylko z jawnym `WHEN NOT MATCHED BY SOURCE THEN DELETE` | klucz = ziarno; grubszy (sama data) → przy drugim uruchomieniu błąd „UPDATE/MERGE must match at most one source row for each target row” | odpowiednik dbt `merge`: zmiany (`updated_since`), wymiary po ID |
+| `insert_rows_json` / append | Python | brak | tylko dopisuje — ponowne uruchomienie dubluje dane (`insertId` deduplikuje najwyżej przez ~1 min, bez gwarancji) | nic, ale też nic nie chroni | logi zdarzeń z deduplikacją dalej w potoku |
+
+Zasada: partycja, gdy źródło oddaje cały dzień naraz; merge, gdy dane przychodzą kawałkami, jako zmiany albo dla tabel wymiarów po ID. Ziarno raportu zagregowanego z API = data + wszystkie wymiary zapytania. Kontrola po każdym ładowaniu: `GROUP BY` po kluczu + `HAVING COUNT(*) > 1` zwraca zero wierszy.
+
+Źródła: [dbt — BigQuery configs](https://docs.getdbt.com/reference/resource-configs/bigquery-configs), [dbt — microbatch](https://docs.getdbt.com/docs/build/incremental-microbatch), [BigQuery — ładowanie do partycji](https://cloud.google.com/bigquery/docs/load-data-partitioned-tables), [BigQuery — MERGE](https://cloud.google.com/bigquery/docs/reference/standard-sql/dml-syntax), [BigQuery — streaming](https://cloud.google.com/bigquery/docs/streaming-data-into-bigquery).
+
 ## Testy
 
 Czym jest każdy typ, co sprawdza i kiedy biegnie, opisują komentarze na początku plików z testami: w `tests/` (generic i singular) oraz w `models/` (użycie generic w `_*_modele.yml`, unit testy w `_*_testy_jednostkowe.yml`). Testy generic mają dwa miejsca: definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać) — dlatego `not_null`, `unique` i `unique_combination_of_columns` widać tylko w `models/`, a w `tests/generic/` jest jedynie własny `wariant_w_seedzie`.
@@ -205,3 +220,4 @@ Poza `dbt parse` nic jeszcze nie biegło — `unit-tests`, `deploy` i harmonogra
 - czy `_dbt_max_partition` w filtrze na `_TABLE_SUFFIX` ogranicza czytane tabele (`total_bytes_billed` w `INFORMATION_SCHEMA.JOBS`);
 - czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
 - czy strażnik logiki zapisuje etykietę w `post_hook` i czyta ją z `INFORMATION_SCHEMA.TABLE_OPTIONS`.
+- czy load job z `WRITE_TRUNCATE` na `tabela$RRRRMMDD` podmienia tylko tę partycję — dokumentacja BigQuery opisuje to dla `bq load --replace` z dekoratorem, nie dla `write_disposition` w kliencie Pythona.
