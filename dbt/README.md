@@ -222,6 +222,25 @@ gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT \
 
 Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym datasecie.
 
+## Dane syntetyczne
+
+[`dane_syntetyczne/generuj_eksport_ga4.sql`](../dane_syntetyczne/generuj_eksport_ga4.sql) tworzy w osobnym datasecie tabele `events_RRRRMMDD` w schemacie eksportu GA4, ze scenariuszem testów z seeda i znanym efektem każdego wariantu. Plik leży poza `dbt/`, więc zmiana w nim nie odpala CI.
+
+Wymaga projektu z billingiem: [sandbox BigQuery](https://cloud.google.com/bigquery/docs/sandbox) nie obsługuje DML, a `insert_overwrite` w dbt generuje `MERGE` ([dbt — BigQuery configs](https://docs.getdbt.com/reference/resource-configs/bigquery-configs)).
+
+1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery: dni od 2026-09-07 do dziś minus 3.
+2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'`.
+3. Przyrost: w skrypcie `data_od` = dziś minus 2, `data_do` = dziś minus 1, uruchom i powtórz `dbt build` bez `--full-refresh` — staging nadpisuje tylko partycje od najnowszej minus 3.
+4. Ponowne przetworzenie dnia przez GA4: ostatnie dni z innym `ziarno` i znów `dbt build` — liczby z tych dni się zmieniają, starsze nie.
+
+Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 +10%, ab2 v1 0%, ab2 v2 +12%, ab3 v1 −5%, ab4 v1 +10%). Przy 10 000 wizyt dziennie rozrzut w ab1 i ab2 to ok. ±5 pp; ab3 i ab4 dopiero ruszyły, więc ich wynik jeszcze szumi.
+
+| Usterka w skrypcie | Co psuje w danych | Test dbt, który ją łapie |
+|---|---|---|
+| `usterka_srm_slot` | kontrola dostaje 53% ruchu zamiast 50% | `sprawdz_srm` (warn) |
+| `usterka_mieszani_slot` | 5% powrotów w wariancie dostaje kontrolę — wykluczeni_mieszani głównie po stronie wariantu | `sprawdz_rownowage_wykluczonych` (warn) |
+| `usterka_brak_dnia` | brak tabeli dziennej | `sprawdz_komplet_dni_ga4` (error) |
+
 ## Niesprawdzone
 
 Poza `dbt parse` nic jeszcze nie biegło — `unit-tests`, `deploy` i harmonogram czekają na WIF. Do potwierdzenia:
@@ -229,4 +248,5 @@ Poza `dbt parse` nic jeszcze nie biegło — `unit-tests`, `deploy` i harmonogra
 - czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
 - czy strażnik logiki zapisuje etykietę w `post_hook` i czyta ją z `INFORMATION_SCHEMA.TABLE_OPTIONS`.
 - puste `user_pseudo_id` i `ga_session_id` przy `analytics_storage = denied` — dokumentacja Google tego nie opisuje, a wpis na X wymaga logowania; potwierdzają to tylko relacje praktyków; od kiedy eksport ma pola `batch_*` — dokumentacja nie podaje daty;
+- `dane_syntetyczne/generuj_eksport_ga4.sql` nie był uruchomiony — oczekiwane liczby pochodzą z symulacji tej samej logiki w Pythonie; m.in. czy `EXECUTE IMMEDIATE` widzi tabelę tymczasową skryptu (dokumentacja tego nie rozstrzyga);
 - czy load job z `WRITE_TRUNCATE` na `tabela$RRRRMMDD` podmienia tylko tę partycję — dokumentacja BigQuery opisuje to dla `bq load --replace` z dekoratorem, nie dla `write_disposition` w kliencie Pythona.
