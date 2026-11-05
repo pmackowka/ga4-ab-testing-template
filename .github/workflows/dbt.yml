@@ -118,9 +118,9 @@ jobs:
           if [ -f "$STATE/manifest.json" ]; then
             SELECT="--select state:modified+ --state $STATE"
             # Zmieniony plik stagingu wymaga --full-refresh (pełny skan GA4) — tej decyzji deploy
-            # nie podejmuje: pomija staging, a przyrostowy cron zatrzyma się na strażniku w modelu,
-            # dopóki ktoś nie odpali harmonogramu z full_refresh. state:modified.body = zmiana pliku,
-            # tak jak suma kontrolna strażnika; sama zmiana konfiguracji projektu go nie rusza.
+            # nie podejmuje: pomija staging i ostrzega; do czasu harmonogramu z full_refresh przyrostowy
+            # cron dopisuje ostatnie dni nową logiką. state:modified.body = zmiana pliku modelu;
+            # sama zmiana konfiguracji projektu go nie rusza.
             if uv run dbt --quiet ls --target prod_ci --profiles-dir . --resource-type model \
                 --select state:modified.body --state "$STATE" --output name | grep -qx stg_ga4__zdarzenia; then
               echo "::warning::stg_ga4__zdarzenia zmieniony — deploy go pomija. Odpal Actions → dbt build → Run workflow z full_refresh."

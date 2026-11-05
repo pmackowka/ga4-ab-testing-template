@@ -24,7 +24,7 @@ Przed pierwszym uruchomieniem ustaw w `dbt_project.yml`:
 | `vars.ga4_data_startu` | najwcześniejszy `start_testu` z seeda — od tego dnia czyta `--full-refresh` |
 | `location` w `profiles.yml` | region datasetu GA4 (domyślnie `EU`) |
 
-Target `prod` ma osobne zmienne (`BIGQUERY_PROD_*`) bez fallbacku na dev. W dev tabele wygasają po godzinie, z wyjątkiem `stg_ga4__zdarzenia`.
+Target `prod` ma osobne zmienne (`BIGQUERY_PROD_*`) bez fallbacku na dev.
 
 ## Pliki
 
@@ -75,19 +75,17 @@ flowchart LR
     E --> K["int_ab__konwersje"]
     E --> R["fct_wyniki_testow_ab"]
     K --> R
-    R --> W["fct_wyniki_testow_ab_tygodniowo"]
 ```
 
 | Model | Ziarno | Materializacja | Rola |
 |---|---|---|---|
 | `stg_ga4__zdarzenia` | event × test | incremental, partycja dzienna | para (slot, wariant) z `ab_assign` albo parametru `abN` + eventy konwersji z seeda |
 | `stg_seeds__rejestr_testow` | test | view | seed z `id_testu`, listami jako `ARRAY<STRING>` i flagą `czy_koncowy` |
-| `int_ab__ekspozycje` | test × użytkownik | view | pierwsza ekspozycja, jej wariant, `liczba_wariantow`, `data_mieszania` |
+| `int_ab__ekspozycje` | test × użytkownik | view | pierwsza ekspozycja, jej wariant, `liczba_wariantow` |
 | `int_ab__konwersje` | test × użytkownik | view | pierwsza konwersja po ekspozycji, w oknie testu |
-| `fct_wyniki_testow_ab` | test × wariant | table, kontrakt | liczby do kalkulatora Po teście |
-| `fct_wyniki_testow_ab_tygodniowo` | test × wariant × tydzień | table | te same liczby narastająco |
+| `fct_wyniki_testow_ab` | test × wariant | table | liczby do kalkulatora Po teście |
 
-`fct_wyniki_testow_ab` ma wiersz dla każdego wariantu z seeda (także z 0 użytkowników) i dla wariantu spoza seeda, żeby testy go wyłapały. W `fct_wyniki_testow_ab_tygodniowo` ponownie wylosowany trafia do `wykluczeni_mieszani` od tygodnia losowania.
+`fct_wyniki_testow_ab` ma wiersz dla każdego wariantu z seeda (także z 0 użytkowników) i dla wariantu spoza seeda, żeby testy go wyłapały.
 
 ## Przyrost i pełny rebuild
 
@@ -104,7 +102,7 @@ flowchart LR
 `--full-refresh -s stg_ga4__zdarzenia` jest potrzebny, gdy:
 - dodajesz `zdarzenie_konwersji`, którego nie ma jeszcze żaden test;
 - przesuwasz `ga4_data_startu` wstecz;
-- zmieniasz plik stagingu — pilnuje tego strażnik: build zapisuje sumę kontrolną pliku w etykiecie tabeli (`suma_logiki`), a przebieg przyrostowy z inną sumą przerywa się błędem, zamiast zostawić mieszankę starej i nowej logiki. Zmiana samego komentarza też się liczy.
+- zmieniasz logikę pliku stagingu — przebieg przyrostowy przeliczyłby nową logiką tylko ostatnie dni, bez błędu; deploy w takim przypadku pomija staging i ostrzega.
 
 `maximum_bytes_billed`: 10 GiB dev, 100 GiB prod — zapytanie ponad limit pada bez opłaty.
 
@@ -132,25 +130,22 @@ generic — sprawdza dane
 ├── (wbudowane w dbt)                                  not_null, unique — bez pliku w repo
 ├── dbt_packages/dbt_utils/                            unique_combination_of_columns — z dbt deps, poza gitem
 ├── tests/generic/test_wariant_w_seedzie.sql           wariant_w_seedzie — własny
-└── models/**/_*_modele.yml                            użycie: data_tests: przy kolumnach i modelach (23)
+└── models/**/_*_modele.yml                            użycie: data_tests: przy kolumnach i modelach (22)
 singular — sprawdza dane, jeden plik .sql = jeden test
 └── tests/
     ├── sprawdz_konfiguracje_testow.sql                konfiguracja seeda
     ├── sprawdz_komplet_dni_ga4.sql                    brakujące dni eksportu GA4
-    ├── sprawdz_uzytkownikow_kazdego_wariantu.sql      wariant z 0 użytkowników
-    ├── sprawdz_zgodnosc_tygodniowych_z_wynikiem.sql   tygodniowo = wynik końcowy
-    ├── sprawdz_srm.sql                                SRM (warn)
-    └── sprawdz_rownowage_wykluczonych.sql             nierówne wykluczeni_mieszani (warn)
+    └── sprawdz_srm.sql                                SRM (warn)
 unit — sprawdza logikę na mockach
 └── models/
-    ├── intermediate/_int_ab__testy_jednostkowe.yml    ekspozycje_*, konwersje_* (4)
-    └── marts/_marts__testy_jednostkowe.yml            wyniki_*, tygodniowo_* (2)
+    ├── intermediate/_int_ab__testy_jednostkowe.yml    ekspozycje_*, konwersje_* (2)
+    └── marts/_marts__testy_jednostkowe.yml            wyniki_* (1)
 ```
 
 Przy warn decyduje człowiek; parę wskaże `dbt test --select sprawdz_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć:
 
 ```bash
-uv run dbt run --select +fct_wyniki_testow_ab_tygodniowo --empty --profiles-dir .
+uv run dbt run --select +fct_wyniki_testow_ab --empty --profiles-dir .
 uv run dbt test --select test_type:unit --profiles-dir .
 ```
 
@@ -168,7 +163,7 @@ flowchart LR
         BUILD["harmonogram · build"]
     end
     F1 -->|kod z ostatniego<br/>zielonego przebiegu| BUILD
-    UNIT -.->|puste tabele,<br/>wygasają po 1 h| CIDS[("dbt_ci_testy_ab")]
+    UNIT -.->|puste tabele,<br/>bez danych| CIDS[("dbt_ci_testy_ab")]
     DEPLOY -.->|zmienione modele<br/>i zależne od nich| PROD[("dbt_prod_testy_ab")]
     BUILD -.->|cały projekt,<br/>świeże dane GA4| PROD
 ```
@@ -238,7 +233,6 @@ Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 
 | Usterka w skrypcie | Co psuje w danych | Test dbt, który ją łapie |
 |---|---|---|
 | `usterka_srm_slot` | kontrola dostaje 53% ruchu zamiast 50% | `sprawdz_srm` (warn) |
-| `usterka_mieszani_slot` | 5% powrotów w wariancie dostaje kontrolę — wykluczeni_mieszani głównie po stronie wariantu | `sprawdz_rownowage_wykluczonych` (warn) |
 | `usterka_brak_dnia` | brak tabeli dziennej | `sprawdz_komplet_dni_ga4` (error) |
 
 ## Niesprawdzone
@@ -246,7 +240,6 @@ Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 
 Poza `dbt parse` nic jeszcze nie biegło — `unit-tests`, `deploy` i harmonogram czekają na WIF. Do potwierdzenia:
 - czy `_dbt_max_partition` w filtrze na `_TABLE_SUFFIX` ogranicza czytane tabele (`total_bytes_billed` w `INFORMATION_SCHEMA.JOBS`);
 - czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
-- czy strażnik logiki zapisuje etykietę w `post_hook` i czyta ją z `INFORMATION_SCHEMA.TABLE_OPTIONS`.
 - puste `user_pseudo_id` i `ga_session_id` przy `analytics_storage = denied` — dokumentacja Google tego nie opisuje, a wpis na X wymaga logowania; potwierdzają to tylko relacje praktyków; od kiedy eksport ma pola `batch_*` — dokumentacja nie podaje daty;
 - `dane_syntetyczne/generuj_eksport_ga4.sql` nie był uruchomiony — oczekiwane liczby pochodzą z symulacji tej samej logiki w Pythonie; m.in. czy `EXECUTE IMMEDIATE` widzi tabelę tymczasową skryptu (dokumentacja tego nie rozstrzyga);
 - czy load job z `WRITE_TRUNCATE` na `tabela$RRRRMMDD` podmienia tylko tę partycję — dokumentacja BigQuery opisuje to dla `bq load --replace` z dekoratorem, nie dla `write_disposition` w kliencie Pythona.

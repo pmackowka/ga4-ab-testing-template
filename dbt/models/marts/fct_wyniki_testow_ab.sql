@@ -19,7 +19,7 @@ warianty_seeda AS (
 
 zaobserwowane AS (
 	-- uzytkownicy i konwertujacy bez ponownie wylosowanych: nie wiadomo, któremu wariantowi przypisać ich
-	-- zakup. wykluczeni_mieszani to kontrola jakości — opis progu w tests/sprawdz_rownowage_wykluczonych.sql
+	-- zakup. wykluczeni_mieszani to kontrola jakości: ok. połowa ponownie wylosowanych, druga trafiła w ten sam wariant
 	SELECT
 		x.id_testu,
 		x.wariant,

@@ -78,7 +78,7 @@ testy_ab:
         # jak prod_ci
       project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
       dataset: dbt_ci_testy_ab
-        # osobny dataset, tabele wygasają po godzinie
+        # osobny dataset: puste tabele z CI, oddzielone od prod
       location: EU
       priority: interactive
       threads: 4

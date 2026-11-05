@@ -31,10 +31,6 @@ models:
         description: Dzień pierwszej ekspozycji (strefa usługi GA4).
       - name: liczba_wariantow
         description: Liczba różnych wariantów na eventach testu; 2+ = ponowne losowanie.
-      - name: data_mieszania
-        description: >
-          Dzień pierwszego eventu z innym wariantem; NULL, gdy liczba_wariantow = 1.
-          fct_wyniki_testow_ab_tygodniowo wyklucza użytkownika dopiero od tygodnia, w którym to nastąpiło.
 
   - name: int_ab__konwersje
     description: Jeden wiersz na test i użytkownika z konwersją po pierwszej ekspozycji.

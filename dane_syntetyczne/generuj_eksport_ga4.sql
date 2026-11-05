@@ -33,8 +33,6 @@ DECLARE testy ARRAY<STRUCT<slot STRING, start_testu DATE, koniec_testu DATE, war
 -- usterki (NULL = wyłączona), każda ma wywołać inny test dbt
 DECLARE usterka_srm_slot STRING DEFAULT NULL;               -- sprawdz_srm (warn)
 DECLARE usterka_srm_udzial_kontroli FLOAT64 DEFAULT 0.53;
-DECLARE usterka_mieszani_slot STRING DEFAULT NULL;          -- sprawdz_rownowage_wykluczonych (warn)
-DECLARE usterka_mieszani_udzial FLOAT64 DEFAULT 0.05;       -- powrót w wariancie ≠ kontrola → losuje kontrolę
 DECLARE usterka_brak_dnia DATE DEFAULT NULL;                -- sprawdz_komplet_dni_ga4 (error)
 
 DECLARE dzien DATE;
@@ -102,10 +100,7 @@ WHILE dzien <= data_do DO
         t.warianty,
         t.efekty,
         los(FORMAT('w|%s|%s|%t', u.id_uzytkownika, t.slot, t.start_testu)) AS b,
-        IF(t.slot = usterka_srm_slot, usterka_srm_udzial_kontroli, 1 / ARRAY_LENGTH(t.warianty)) AS udzial_kontroli,
-        -- usterka: powracający w wariancie stracił cookie i tag wylosował mu kontrolę
-        NOT u.czy_nowy AND t.slot = usterka_mieszani_slot
-          AND los(FORMAT('m|%s|%t', u.id_uzytkownika, dzien)) < usterka_mieszani_udzial AS czy_ponowne_losowanie
+        IF(t.slot = usterka_srm_slot, usterka_srm_udzial_kontroli, 1 / ARRAY_LENGTH(t.warianty)) AS udzial_kontroli
       FROM uzytkownicy AS u
       CROSS JOIN UNNEST(testy) AS t
       WHERE dzien BETWEEN t.start_testu AND t.koniec_testu
@@ -121,10 +116,9 @@ WHILE dzien <= data_do DO
       FROM (
         SELECT
           *,
-          IF(czy_ponowne_losowanie, 0,
-            IF(b < udzial_kontroli, 0,
-              1 + LEAST(ARRAY_LENGTH(warianty) - 2,
-                CAST(FLOOR((b - udzial_kontroli) / (1 - udzial_kontroli) * (ARRAY_LENGTH(warianty) - 1)) AS INT64))))
+          IF(b < udzial_kontroli, 0,
+            1 + LEAST(ARRAY_LENGTH(warianty) - 2,
+              CAST(FLOOR((b - udzial_kontroli) / (1 - udzial_kontroli) * (ARRAY_LENGTH(warianty) - 1)) AS INT64)))
             AS nr
         FROM przydzialy
       )

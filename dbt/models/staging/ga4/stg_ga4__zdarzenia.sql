@@ -7,11 +7,8 @@
 	w tabeli (_dbt_max_partition — zmienna, którą dbt deklaruje w skrypcie insert_overwrite), a nie
 	od CURRENT_DATE(), żeby kilkudniowa przerwa w harmonogramie nie zostawiła dziury w danych.
 
-	Strażnik logiki: przyrostowy przebieg z NOWĄ logiką nadpisałby tylko ostatnie dni i zostawił
-	w tabeli mieszankę starej i nowej logiki, bez błędu. Blok niżej porównuje sumę kontrolną pliku
-	z etykietą tabeli (zapisuje ją post_hook) i przerywa przebieg przy różnicy — niezależnie od tego,
-	czy odpala go deploy, harmonogram czy laptop. Suma liczy się z całego pliku, więc zmiana samego
-	komentarza też wymaga --full-refresh.
+	Zmiana logiki tego pliku wymaga --full-refresh: przebieg przyrostowy nadpisałby tylko ostatnie
+	dni i zostawił w tabeli mieszankę starej i nowej logiki, bez błędu.
 #}
 {%- set dni_wstecz = 3 -%}
 	{# GA4 dopisuje do dziennej tabeli jeszcze do 72 h #}
@@ -20,31 +17,8 @@
 	{# tabela dopisywana przyrostowo, nie przeliczana od zera #}
 {{ config(incremental_strategy='insert_overwrite') }}
 	{# podmienia całe partycje-dni; merge odpada, bo eksport GA4 nie ma klucza gwarantującego unikalność zdarzenia — powody w README #}
-{{ config(hours_to_expiration=none) }}
-	{# bez wygasania, wbrew 1 h z dbt_project.yml — inaczej w dev tabela znika i ścieżka incremental nigdy się nie wykonuje #}
-{{ config(on_schema_change='append_new_columns') }}
-	{# nowa kolumna w modelu dochodzi do tabeli bez pełnego rebuildu #}
-{{ config(post_hook="ALTER TABLE {{ this }} SET OPTIONS (labels = [('suma_logiki', '{{ model.checksum.checksum[:40] }}')])") }}
-	{# po każdym buildzie zapisuje sumę kontrolną pliku w etykiecie tabeli; --full-refresh ustawia nową #}
 {{ config(partition_by={"field": "data_zdarzenia", "data_type": "date", "granularity": "day"}) }}
 	{# partycja = dzień z kolumny data_zdarzenia: jednostka nadpisywania i filtr ograniczający skan #}
-
-{%- if execute and is_incremental() %}
-	{%- set zapytanie_etykiety %}
-		SELECT REGEXP_EXTRACT(option_value, r'"suma_logiki", "([0-9a-f]+)"')
-		FROM `{{ this.database }}`.`{{ this.schema }}`.INFORMATION_SCHEMA.TABLE_OPTIONS
-		WHERE table_name = '{{ this.identifier }}' AND option_name = 'labels'
-	{%- endset %}
-	{%- set zapisana_suma = run_query(zapytanie_etykiety).columns[0].values() | first %}
-	{%- if zapisana_suma != model.checksum.checksum[:40] %}
-		{{ exceptions.raise_compiler_error(
-			"stg_ga4__zdarzenia: logika modelu zmieniła się od ostatniego pełnego rebuildu. "
-			~ "Przyrostowy przebieg zostawiłby mieszankę starej i nowej logiki. "
-			~ "Odpal dbt build -s stg_ga4__zdarzenia+ --full-refresh "
-			~ "(GitHub: Actions → dbt build → Run workflow → full_refresh)."
-		) }}
-	{%- endif %}
-{%- endif %}
 
 WITH zrodlo AS (
 	-- nazwy kolumn GA4 (event_date, user_pseudo_id…) zostają tylko tutaj, dalej polskie

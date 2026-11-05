@@ -33,14 +33,6 @@ vars:
 models:
   testy_ab:
     # ustawienia dla wszystkich modeli tego projektu (+ = dziedziczone przez podfoldery)
-    +persist_docs:
-      # zapis opisów z YAML w BigQuery
-      relation: true
-        # opis modelu jako opis tabeli
-      columns: true
-        # opisy kolumn jako opisy kolumn tabeli
-    +hours_to_expiration: "{{ 1 if target.name in ['dev', 'ci'] else none }}"
-      # dev i CI: tabele znikają po 1 h; prod bez wygasania, bo expiration kasuje tabelę bez błędu w dbt
     staging:
       +materialized: view
         # widok: staging czyta tylko intermediate, kopia danych zbędna (stg_ga4__zdarzenia nadpisuje to na incremental)

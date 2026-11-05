@@ -1,6 +1,6 @@
 {#
 	Jeden wiersz na test (id_testu) i eksponowanego użytkownika: pierwsza ekspozycja, jej wariant i dzień
-	oraz pierwszy event z INNYM wariantem (ponowne losowanie po utracie cookie). Liczy wszystkie
+	oraz liczba różnych wariantów (2+ = ponowne losowanie po utracie cookie). Liczy wszystkie
 	testy z seeda naraz — okno i eventy ekspozycji biorą się z wiersza testu, nie z DECLARE.
 #}
 WITH zdarzenia_testow AS (
@@ -35,60 +35,28 @@ pierwsza_ekspozycja AS (
 
 	FROM zdarzenia_testow
 	GROUP BY id_testu, slot, id_uzytkownika
-),
-
-eksponowani AS (
-	-- użytkownik z wariantem tylko na eventach spoza zdarzenia_ekspozycji nie wchodzi do testu
-	SELECT
-		id_testu,
-		slot,
-		id_uzytkownika,
-		fe.wariant AS wariant,
-		fe.czas_zdarzenia AS czas_pierwszej_ekspozycji,
-		fe.data_zdarzenia AS data_pierwszej_ekspozycji,
-		liczba_wariantow
-
-	FROM pierwsza_ekspozycja
-	WHERE fe IS NOT NULL
-),
-
-mieszani AS (
-	-- pierwszy event z wariantem innym niż w pierwszej ekspozycji, także sprzed niej;
-	-- istnieje dokładnie wtedy, gdy liczba_wariantow > 1
-	SELECT
-		x.id_testu,
-		x.id_uzytkownika,
-		MIN(e.data_zdarzenia) AS data_mieszania
-
-	FROM eksponowani AS x
-	JOIN zdarzenia_testow AS e
-		ON e.id_testu = x.id_testu
-		AND e.id_uzytkownika = x.id_uzytkownika
-		AND e.wariant != x.wariant
-	GROUP BY x.id_testu, x.id_uzytkownika
 )
 
+-- użytkownik z wariantem tylko na eventach spoza zdarzenia_ekspozycji nie wchodzi do testu
 SELECT
-	x.id_testu,
-	x.slot,
-	x.id_uzytkownika,
-	x.wariant,
-	x.czas_pierwszej_ekspozycji,
-	x.data_pierwszej_ekspozycji,
-	x.liczba_wariantow,
-	m.data_mieszania
+	id_testu,
+	slot,
+	id_uzytkownika,
+	fe.wariant AS wariant,
+	fe.czas_zdarzenia AS czas_pierwszej_ekspozycji,
+	fe.data_zdarzenia AS data_pierwszej_ekspozycji,
+	liczba_wariantow
 
-FROM eksponowani AS x
-LEFT JOIN mieszani AS m
-	USING (id_testu, id_uzytkownika)
+FROM pierwsza_ekspozycja
+WHERE fe IS NOT NULL
 
 {#
-	Przykładowy wynik (dane syntetyczne). 3333.0002 zgubił cookie i 23.09 dostał v0 — liczba_wariantow
+	Przykładowy wynik (dane syntetyczne). 3333.0002 zgubił cookie i później dostał v0 — liczba_wariantow
 	= 2, więc w wyniku trafi do wykluczeni_mieszani:
-	id_testu     | slot | id_uzytkownika | wariant | czas_pierwszej_ekspozycji | data_pierwszej_ekspozycji | liczba_wariantow | data_mieszania
-	ab1_20260907 | ab1  | 1234.5678      | v1      | 2026-09-08 10:00:00       | 2026-09-08                | 1                | NULL
-	ab1_20260907 | ab1  | 2222.0001      | v0      | 2026-09-09 08:15:00       | 2026-09-09                | 1                | NULL
-	ab1_20260907 | ab1  | 3333.0002      | v1      | 2026-09-10 20:41:00       | 2026-09-10                | 2                | 2026-09-23
-	ab1_20260907 | ab1  | 4444.0003      | v0      | 2026-09-15 12:00:00       | 2026-09-15                | 1                | NULL
-	ab4_20261102 | ab4  | 1234.5678      | v1      | 2026-11-02 09:00:00       | 2026-11-02                | 1                | NULL
+	id_testu     | slot | id_uzytkownika | wariant | czas_pierwszej_ekspozycji | data_pierwszej_ekspozycji | liczba_wariantow
+	ab1_20260907 | ab1  | 1234.5678      | v1      | 2026-09-08 10:00:00       | 2026-09-08                | 1
+	ab1_20260907 | ab1  | 2222.0001      | v0      | 2026-09-09 08:15:00       | 2026-09-09                | 1
+	ab1_20260907 | ab1  | 3333.0002      | v1      | 2026-09-10 20:41:00       | 2026-09-10                | 2
+	ab1_20260907 | ab1  | 4444.0003      | v0      | 2026-09-15 12:00:00       | 2026-09-15                | 1
+	ab4_20261102 | ab4  | 1234.5678      | v1      | 2026-11-02 09:00:00       | 2026-11-02                | 1
 #}

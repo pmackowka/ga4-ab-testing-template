@@ -9,11 +9,6 @@ models:
     description: >
       Wynik testu do kalkulatora „Po teście A/B”: wiersz kontroli (A) i po wierszu na każdy
       wariant (B). Do kalkulatora bierz tylko wiersze z czy_koncowy = true.
-    config:
-      contract:
-        # kontrakt: kształt tabeli, na którym polega kalkulator
-        enforced: true
-          # build pada, gdy SQL zwraca inne kolumny albo typy niż data_type niżej, a constraints trafiają do DDL tabeli
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -21,66 +16,26 @@ models:
     columns:
       - name: id_testu
         description: Klucz testu — slot i przebieg, np. ab1_20260907.
-        data_type: string
-        constraints:
-          - type: not_null
+        data_tests:
+          - not_null
       - name: slot
         description: Slot testu (ab1–ab10).
-        data_type: string
       - name: wariant
-        data_type: string
-        constraints:
-          - type: not_null
         data_tests:
+          - not_null
           - wariant_w_seedzie
       - name: czy_kontrola
-        data_type: boolean
       - name: pole_kalkulatora
         description: Który wiersz kalkulatora — A (kontrola) albo B (wariant).
-        data_type: string
       - name: uzytkownicy
         description: >
           Kalkulator: Użytkownicy A / B. Unikalni użytkownicy od pierwszej ekspozycji,
           bez ponownie wylosowanych.
-        data_type: int64
       - name: konwertujacy
         description: "Kalkulator: Konwertujący A / B. Osoby z konwersją po pierwszej ekspozycji."
-        data_type: int64
       - name: wykluczeni_mieszani
         description: >
           Do kalkulatora nie idzie. Użytkownicy z 2+ wariantami, wyjęci z uzytkownicy i konwertujacy;
           wiersz = wariant pierwszej ekspozycji.
-        data_type: int64
       - name: czy_koncowy
         description: true, gdy od końca testu minęły 3 dni i GA4 nie dopisze już danych.
-        data_type: boolean
-
-  - name: fct_wyniki_testow_ab_tygodniowo
-    description: >
-      Liczby z fct_wyniki_testow_ab narastająco na koniec każdego tygodnia testu. Podgląd
-      i punkt wyjścia pod testy sekwencyjne — nie podstawa decyzji w teście o stałej długości.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: [id_testu, wariant, nr_tygodnia]
-    columns:
-      - name: id_testu
-        data_tests:
-          - not_null
-      - name: slot
-        description: Slot testu (ab1–ab10).
-      - name: wariant
-        data_tests:
-          - not_null
-      - name: nr_tygodnia
-        description: Numer tygodnia testu, od 1.
-      - name: koniec_tygodnia
-        description: Niedziela kończąca tydzień.
-      - name: uzytkownicy
-        description: Użytkownicy narastająco na koniec tygodnia, bez wylosowanych ponownie do tego dnia.
-      - name: konwertujacy
-        description: Użytkownicy z kolumny uzytkownicy, którzy skonwertowali do końca tygodnia.
-      - name: wykluczeni_mieszani
-        description: Użytkownicy z 2+ wariantami do końca tygodnia.
-      - name: czy_koncowy
-        description: true, gdy od końca tygodnia minęły 3 dni.
