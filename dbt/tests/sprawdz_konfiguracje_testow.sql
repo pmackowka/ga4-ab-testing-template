@@ -25,6 +25,8 @@ FROM testy,
 			'koniec_testu musi być niedzielą po start_testu: pełne tygodnie', NULL),
 		IF(wariant_kontrolny NOT IN UNNEST(warianty), 'wariant_kontrolny musi być na liście warianty', NULL),
 		IF(ARRAY_LENGTH(warianty) < 2, 'warianty musi mieć co najmniej dwa warianty', NULL),
+		-- pusta komórka daje NULL, a IN UNNEST(NULL) nigdy nie jest prawdą: zero ekspozycji bez błędu
+		IF(IFNULL(ARRAY_LENGTH(zdarzenia_ekspozycji), 0) = 0, 'zdarzenia_ekspozycji nie może być puste', NULL),
 		IF(start_testu < DATE '{{ var("ga4_data_startu") }}',
 			'start_testu przed ga4_data_startu: staging nie ma tych dni', NULL),
 		-- nakładające się okna w jednym slocie: event z parametrem slotu pasowałby do dwóch testów

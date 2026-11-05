@@ -139,7 +139,7 @@ singular — sprawdza dane, jeden plik .sql = jeden test
 unit — sprawdza logikę na mockach
 └── models/
     ├── intermediate/int_ab__ekspozycje__unit_test.yml ekspozycje_* (1)
-    ├── intermediate/int_ab__konwersje__unit_test.yml  konwersje_* (1) — najprostszy, wzór do nauki
+    ├── intermediate/int_ab__konwersje__unit_test.yml  konwersje_* (2) — pierwszy najprostszy, wzór do nauki
     └── marts/fct_wyniki_testow_ab__unit_test.yml      wyniki_* (1)
 ```
 
