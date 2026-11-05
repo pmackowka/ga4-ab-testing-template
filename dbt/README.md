@@ -91,7 +91,15 @@ flowchart LR
 
 ## Przyrost i pełny rebuild
 
-`stg_ga4__zdarzenia` (`insert_overwrite`) nadpisuje ostatnie 3 dni od najnowszej partycji w tabeli, bo GA4 dopisuje dane do 72 h, a eksport nie ma klucza eventu do `merge`. Liczenie od partycji, nie od dziś, sprawia, że przerwa w harmonogramie nie zostawia dziury.
+`stg_ga4__zdarzenia` (`insert_overwrite`) nadpisuje ostatnie 3 dni od najnowszej partycji w tabeli, bo GA4 dopisuje dane do 72 h. Liczenie od partycji, nie od dziś, sprawia, że przerwa w harmonogramie nie zostawia dziury.
+
+`merge` jest możliwy składniowo — dbt przyjmie złożony `unique_key` (np. `user_pseudo_id` + `ga_session_id` + `event_timestamp` + `event_name`) — ale eksport GA4 nie ma klucza, który gwarantuje unikalność zdarzenia:
+- kilka zdarzeń z jednego żądania może mieć ten sam `event_timestamp`; do kolejności Google dodał `batch_page_id`, `batch_ordering_id`, `batch_event_index`, nie unikalny identyfikator, a w starszych eksportach tych pól nie ma ([schemat eksportu](https://support.google.com/firebase/answer/7029846), [przykładowe zapytania](https://developers.google.com/analytics/bigquery/basic-queries));
+- duplikat klucza w źródle → `MERGE` pada błędem „UPDATE/MERGE must match at most one source row for each target row” ([MERGE](https://cloud.google.com/bigquery/docs/reference/standard-sql/dml-syntax));
+- w advanced consent mode przy `analytics_storage = denied` tagi „Won't read or write first-party analytics cookies” ([consent mode](https://developers.google.com/tag-platform/security/concepts/consent-mode)), więc takie zdarzenia mają w eksporcie pusty `user_pseudo_id` i `ga_session_id` ([obserwacja](https://twitter.com/SimoAhava/status/1501500798085341185)); NULL w kluczu nie łączy się w `MERGE`, więc te wiersze dublowałyby się przy każdym przebiegu (u nas staging i tak je odfiltrowuje);
+- `merge` nie usuwa wierszy, które GA4 skasował przy ponownym przetworzeniu dnia; `insert_overwrite` podmienia cały dzień.
+
+`merge` ma sens dalej w potoku, gdzie ziarno ma prawdziwy klucz (np. data + `id_testu` + `wariant`).
 
 `--full-refresh -s stg_ga4__zdarzenia` jest potrzebny, gdy:
 - dodajesz `zdarzenie_konwersji`, którego nie ma jeszcze żaden test;
@@ -105,7 +113,7 @@ Ta sama decyzja co przy ładowaniu z API w Pythonie — dbt i skrypt różnią s
 | Metoda | Gdzie | Parametry | Co robi z istniejącymi danymi | Czego wymaga od ziarna | Kiedy |
 |---|---|---|---|---|---|
 | `insert_overwrite` | dbt | `incremental_strategy='insert_overwrite'`, `partition_by`, okno od `_dbt_max_partition` (u nas `dni_wstecz = 3`) | podmienia całe partycje-dni z okna; usuwa też wiersze, które GA4 skasował przy ponownym przetworzeniu | nic — klucz zbędny | źródło oddaje cały dzień naraz; **u nas** |
-| `merge` (domyślna w dbt-bigquery) | dbt | `unique_key` = ziarno modelu (np. `data_zdarzenia` + `id_sesji`) | aktualizuje pasujące, dopisuje nowe; nie usuwa wierszy, których nie ma już w źródle | klucz unikalny w każdym przebiegu | dane kawałkami albo jako zmiany; u nas niemożliwy — eksport GA4 nie ma klucza eventu |
+| `merge` (domyślna w dbt-bigquery) | dbt | `unique_key` = ziarno modelu (np. `data_zdarzenia` + `id_sesji`) | aktualizuje pasujące, dopisuje nowe; nie usuwa wierszy, których nie ma już w źródle | klucz unikalny w każdym przebiegu | dane kawałkami albo jako zmiany; nie u nas — eksport GA4 nie gwarantuje unikalnego klucza zdarzenia (wyżej) |
 | `microbatch` (dbt ≥ 1.9) | dbt | `event_time`, `batch_size`, `begin`, `lookback` + `partition_by` | jak `insert_overwrite`, ale osobne zapytanie na każdy dzień — partie można ponawiać pojedynczo | nic — `unique_key` w BigQuery nie dotyczy | długa historia, której jeden przebieg nie uniesie |
 | load job `WRITE_TRUNCATE` na `tabela$RRRRMMDD` | Python | `write_disposition`, dekorator partycji w nazwie tabeli | podmienia tylko wskazaną partycję; bez dekoratora nadpisuje całą tabelę | nic | odpowiednik `insert_overwrite`: dzień z API w całości |
 | `MERGE` po kluczu | Python (SQL) | `ON` = ziarno (np. `date` + `campaign_id`) | jak dbt `merge`; usuwanie tylko z jawnym `WHEN NOT MATCHED BY SOURCE THEN DELETE` | klucz = ziarno; grubszy (sama data) → przy drugim uruchomieniu błąd „UPDATE/MERGE must match at most one source row for each target row” | odpowiednik dbt `merge`: zmiany (`updated_since`), wymiary po ID |
@@ -220,4 +228,5 @@ Poza `dbt parse` nic jeszcze nie biegło — `unit-tests`, `deploy` i harmonogra
 - czy `_dbt_max_partition` w filtrze na `_TABLE_SUFFIX` ogranicza czytane tabele (`total_bytes_billed` w `INFORMATION_SCHEMA.JOBS`);
 - czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
 - czy strażnik logiki zapisuje etykietę w `post_hook` i czyta ją z `INFORMATION_SCHEMA.TABLE_OPTIONS`.
+- puste `user_pseudo_id` i `ga_session_id` przy `analytics_storage = denied` — dokumentacja Google tego nie opisuje, a wpis na X wymaga logowania; potwierdzają to tylko relacje praktyków; od kiedy eksport ma pola `batch_*` — dokumentacja nie podaje daty;
 - czy load job z `WRITE_TRUNCATE` na `tabela$RRRRMMDD` podmienia tylko tę partycję — dokumentacja BigQuery opisuje to dla `bq load --replace` z dekoratorem, nie dla `write_disposition` w kliencie Pythona.

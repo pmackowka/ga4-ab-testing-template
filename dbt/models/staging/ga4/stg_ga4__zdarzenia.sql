@@ -19,7 +19,7 @@
 {{ config(materialized='incremental') }}
 	{# tabela dopisywana przyrostowo, nie przeliczana od zera #}
 {{ config(incremental_strategy='insert_overwrite') }}
-	{# podmienia całe partycje-dni; merge niemożliwy, bo eksport GA4 nie ma klucza eventu #}
+	{# podmienia całe partycje-dni; merge odpada, bo eksport GA4 nie ma klucza gwarantującego unikalność zdarzenia — powody w README #}
 {{ config(hours_to_expiration=none) }}
 	{# bez wygasania, wbrew 1 h z dbt_project.yml — inaczej w dev tabela znika i ścieżka incremental nigdy się nie wykonuje #}
 {{ config(on_schema_change='append_new_columns') }}
