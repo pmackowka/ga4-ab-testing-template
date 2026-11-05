@@ -40,7 +40,9 @@ WITH zrodlo AS (
 		-- 8 cyfr odcina events_intraday_*
 		AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
 		{%- if is_incremental() %}
-		AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE_SUB(_dbt_max_partition, INTERVAL {{ dni_wstecz }} DAY))
+		-- pusta tabela daje _dbt_max_partition = NULL; bez COALESCE filtr nie przepuściłby nic, już na zawsze
+		AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', COALESCE(
+			DATE_SUB(_dbt_max_partition, INTERVAL {{ dni_wstecz }} DAY), DATE '{{ var("ga4_data_startu") }}'))
 		{%- else %}
 		AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE '{{ var("ga4_data_startu") }}')
 		{%- endif %}

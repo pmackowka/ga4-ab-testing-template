@@ -26,7 +26,7 @@ dni_eksportu AS (
 
 SELECT
 	t.id_testu,
-	day AS brakujacy_dzien
+	dzien AS brakujacy_dzien
 
 FROM testy AS t
 -- test, który jeszcze nie ma dnia starszego niż 3 dni, daje pustą tablicę i nic nie sprawdza

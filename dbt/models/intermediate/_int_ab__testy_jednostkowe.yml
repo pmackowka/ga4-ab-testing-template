@@ -5,7 +5,7 @@
 # deploy i harmonogram je pomijają. Tu: logika przypisania i konwersji — zamiast trybu demo.
 # Uruchamiają się w BigQuery, ale nie czytają GA4: dbt wstawia wiersze z given jako CTE.
 # Przed pierwszym uruchomieniem modele nadrzędne muszą istnieć (dbt bierze z nich typy kolumn):
-#   uv run dbt run --select +fct_wyniki_testow_ab --empty
+#   uv run dbt build --select +fct_wyniki_testow_ab --empty --full-refresh --resource-type seed --resource-type model
 #   uv run dbt test --select test_type:unit
 version: 2
 

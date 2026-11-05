@@ -89,7 +89,7 @@ flowchart LR
 
 ## Przyrost i pełny rebuild
 
-`stg_ga4__zdarzenia` (`insert_overwrite`) nadpisuje ostatnie 3 dni od najnowszej partycji w tabeli, bo GA4 dopisuje dane do 72 h. Liczenie od partycji, nie od dziś, sprawia, że przerwa w harmonogramie nie zostawia dziury.
+`stg_ga4__zdarzenia` (`insert_overwrite`) nadpisuje ostatnie 3 dni od najnowszej partycji w tabeli, bo GA4 dopisuje dane do 72 h. Liczenie od partycji, nie od dziś, sprawia, że przerwa w harmonogramie nie zostawia dziury; pusta tabela (brak partycji) czyta od `ga4_data_startu`.
 
 `merge` jest możliwy składniowo — dbt przyjmie złożony `unique_key` (np. `user_pseudo_id` + `ga_session_id` + `event_timestamp` + `event_name`) — ale eksport GA4 nie ma klucza, który gwarantuje unikalność zdarzenia:
 - kilka zdarzeń z jednego żądania może mieć ten sam `event_timestamp`; do kolejności Google dodał `batch_page_id`, `batch_ordering_id`, `batch_event_index`, nie unikalny identyfikator, a w starszych eksportach tych pól nie ma ([schemat eksportu](https://support.google.com/firebase/answer/7029846), [przykładowe zapytania](https://developers.google.com/analytics/bigquery/basic-queries));
@@ -142,10 +142,10 @@ unit — sprawdza logikę na mockach
     └── marts/_marts__testy_jednostkowe.yml            wyniki_* (1)
 ```
 
-Przy warn decyduje człowiek; parę wskaże `dbt test --select sprawdz_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć:
+Przy warn decyduje człowiek; parę wskaże `dbt test --select sprawdz_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć — z seedem, bo `dbt run` go nie ładuje, i z `--full-refresh`, bo pusta tabela stagingu bez niego zostaje pusta:
 
 ```bash
-uv run dbt run --select +fct_wyniki_testow_ab --empty --profiles-dir .
+uv run dbt build --select +fct_wyniki_testow_ab --empty --full-refresh --resource-type seed --resource-type model --profiles-dir .
 uv run dbt test --select test_type:unit --profiles-dir .
 ```
 
@@ -223,17 +223,17 @@ Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym dataseci
 
 Wymaga projektu z billingiem: [sandbox BigQuery](https://cloud.google.com/bigquery/docs/sandbox) nie obsługuje DML, a `insert_overwrite` w dbt generuje `MERGE` ([dbt — BigQuery configs](https://docs.getdbt.com/reference/resource-configs/bigquery-configs)).
 
-1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery: pierwszy raz generuje dni od 2026-09-07 do wczoraj.
+1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery z Więcej → Ustawienia zapytania → lokalizacja danych = EU: skrypt czyta zbiór tylko przez `EXECUTE IMMEDIATE`, więc BigQuery nie wywnioskuje regionu i może uruchomić zadanie w US. Pierwszy raz generuje dni od 2026-09-07 do wczoraj.
 2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'`.
-3. Przyrost: przed każdą sesją uruchom skrypt bez zmian — sam nadrobi dni od ostatniej tabeli do wczoraj, także po kilku dniach przerwy — i `dbt build` bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
-4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` — liczby z tych dni się zmieniają, starsze nie.
+3. Przyrost: przed każdą sesją uruchom skrypt bez zmian — sam nadrobi dni od ostatniej tabeli do wczoraj, także po kilku dniach przerwy — i `dbt build` z tymi samymi `--vars`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
+4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` z `--vars` — liczby z tych dni się zmieniają, starsze nie.
 
 Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 +10%, ab2 v1 0%, ab2 v2 +12%, ab3 v1 −5%, ab4 v1 +10%). Przy 10 000 wizyt dziennie rozrzut w ab1 i ab2 to ok. ±5 pp; ab3 i ab4 dopiero ruszyły, więc ich wynik jeszcze szumi.
 
 | Usterka w skrypcie | Co psuje w danych | Test dbt, który ją łapie |
 |---|---|---|
 | `usterka_srm_slot` | kontrola dostaje 53% ruchu zamiast 50% | `sprawdz_srm` (warn) |
-| `usterka_brak_dnia` | brak tabeli dziennej | `sprawdz_komplet_dni_ga4` (error) |
+| `usterka_brak_dnia` | brak tabeli dziennej; działa z `data_od` ≤ tego dnia, bo nadrabianie zaczyna od dnia po ostatniej tabeli | `sprawdz_komplet_dni_ga4` (error) |
 
 ## Niesprawdzone
 

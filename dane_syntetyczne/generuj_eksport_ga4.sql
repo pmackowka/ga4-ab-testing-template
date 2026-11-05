@@ -9,6 +9,8 @@
  kolejne dni można dogenerować osobno, a powracający użytkownik ma ten sam wariant.
  Uruchomienie bez zmian nadrabia: generuje dni od ostatniej tabeli w zbiorze do wczoraj, także
  po kilku dniach przerwy; gdy wszystko jest, nic nie robi. Podane data_od podmienia dni od niego.
+ Uruchom z lokalizacją danych EU (Ustawienia zapytania): zbiór jest czytany tylko przez EXECUTE
+ IMMEDIATE, więc BigQuery nie wywnioskuje regionu i może uruchomić zadanie w US.
 */
 
 DECLARE projekt_docelowy STRING DEFAULT 'twoj-projekt';
@@ -33,7 +35,7 @@ DECLARE testy ARRAY<STRUCT<slot STRING, start_testu DATE, koniec_testu DATE, war
 -- usterki (NULL = wyłączona), każda ma wywołać inny test dbt
 DECLARE usterka_srm_slot STRING DEFAULT NULL;               -- sprawdz_srm (warn)
 DECLARE usterka_srm_udzial_kontroli FLOAT64 DEFAULT 0.53;
-DECLARE usterka_brak_dnia DATE DEFAULT NULL;                -- sprawdz_komplet_dni_ga4 (error)
+DECLARE usterka_brak_dnia DATE DEFAULT NULL;                -- sprawdz_komplet_dni_ga4 (error); wymaga data_od <= ten dzień
 
 DECLARE dzien DATE;
 DECLARE liczba_nowych INT64 DEFAULT CAST(ROUND(wizyty_dziennie * (1 - udzial_powracajacych)) AS INT64);
