@@ -4,6 +4,7 @@
 # wynik porównany z expect. Plik YAML. Biegną tylko w CI (job unit-testy), przed modelem;
 # deploy i harmonogram je pomijają. Tu: logika przypisania i konwersji — zamiast trybu demo.
 # Uruchamiają się w BigQuery, ale nie czytają GA4: dbt wstawia wiersze z given jako CTE.
+# Zacznij od konwersje_tylko_po_ekspozycji (niżej) — najprostszy, z komentarzem przy każdym kroku.
 # Przed pierwszym uruchomieniem modele nadrzędne muszą istnieć (dbt bierze z nich typy kolumn):
 #   uv run dbt build --select +fct_wyniki_testow_ab --empty --full-refresh --resource-type seed --resource-type model
 #   uv run dbt test --select test_type:unit
@@ -33,29 +34,43 @@ unit_tests:
       rows:
         - {id_testu: ab1_20260907, id_uzytkownika: u4, wariant: v1, liczba_wariantow: 1}
 
-  - name: konwersje_po_ekspozycji_raz_na_uzytkownika
+  # Najprostszy możliwy unit test — wzór do czytania. Jeden użytkownik, jeden test A/B, jedna reguła:
+  # zakup liczy się jako konwersja tylko wtedy, gdy był PO pierwszej ekspozycji na test.
+  # Budowa każdego unit testu jest zawsze ta sama:
+  #   model  — który model sprawdzamy (tu int_ab__konwersje),
+  #   given  — sztuczne dane wejściowe: po jednym bloku na każdy ref() z SQL modelu,
+  #   expect — wiersze, które model MUSI zwrócić z tych danych. Inny wynik = test czerwony.
+  - name: konwersje_tylko_po_ekspozycji
     description: >
-      Zakup przed ekspozycją się nie liczy (u1), zdublowany purchase daje jeden wiersz z pierwszym
-      zakupem po ekspozycji (u2), zakup po koniec_testu się nie liczy (u3).
+      Użytkownik u1 zobaczył test o 12:00. Kupił o 11:00 (przed ekspozycją, nie liczy się)
+      i o 13:00 (po ekspozycji, liczy się). Wynik: jeden wiersz z zakupem z 13:00.
     model: int_ab__konwersje
     given:
+      # SQL modelu robi trzy ref(), więc są trzy wejścia. Brak któregoś = błąd kompilacji.
+      # W rows wystarczą kolumny, których model używa; resztę kolumn dbt wypełnia sam.
+
+      # 1) Rejestr testów (seed). Model bierze z niego: jakie zdarzenie jest konwersją
+      #    i kiedy test się kończy (zakup po końcu testu nie liczyłby się).
       - input: ref('stg_seeds__rejestr_testow')
-        format: sql
-        rows: |
-          SELECT 'ab1_20260907' AS id_testu, 'ab1' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
-            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
-            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+        rows:
+          - {id_testu: ab1_20260907, zdarzenie_konwersji: purchase, koniec_testu: 2026-10-04}
+
+      # 2) Ekspozycje — wynik poprzedniego modelu: kto i kiedy pierwszy raz zobaczył test.
+      #    Tu u1 zobaczył go 10 września o 12:00.
       - input: ref('int_ab__ekspozycje')
         rows:
-          - {id_testu: ab1_20260907, id_uzytkownika: u1, wariant: v0, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
-          - {id_testu: ab1_20260907, id_uzytkownika: u2, wariant: v1, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
-          - {id_testu: ab1_20260907, id_uzytkownika: u3, wariant: v1, czas_pierwszej_ekspozycji: '2026-10-04 12:00:00'}
+          - {id_testu: ab1_20260907, id_uzytkownika: u1, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
+
+      # 3) Zdarzenia z GA4 (staging). Dwa zakupy tego samego dnia:
+      #    11:00 — godzinę PRZED ekspozycją, więc model ma go odrzucić,
+      #    13:00 — godzinę PO ekspozycji, więc to pierwsza konwersja.
       - input: ref('stg_ga4__zdarzenia')
         rows:
-          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 11:00:00', id_uzytkownika: u1, nazwa_zdarzenia: purchase}
-          - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 09:00:00', id_uzytkownika: u2, nazwa_zdarzenia: purchase}
-          - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 09:00:30', id_uzytkownika: u2, nazwa_zdarzenia: purchase}
-          - {data_zdarzenia: 2026-10-05, czas_zdarzenia: '2026-10-05 09:00:00', id_uzytkownika: u3, nazwa_zdarzenia: purchase}
+          - {id_uzytkownika: u1, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-09-10 11:00:00', data_zdarzenia: 2026-09-10}
+          - {id_uzytkownika: u1, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-09-10 13:00:00', data_zdarzenia: 2026-09-10}
+
+    # Oczekiwany wynik: jeden wiersz, z zakupem z 13:00. Gdyby model liczył też zakup sprzed
+    # ekspozycji, czas_pierwszej_konwersji wyszedłby 11:00 i test by padł.
     expect:
       rows:
-        - {id_testu: ab1_20260907, id_uzytkownika: u2, czas_pierwszej_konwersji: '2026-09-12 09:00:00', data_pierwszej_konwersji: 2026-09-12}
+        - {id_testu: ab1_20260907, id_uzytkownika: u1, czas_pierwszej_konwersji: '2026-09-10 13:00:00', data_pierwszej_konwersji: 2026-09-10}

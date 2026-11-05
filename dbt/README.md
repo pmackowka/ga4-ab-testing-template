@@ -138,7 +138,7 @@ singular — sprawdza dane, jeden plik .sql = jeden test
     └── sprawdz_srm.sql                                SRM (warn)
 unit — sprawdza logikę na mockach
 └── models/
-    ├── intermediate/_int_ab__testy_jednostkowe.yml    ekspozycje_*, konwersje_* (2)
+    ├── intermediate/_int_ab__testy_jednostkowe.yml    ekspozycje_*, konwersje_* (2) — konwersje_* to wzór do nauki
     └── marts/_marts__testy_jednostkowe.yml            wyniki_* (1)
 ```
 
