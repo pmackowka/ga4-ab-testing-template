@@ -1,39 +1,16 @@
-# UNIT
+# UNIT · testuje models/intermediate/int_ab__konwersje.sql
+# Najprostszy unit test w projekcie — zacznij od niego, komentarz przy każdym kroku.
 
 # Unit testy: sprawdzają, czy LOGIKA modelu jest poprawna — wiersze z given zamiast ref(),
 # wynik porównany z expect. Plik YAML. Biegną tylko w CI (job unit-testy), przed modelem;
-# deploy i harmonogram je pomijają. Tu: logika przypisania i konwersji — zamiast trybu demo.
+# deploy i harmonogram je pomijają. Tu: logika liczenia konwersji.
 # Uruchamiają się w BigQuery, ale nie czytają GA4: dbt wstawia wiersze z given jako CTE.
-# Zacznij od konwersje_tylko_po_ekspozycji (niżej) — najprostszy, z komentarzem przy każdym kroku.
 # Przed pierwszym uruchomieniem modele nadrzędne muszą istnieć (dbt bierze z nich typy kolumn):
 #   uv run dbt build --select +fct_wyniki_testow_ab --empty --full-refresh --resource-type seed --resource-type model
 #   uv run dbt test --select test_type:unit
 version: 2
 
 unit_tests:
-  - name: ekspozycje_tylko_z_eventu_ekspozycji_w_oknie
-    description: >
-      Wariant tylko na evencie spoza zdarzenia_ekspozycji (u1) albo ekspozycja poza oknem testu (u2)
-      albo inny slot (u3) — użytkownik nie wchodzi do testu. Ekspozycja na view_item się liczy (u4).
-      Wariant ab1 na evencie spoza okna to poprzedni test w tym slocie (u2) — też się nie liczy.
-    model: int_ab__ekspozycje
-    given:
-      - input: ref('stg_seeds__rejestr_testow')
-        format: sql
-        rows: |
-          SELECT 'ab1_20260907' AS id_testu, 'ab1' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
-            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
-            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
-      - input: ref('stg_ga4__zdarzenia')
-        rows:
-          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: purchase, slot: ab1, wariant: v1}
-          - {data_zdarzenia: 2026-10-05, czas_zdarzenia: '2026-10-05 10:00:00', id_uzytkownika: u2, nazwa_zdarzenia: ab_assign, slot: ab1, wariant: v1}
-          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 10:00:00', id_uzytkownika: u3, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
-          - {data_zdarzenia: 2026-09-11, czas_zdarzenia: '2026-09-11 10:00:00', id_uzytkownika: u4, nazwa_zdarzenia: view_item, slot: ab1, wariant: v1}
-    expect:
-      rows:
-        - {id_testu: ab1_20260907, id_uzytkownika: u4, wariant: v1, liczba_wariantow: 1}
-
   # Najprostszy możliwy unit test — wzór do czytania. Jeden użytkownik, jeden test A/B, jedna reguła:
   # zakup liczy się jako konwersja tylko wtedy, gdy był PO pierwszej ekspozycji na test.
   # Budowa każdego unit testu jest zawsze ta sama:

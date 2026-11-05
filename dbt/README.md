@@ -123,7 +123,7 @@ Zasada: partycja, gdy źródło oddaje cały dzień naraz; merge, gdy dane przyc
 
 ## Testy
 
-Czym jest każdy typ, co sprawdza i kiedy biegnie, opisują komentarze na początku plików z testami: w `tests/` (generic i singular) oraz w `models/` (użycie generic w `_*_modele.yml`, unit testy w `_*_testy_jednostkowe.yml`). Testy generic mają dwa miejsca: definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać) — dlatego `not_null`, `unique` i `unique_combination_of_columns` widać tylko w `models/`, a w `tests/generic/` jest jedynie własny `wariant_w_seedzie`.
+Czym jest każdy typ, co sprawdza i kiedy biegnie, opisują komentarze na początku plików z testami: w `tests/` (generic i singular) oraz w `models/` (użycie generic w `_*_modele.yml`, unit testy w `<model>__unit_test.yml` obok modelu, który testują). Testy generic mają dwa miejsca: definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać) — dlatego `not_null`, `unique` i `unique_combination_of_columns` widać tylko w `models/`, a w `tests/generic/` jest jedynie własny `wariant_w_seedzie`.
 
 ```
 generic — sprawdza dane
@@ -138,8 +138,9 @@ singular — sprawdza dane, jeden plik .sql = jeden test
     └── sprawdz_srm.sql                                SRM (warn)
 unit — sprawdza logikę na mockach
 └── models/
-    ├── intermediate/_int_ab__testy_jednostkowe.yml    ekspozycje_*, konwersje_* (2) — konwersje_* to wzór do nauki
-    └── marts/_marts__testy_jednostkowe.yml            wyniki_* (1)
+    ├── intermediate/int_ab__ekspozycje__unit_test.yml ekspozycje_* (1)
+    ├── intermediate/int_ab__konwersje__unit_test.yml  konwersje_* (1) — najprostszy, wzór do nauki
+    └── marts/fct_wyniki_testow_ab__unit_test.yml      wyniki_* (1)
 ```
 
 Przy warn decyduje człowiek; parę wskaże `dbt test --select sprawdz_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć — z seedem, bo `dbt run` go nie ładuje, i z `--full-refresh`, bo pusta tabela stagingu bez niego zostaje pusta:
