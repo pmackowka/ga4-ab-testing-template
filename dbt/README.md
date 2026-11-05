@@ -228,10 +228,10 @@ Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym dataseci
 
 Wymaga projektu z billingiem: [sandbox BigQuery](https://cloud.google.com/bigquery/docs/sandbox) nie obsługuje DML, a `insert_overwrite` w dbt generuje `MERGE` ([dbt — BigQuery configs](https://docs.getdbt.com/reference/resource-configs/bigquery-configs)).
 
-1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery: dni od 2026-09-07 do dziś minus 3.
+1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery: pierwszy raz generuje dni od 2026-09-07 do wczoraj.
 2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'`.
-3. Przyrost: w skrypcie `data_od` = dziś minus 2, `data_do` = dziś minus 1, uruchom i powtórz `dbt build` bez `--full-refresh` — staging nadpisuje tylko partycje od najnowszej minus 3.
-4. Ponowne przetworzenie dnia przez GA4: ostatnie dni z innym `ziarno` i znów `dbt build` — liczby z tych dni się zmieniają, starsze nie.
+3. Przyrost: przed każdą sesją uruchom skrypt bez zmian — sam nadrobi dni od ostatniej tabeli do wczoraj, także po kilku dniach przerwy — i `dbt build` bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
+4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` — liczby z tych dni się zmieniają, starsze nie.
 
 Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 +10%, ab2 v1 0%, ab2 v2 +12%, ab3 v1 −5%, ab4 v1 +10%). Przy 10 000 wizyt dziennie rozrzut w ab1 i ab2 to ok. ±5 pp; ab3 i ab4 dopiero ruszyły, więc ich wynik jeszcze szumi.
 

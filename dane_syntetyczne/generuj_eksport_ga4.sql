@@ -7,13 +7,15 @@
  przejście do zakupu — efekt w DECLARE testy to względna zmiana CR wariantu wobec kontroli.
  Losowość z FARM_FINGERPRINT, nie RAND(): ten sam dzień generuje się zawsze tak samo, więc
  kolejne dni można dogenerować osobno, a powracający użytkownik ma ten sam wariant.
- Jedno uruchomienie podmienia dni od data_od do data_do (CREATE OR REPLACE).
+ Uruchomienie bez zmian nadrabia: generuje dni od ostatniej tabeli w zbiorze do wczoraj, także
+ po kilku dniach przerwy; gdy wszystko jest, nic nie robi. Podane data_od podmienia dni od niego.
 */
 
 DECLARE projekt_docelowy STRING DEFAULT 'twoj-projekt';
 DECLARE zbior_docelowy STRING DEFAULT 'ga4_syntetyczny';    -- = vars.ga4_zbior_danych w dbt
-DECLARE data_od DATE DEFAULT DATE '2026-09-07';             -- = vars.ga4_data_startu
-DECLARE data_do DATE DEFAULT DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY);  -- krok 1; README: przyrost
+DECLARE data_startu DATE DEFAULT DATE '2026-09-07';         -- = vars.ga4_data_startu; pierwszy dzień pustego zbioru
+DECLARE data_od DATE DEFAULT NULL;                          -- NULL = dzień po ostatniej tabeli events_ w zbiorze
+DECLARE data_do DATE DEFAULT DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY);
 DECLARE wizyty_dziennie INT64 DEFAULT 10000;
 DECLARE udzial_powracajacych FLOAT64 DEFAULT 0.3;           -- wizyty osób z poprzednich 28 dni
 DECLARE cr_koszyka FLOAT64 DEFAULT 0.10;                    -- view_item → begin_checkout
@@ -35,10 +37,9 @@ DECLARE usterka_mieszani_slot STRING DEFAULT NULL;          -- sprawdz_rownowage
 DECLARE usterka_mieszani_udzial FLOAT64 DEFAULT 0.05;       -- powrót w wariancie ≠ kontrola → losuje kontrolę
 DECLARE usterka_brak_dnia DATE DEFAULT NULL;                -- sprawdz_komplet_dni_ga4 (error)
 
-DECLARE dzien DATE DEFAULT data_od;
+DECLARE dzien DATE;
 DECLARE liczba_nowych INT64 DEFAULT CAST(ROUND(wizyty_dziennie * (1 - udzial_powracajacych)) AS INT64);
 
-ASSERT data_od <= data_do AS 'data_od musi być nie później niż data_do';
 ASSERT NOT EXISTS (SELECT 1 FROM UNNEST(testy) AS t WHERE ARRAY_LENGTH(t.efekty) != ARRAY_LENGTH(t.warianty))
   AS 'każdy test musi mieć tyle efektów, ile wariantów';
 
@@ -48,6 +49,17 @@ CREATE TEMP FUNCTION los(klucz STRING) AS (MOD(ABS(FARM_FINGERPRINT(klucz)), 100
 -- region jak w profiles.yml: BigQuery nie łączy danych między regionami
 EXECUTE IMMEDIATE FORMAT("CREATE SCHEMA IF NOT EXISTS `%s.%s` OPTIONS (location = 'EU')",
   projekt_docelowy, zbior_docelowy);
+
+IF data_od IS NULL THEN
+  -- tylko metadane zbioru, bez skanu danych; dziura w środku (usterka_brak_dnia) zostaje
+  EXECUTE IMMEDIATE FORMAT("""
+    SELECT DATE_ADD(MAX(PARSE_DATE('%%Y%%m%%d', SUBSTR(table_name, 8))), INTERVAL 1 DAY)
+    FROM `%s.%s.INFORMATION_SCHEMA.TABLES`
+    WHERE REGEXP_CONTAINS(table_name, r'^events_\\d{8}$')""", projekt_docelowy, zbior_docelowy)
+    INTO data_od;
+  SET data_od = IFNULL(data_od, data_startu);
+END IF;
+SET dzien = data_od;
 
 WHILE dzien <= data_do DO
   IF dzien = usterka_brak_dnia THEN
