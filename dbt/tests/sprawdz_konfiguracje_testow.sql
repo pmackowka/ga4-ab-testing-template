@@ -31,6 +31,11 @@ FROM testy,
 			'start_testu przed ga4_data_startu: staging nie ma tych dni', NULL),
 		-- nakładające się okna w jednym slocie: event z parametrem slotu pasowałby do dwóch testów
 		IF(start_testu <= poprzedni_koniec_w_slocie,
-			'okno nakłada się na poprzedni test w tym slocie', NULL)
+			'okno nakłada się na poprzedni test w tym slocie', NULL),
+		-- ciasteczko trzyma sam wariant i żyje DAYS = 60 dni od losowania (gtm/), a ostatnie losowanie
+		-- bywa w dniu końca testu; wcześniejszy start przeniósłby stary podział do nowego testu
+		IF(start_testu > poprzedni_koniec_w_slocie
+			AND DATE_DIFF(start_testu, poprzedni_koniec_w_slocie, DAY) <= 60,
+			'slot wraca przed wygaśnięciem ciasteczek poprzedniego testu: start musi być > 60 dni po jego końcu', NULL)
 	]) AS powod
 WHERE powod IS NOT NULL

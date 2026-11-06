@@ -7,14 +7,14 @@ seeds:
       Listy rozdziela „|”, bo CSV nie ma typu tablicowego; stg_seeds__rejestr_testow robi z nich ARRAY.
       Wiersze odpowiadają tagom z gtm/: ab1 = 01_dwa_warianty, ab2 = 02_trzy_warianty,
       ab3 = 03_dwa_warianty_50_procent i 04_rozszerzenie_do_100_procent (jeden test, ten sam
-      klucz i RUN), ab4 = tag 01 z TEST = 'ab4' na checkoucie, równolegle z ab3 na karcie produktu.
+      klucz), ab4 = tag 01 z TEST = 'ab4' na checkoucie, równolegle z ab3 na karcie produktu.
       Slot wraca cyklicznie ab1…ab10 — kolejny test w slocie to nowy wiersz z nowym
-      start_testu, który jest też RUN w tagu GTM; okna w jednym slocie nie mogą się nakładać.
+      start_testu, ponad 60 dni po końcu poprzedniego (czas życia ciasteczka testu).
     columns:
       - name: slot
         description: Slot ab1–ab10, = TEST w tagu GTM i nazwa parametru eventu GA4.
       - name: start_testu
-        description: Poniedziałek publikacji tagu; w formacie RRRRMMDD to RUN w tagu i zmiennej GTM.
+        description: Poniedziałek wznowienia i publikacji tagu slotu w GTM.
       - name: koniec_testu
         description: Niedziela, ostatni dzień testu.
       - name: wariant_kontrolny

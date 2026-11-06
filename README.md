@@ -49,16 +49,22 @@ Folder [`gtm/`](gtm/) losuje wariant w przeglądarce, zapisuje go w first-party 
 | [`02_trzy_warianty.html`](gtm/02_trzy_warianty.html) | `ab2` | `v0`/`v1`/`v2` po 1/3 | Tag → Custom HTML |
 | [`03_dwa_warianty_50_procent.html`](gtm/03_dwa_warianty_50_procent.html) | `ab3` | 50% ruchu w teście (`v0`/`v1` po 25%), reszta `out` — poza analizą | Tag → Custom HTML |
 | [`04_rozszerzenie_do_100_procent.html`](gtm/04_rozszerzenie_do_100_procent.html) | `ab3` | podmiana kodu tagu z `03`: przydziały zostają, `out` i nowi dostają wariant | ten sam tag co `03` |
-| [`zmienna_ab_variant.js`](gtm/zmienna_ab_variant.js) | jedna kopia na slot | wariant z ciasteczka albo `undefined` (dla `out`, starego przebiegu slotu i śmieci) | Zmienna → Custom JavaScript |
+| [`zmienna_ab_variant.js`](gtm/zmienna_ab_variant.js) | jedna kopia na slot | wariant z ciasteczka albo `undefined` (dla `out` i śmieci) | Zmienna → Custom JavaScript |
 
 Konfiguracja:
 
-1. Tag Custom HTML z jednym ze skryptów; wyzwalacz: strona testowa (np. karta produktu). Ustawienia zgody tagu: wymagaj zgody — ciasteczko testu nie jest niezbędne, więc losujesz dopiero po zgodzie.
+Raz, dla wszystkich slotów:
+
+1. Tag Custom HTML na slot (`AB - ab1` … `AB - ab10`) z jednym ze skryptów i `TEST` = slot; od razu wstrzymany (Więcej → Wstrzymaj). Ustawienia zgody tagu: wymagaj zgody — ciasteczko testu nie jest niezbędne, więc losujesz dopiero po zgodzie.
 2. Tag GA4 Event `ab_assign` na zdarzeniu niestandardowym `ab_assign`, parametry `ab_test` i `ab_variant` z warstwy danych.
-3. Zmienna Custom JavaScript z `zmienna_ab_variant.js`, jedna na slot. W zmiennej „Ustawienia zdarzeń Google tag” dodaj parametr o nazwie slotu z tą zmienną (`ab1` = `{{CJS - ab1}}` … `ab10`) — raz, dla wszystkich eventów GA4. Zmienna zwraca `undefined` poza testem, więc pusty slot nie wysyła parametru.
-4. Tag `view_item`: Sekwencjonowanie tagów → najpierw tag z kroku 1. Bez tego pierwszy `view_item` może pójść, zanim ciasteczko powstanie — `03` złapie usera dopiero na `ab_assign`.
-5. Slot, lista wariantów i wariant kontrolny w skrypcie = `test_name`, `variants` i `control_variant` w `03`. `RUN` w tagu i zmiennej = `test_start` w formacie RRRRMMDD. Wartości: `v0` zawsze wersja dotychczasowa (kontrola), `v1`, `v2` — warianty testowe.
-6. Sloty idą cyklicznie `ab1` → `ab10` → `ab1`. Nowy test w zajętym wcześniej slocie dostaje nowy `RUN`, więc ciasteczka poprzedniego testu (`v1.20260907`) są ignorowane i użytkownik losuje od nowa — bez tego przy 3–4 testach naraz slot wraca po ok. 6 tygodniach, a ciasteczko żyje 60 dni. Test w tym samym slocie startuje dopiero po końcu poprzedniego.
+3. Zmienna Custom JavaScript z `zmienna_ab_variant.js`, jedna na slot; kopie różnią się tylko `TEST`, a `VALID` obejmuje `v0`, `v1`, `v2`, więc zmiennych więcej nie ruszasz. W zmiennej „Ustawienia zdarzeń Google tag” dodaj parametr o nazwie slotu z tą zmienną (`ab1` = `{{CJS - ab1}}` … `ab10`) — raz, dla wszystkich eventów GA4. Zmienna zwraca `undefined` poza testem, więc pusty slot nie wysyła parametru.
+
+Każdy test, tylko w tagu jego slotu:
+
+4. Kod tagu: skrypt pasujący do testu (`01`–`03`) z `TEST` = slot i `VARIANTS`; wyzwalacz: strona testowa (np. karta produktu). Slot, lista wariantów i wariant kontrolny = `test_name`, `variants` i `control_variant` w `03` (w dbt: wiersz rejestru). Wartości: `v0` zawsze wersja dotychczasowa (kontrola), `v1`, `v2` — warianty testowe.
+5. Tag zdarzenia ekspozycji (np. `view_item`): Sekwencjonowanie tagów → najpierw tag slotu, opcja „nie uruchamiaj, jeśli tag konfiguracji nie zadziała” wyłączona — inaczej użytkownik bez zgody (tag slotu zablokowany) nie wyśle `view_item`. Bez sekwencji pierwszy `view_item` może pójść, zanim ciasteczko powstanie — `03` złapie usera dopiero na `ab_assign`. GTM przyjmuje jeden tag konfiguracji na tag ([API GTM, `setupTag`](https://developers.google.com/tag-platform/tag-manager/api/reference/rest/v2/accounts.containers.workspaces.tags)), więc dwa testy na tym samym zdarzeniu ekspozycji łączysz w łańcuch: tag slotu A ma sekwencję „najpierw tag slotu B”.
+6. Start w poniedziałek: wznów tag slotu i opublikuj. Koniec po niedzieli: wstrzymaj go i opublikuj — wstrzymany tag nie odpala także w sekwencji ([pauza tagów](https://support.google.com/tagmanager/answer/7679308)), więc sekwencja może zostać; sprawdź raz w podglądzie, że `view_item` dalej wychodzi.
+7. Sloty idą cyklicznie `ab1` → `ab10` → `ab1`. Ciasteczko trzyma sam wariant (`v1`) i żyje 60 dni od losowania, więc test w tym samym slocie startuje ponad 60 dni po końcu poprzedniego — inaczej dawni użytkownicy B wejdą do nowego testu znowu jako B. Przy 2 testach naraz slot wraca po ok. 20 tygodniach; regułę pilnuje `sprawdz_konfiguracje_testow` w dbt.
 
 Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wariant, zostaje w nim. Dawni `out` wchodzą do analizy od dnia rozszerzenia, ale wcześniej widzieli obecną wersję strony — gdy to przeszkadza, `INCLUDE_OUT = false` wpuszcza tylko nowych. Plan z kalkulatora Przed testem liczyłeś dla 50% ruchu — po rozszerzeniu użytkownicy zbierają się 2× szybciej, więc kończysz po pierwszym pełnym tygodniu, w którym każdy wariant ma liczbę użytkowników z planu.
 

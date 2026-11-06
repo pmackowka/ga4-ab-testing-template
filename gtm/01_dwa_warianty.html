@@ -7,9 +7,8 @@
 */
 (function () {
   var TEST = 'ab1';             // slot ab1–ab10 = nazwa ciasteczka i parametru GA4 = test_name w sql/03 i slot w seedzie
-  var RUN = '20260907';         // przebieg = start_testu z seeda (RRRRMMDD); nowy test w tym slocie = nowy RUN
   var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa (kontrola), v1 = wariant testowy
-  var DAYS = 60;                // > najdłuższy test (8 tyg.); Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
+  var DAYS = 60;                // > najdłuższy test (8 tyg.) i = minimalna przerwa slotu w dbt; Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
 
   function getCookie(name) {
     var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
@@ -23,11 +22,12 @@
       (location.protocol === 'https:' ? '; Secure' : '');
   }
 
-  // ciasteczko = wariant.RUN; ciasteczko z poprzedniego testu w tym slocie
-  // (inny RUN) traktujemy jak brak przydziału, więc slot można użyć ponownie
+  // ciasteczko = sam wariant (albo 'out'); slot wraca do użycia dopiero po wygaśnięciu
+  // ciasteczek poprzedniego testu — pilnuje tego sprawdz_konfiguracje_testow w dbt
+  // wartość spoza listy (śmieć, ręczna edycja) = brak przydziału, user losuje od nowa
   function getAssignment() {
-    var parts = (getCookie(TEST) || '').split('.');
-    return parts[1] === RUN ? parts[0] : null;
+    var v = getCookie(TEST);
+    return VARIANTS.indexOf(v) > -1 ? v : null;
   }
 
   // user ma już wariant — nie losuj ponownie, bo przeskoczyłby do innej grupy
@@ -36,7 +36,7 @@
   // Math.random() daje liczbę z [0, 1); × liczba wariantów i zaokrąglenie
   // w dół daje indeks 0 albo 1 z równym prawdopodobieństwem
   var variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
-  setCookie(TEST, variant + '.' + RUN, DAYS);
+  setCookie(TEST, variant, DAYS);
 
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event: 'ab_assign', ab_test: TEST, ab_variant: variant });

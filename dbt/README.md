@@ -59,9 +59,9 @@ ab3,2026-11-02,2026-12-13,v0,v0|v1,purchase,ab_assign|view_item
 ab4,2026-11-02,2026-11-29,v0,v0|v1,purchase,ab_assign|begin_checkout
 ```
 
-`slot` (`ab1`–`ab10`) wraca w kolejnych testach, więc kluczem jest `id_testu` = slot + `start_testu` (np. `ab1_20260907`); `start_testu` jako RRRRMMDD to `RUN` w tagu GTM. Ekspozycję wyznacza `zdarzenia_ekspozycji`: `view_item` z parametrem `ab4` nie wciąga nikogo do testu checkoutu.
+`slot` (`ab1`–`ab10`) wraca w kolejnych testach, więc kluczem jest `id_testu` = slot + `start_testu` (np. `ab1_20260907`). Tagi GTM nie znają `start_testu` — test w slocie wyznacza okno z rejestru. Ekspozycję wyznacza `zdarzenia_ekspozycji`: `view_item` z parametrem `ab4` nie wciąga nikogo do testu checkoutu.
 
-`sprawdz_konfiguracje_testow` zatrzyma build, gdy start nie jest poniedziałkiem albo koniec niedzielą, kontroli nie ma wśród wariantów, wariantów jest mniej niż dwa, test zaczyna się przed `ga4_data_startu`, `slot` nie ma postaci `abN` albo okno nakłada się na poprzedni test w tym samym slocie.
+`sprawdz_konfiguracje_testow` zatrzyma build, gdy start nie jest poniedziałkiem albo koniec niedzielą, kontroli nie ma wśród wariantów, wariantów jest mniej niż dwa, test zaczyna się przed `ga4_data_startu`, `slot` nie ma postaci `abN` albo okno nakłada się na poprzedni test w tym samym slocie lub zaczyna się w ciągu 60 dni od jego końca (ciasteczko testu żyje 60 dni i trzyma sam wariant).
 
 ## Modele
 

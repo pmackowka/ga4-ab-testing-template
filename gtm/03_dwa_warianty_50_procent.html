@@ -11,7 +11,6 @@
 */
 (function () {
   var TEST = 'ab3';
-  var RUN = '20261102';         // przebieg = start_testu z seeda (RRRRMMDD); nowy test w tym slocie = nowy RUN
   var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa, v1 = wariant testowy
   var ALLOCATION = 0.5;   // udział ruchu w teście: 0.5 = 50%
   var OUT = 'out';        // znacznik „poza testem” — pamiętany, żeby nie losować co wizytę
@@ -29,11 +28,12 @@
       (location.protocol === 'https:' ? '; Secure' : '');
   }
 
-  // ciasteczko = wariant.RUN; ciasteczko z poprzedniego testu w tym slocie
-  // (inny RUN) traktujemy jak brak przydziału, więc slot można użyć ponownie
+  // ciasteczko = sam wariant (albo 'out'); slot wraca do użycia dopiero po wygaśnięciu
+  // ciasteczek poprzedniego testu — pilnuje tego sprawdz_konfiguracje_testow w dbt
+  // wartość spoza listy (śmieć, ręczna edycja) = brak przydziału, user losuje od nowa
   function getAssignment() {
-    var parts = (getCookie(TEST) || '').split('.');
-    return parts[1] === RUN ? parts[0] : null;
+    var v = getCookie(TEST);
+    return VARIANTS.indexOf(v) > -1 || v === OUT ? v : null;
   }
 
   // przydział już jest — wariant albo 'out'; oba zostają bez zmian
@@ -41,13 +41,13 @@
 
   // pierwsze losowanie: czy user w ogóle wchodzi do testu
   if (Math.random() >= ALLOCATION) {
-    setCookie(TEST, OUT + '.' + RUN, DAYS);
+    setCookie(TEST, OUT, DAYS);
     return;
   }
 
   // drugie, niezależne losowanie: który wariant — wśród wpuszczonych 50/50
   var variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
-  setCookie(TEST, variant + '.' + RUN, DAYS);
+  setCookie(TEST, variant, DAYS);
 
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event: 'ab_assign', ab_test: TEST, ab_variant: variant });

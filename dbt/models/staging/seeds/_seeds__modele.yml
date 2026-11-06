@@ -9,7 +9,7 @@ models:
     description: Rejestr testów z seeds/rejestr_testow.csv z listami jako ARRAY<STRING>.
     columns:
       - name: id_testu
-        description: Klucz testu — slot i przebieg, np. ab1_20260907; przebieg = RUN w tagu GTM.
+        description: Klucz testu — slot i przebieg, np. ab1_20260907.
         data_tests:
           - unique
           - not_null
