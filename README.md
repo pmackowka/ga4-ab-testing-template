@@ -49,7 +49,7 @@ Folder [`gtm/`](gtm/) losuje wariant w przeglądarce, zapisuje go w first-party 
 | [`02_trzy_warianty.html`](gtm/02_trzy_warianty.html) | `ab2` | `v0`/`v1`/`v2` po 1/3 | Tag → Custom HTML |
 | [`03_dwa_warianty_50_procent.html`](gtm/03_dwa_warianty_50_procent.html) | `ab3` | 50% ruchu w teście (`v0`/`v1` po 25%), reszta `out` — poza analizą | Tag → Custom HTML |
 | [`04_rozszerzenie_do_100_procent.html`](gtm/04_rozszerzenie_do_100_procent.html) | `ab3` | podmiana kodu tagu z `03`: przydziały zostają, `out` i nowi dostają wariant | ten sam tag co `03` |
-| [`zmienna_ab_variant.js`](gtm/zmienna_ab_variant.js) | jedna kopia na slot | wariant z ciasteczka albo `undefined` (dla `out` i śmieci) | Zmienna → Custom JavaScript |
+| — | jedna na slot | wartość ciasteczka slotu jako parametr `abN` na eventach GA4; `out` pomija SQL | Zmienna → Własny plik cookie |
 
 Konfiguracja tagów, zmiennych i procedura każdego testu (start, koniec, sekwencjonowanie) jest opisana w notatkach elementów w kontenerze GTM — zacznij od notatki tagu `AB - ab1`. Reguła, którą pilnuje repo: ciasteczko trzyma sam wariant i żyje 60 dni, więc test w tym samym slocie startuje ponad 60 dni po końcu poprzedniego — sprawdza to `sprawdz_konfiguracje_testow` w dbt.
 

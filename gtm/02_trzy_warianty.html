@@ -7,7 +7,7 @@
  z kontrolą wpisz do kalkulatora osobno, z „Liczba wariantów” = 3
  (kalkulator zaostrza wtedy próg p-value — korekta Bonferroniego).
  W sql/03 ustaw test_name = 'ab2' i variants = ['v0', 'v1', 'v2'] (w dbt: wiersz ab2 z v0|v1|v2
- w dbt/seeds/rejestr_testow.csv); zmienna GTM (zmienna_ab_variant.js) musi mieć TEST = 'ab2'.
+ w dbt/seeds/rejestr_testow.csv); parametr ab2 = zmienna „Własny plik cookie” ab2.
 */
 (function () {
   var TEST = 'ab2';                   // osobny numer — nie mieszaj z testem ab1

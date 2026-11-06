@@ -4,13 +4,12 @@
  Liczy test z gtm/01_dwa_warianty.html (klucz ab1, v0/v1 po 50%): wariant
  losuje tag w przeglądarce i zapisuje w first-party cookie, SQL tylko go czyta
  (https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/). Inne tagi z gtm/:
- zmień test_name i variants ('out' z 03/04 nie trafia do danych). Wymaga
- konfiguracji z README, sekcja Skrypty GTM:
- - krok 2 (obowiązkowy): tag GA4 Event ab_assign z parametrami ab_test
-   i ab_variant — z niego zapytanie wie, kto i kiedy wszedł do testu;
- - krok 3 (zalecany): parametr o nazwie slotu (ab1…ab10) z wariantem na
-   wszystkich eventach — bez niego view_item nie jest ekspozycją, a
-   excluded_mixed nie wyłapie ponownego losowania.
+ zmień test_name i variants ('out' z 03/04 zapytanie pomija). Wymaga w GTM:
+ - tagu GA4 Event ab_assign z parametrami ab_test i ab_variant (obowiązkowy)
+   — z niego zapytanie wie, kto i kiedy wszedł do testu;
+ - parametru o nazwie slotu (ab1…ab10) = zmienna „Własny plik cookie” slotu
+   na wszystkich eventach (zalecany) — bez niego view_item nie jest
+   ekspozycją, a excluded_mixed nie wyłapie ponownego losowania.
  Testy w innych slotach mogą trwać równolegle: zapytanie czyta tylko
  parametr test_name, a z ab_assign tylko ten z ab_test = test_name.
  Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
@@ -64,7 +63,8 @@ WITH events AS (
         (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'ab_variant'),
         NULL
       ),
-      (SELECT value.string_value FROM UNNEST(event_params) WHERE key = test_name)
+      -- zmienna cookie wysyła surową wartość, także 'out' (poza testem) — to nie wariant
+      NULLIF((SELECT value.string_value FROM UNNEST(event_params) WHERE key = test_name), 'out')
     ) AS ab_variant
   FROM `twoj-projekt.analytics_123456789.events_*`
   WHERE

@@ -4,9 +4,8 @@
  GTM → Tag → Custom HTML. Wyzwalacz: karta produktu, po zgodzie.
  Połowa userów trafia do testu (v0/v1 po 25% całego ruchu), druga połowa
  dostaje ciasteczko 'out': widzi obecną wersję strony i NIE wchodzi do analizy
- (bez ab_assign; zmienna_ab_variant.js zwraca dla 'out' undefined, więc tagi
- GA4 nie wysyłają ab_variant). Po co: mniejsze ryzyko, gdy wariant może
- szkodzić — kosztem dłuższego testu (połowa ruchu → ok. 2× więcej tygodni).
+ (bez ab_assign; parametr slotu z wartością 'out' pomijają sql/03 i staging dbt).
+ Po co: mniejsze ryzyko, gdy wariant może szkodzić — kosztem dłuższego testu (połowa ruchu → ok. 2× więcej tygodni).
  Rozszerzenie na cały ruch: 04_rozszerzenie_do_100_procent.html.
 */
 (function () {

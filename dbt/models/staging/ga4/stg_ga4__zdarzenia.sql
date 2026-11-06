@@ -74,6 +74,9 @@ testy_zdarzen AS (
 				FROM UNNEST(parametry)
 				WHERE REGEXP_CONTAINS(key, r'^ab\d+$')
 					AND value.string_value IS NOT NULL
+					-- zmienna GTM „Własny plik cookie” wysyła surową wartość ciasteczka, także 'out'
+					-- z tagu 03 (użytkownik poza testem) — to nie wariant, więc nie wchodzi do analizy
+					AND value.string_value != 'out'
 			)
 		) AS testy
 
