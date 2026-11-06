@@ -1,8 +1,10 @@
 /*
  Zmienna GTM → Custom JavaScript, nazwa np. „CJS - ab1” — jedna kopia na slot
  (ab1–ab10). W zmiennej „Ustawienia zdarzeń Google tag” dodaj wiersz:
- parametr ab1 = {{CJS - ab1}} (i tak dla każdego slotu) — wtedy każdy event GA4
+ parametr ab1 = zmienna CJS - ab1 (i tak dla każdego slotu) — wtedy każdy event GA4
  niesie wariant każdego testu, w którym jest użytkownik, pod nazwą slotu.
+ W tym pliku nie wpisuj nawiasów klamrowych zmiennej GTM, nawet w komentarzu: GTM podstawia
+ je także w komentarzach JS, więc zmienna odwołałaby się sama do siebie i kontener się nie skompiluje.
  Zwraca wariant z ciasteczka albo undefined — wtedy GA4 nie wysyła parametru,
  więc 'out', brak ciasteczka i śmieciowe wartości nie trafią do analizy.
  Konfigurujesz raz: kopie różnią się tylko TEST. VALID obejmuje wszystkie warianty,
