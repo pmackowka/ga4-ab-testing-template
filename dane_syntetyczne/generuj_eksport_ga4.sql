@@ -6,7 +6,15 @@
  Testy na karcie produktu (ab1–ab4, ab1 = A/A) zmieniają przejście do checkoutu, test checkoutu (ab5)
  przejście do zakupu — efekt w DECLARE testy to względna zmiana CR wariantu wobec kontroli.
  Losowość z FARM_FINGERPRINT, nie RAND(): ten sam dzień generuje się zawsze tak samo, więc
- kolejne dni można dogenerować osobno, a powracający użytkownik ma ten sam wariant.
+ kolejne dni można dogenerować osobno. Plan wizyt użytkownika (pierwsza + do 4 powrotów w 28 dni)
+ też wynika z hasha, więc każdy dzień zna wcześniejsze wizyty: tag losuje (ab_assign) na pierwszej
+ wizycie w oknie testu, a powracający niesie wariant z ciasteczka.
+ Utrata ciasteczek, jak w Safari po 7 dniach: udzial_utraty_ciasteczka_testu — tag losuje ponownie
+ (ponownie_przydzieleni, połowa z nich w wykluczeni_mieszani); udzial_utraty_ga — nowy user_pseudo_id
+ z ciasteczkiem testu, bez ab_assign (bez_przydzialu); u kogo oba terminy wypadną na tę samą wizytę,
+ ten wraca jako nowy użytkownik z nowym losowaniem — żadna kolumna go nie pokaże.
+ Inne ziarno przy podmianie dni zmienia też wcześniejsze wejścia do checkoutu, z których dzień
+ liczy przydział testu checkoutu — przydział ab5 w podmienionych dniach może się przesunąć.
  Uruchomienie bez zmian nadrabia: generuje dni od ostatniej tabeli w zbiorze do wczoraj, także
  po kilku dniach przerwy; gdy wszystko jest, nic nie robi. Podane data_od podmienia dni od niego.
  Uruchom z lokalizacją danych EU (Ustawienia zapytania): zbiór jest czytany tylko przez EXECUTE
@@ -22,6 +30,8 @@ DECLARE wizyty_dziennie INT64 DEFAULT 10000;
 DECLARE udzial_powracajacych FLOAT64 DEFAULT 0.3;           -- wizyty osób z poprzednich 28 dni
 DECLARE cr_koszyka FLOAT64 DEFAULT 0.10;                    -- view_item → begin_checkout
 DECLARE cr_zakupu FLOAT64 DEFAULT 0.30;                     -- begin_checkout → purchase
+DECLARE udzial_utraty_ciasteczka_testu FLOAT64 DEFAULT 0.10; -- par użytkownik × test: ciasteczko testu znika po 7 dniach
+DECLARE udzial_utraty_ga FLOAT64 DEFAULT 0.10;              -- użytkowników: _ga znika po 7 dniach, ciasteczko testu zostaje
 -- inna wartość = inne zachowanie tych samych użytkowników, jak ponowne przetworzenie dnia przez GA4
 DECLARE ziarno STRING DEFAULT 'a';
 -- kopia seeda + efekt każdego wariantu; kontrola pierwsza na liście, efekt 0
@@ -68,94 +78,173 @@ WHILE dzien <= data_do DO
       projekt_docelowy, zbior_docelowy, FORMAT_DATE('%Y%m%d', dzien));
   ELSE
     CREATE OR REPLACE TEMP TABLE zdarzenia_dnia AS
-    WITH wizyty AS (
-      -- pierwsze liczba_nowych wizyt to nowi użytkownicy, reszta wraca z jednego z 28 poprzednich dni
+    WITH uzytkownicy AS (
+      -- liczba_nowych nowych użytkowników dziennie; okno 28 dni wstecz = wszyscy, którzy mogą dziś wrócić
+      -- id_ga jak user_pseudo_id w GA4: liczba + znacznik czasu pierwszej wizyty
       SELECT
-        n,
-        n < liczba_nowych AS czy_nowy,
-        IF(n < liczba_nowych, dzien,
-          DATE_SUB(dzien, INTERVAL 1 + CAST(FLOOR(los(FORMAT('lag|%t|%d', dzien, n)) * 28) AS INT64) DAY))
-          AS dzien_pierwszej_wizyty,
-        IF(n < liczba_nowych, n, CAST(FLOOR(los(FORMAT('idx|%t|%d', dzien, n)) * liczba_nowych) AS INT64))
-          AS nr_uzytkownika,
-        -- start wizyty do 23:00 UTC, żeby wszystkie eventy zostały w tym samym dniu
-        TIMESTAMP_ADD(TIMESTAMP(dzien), INTERVAL CAST(FLOOR(los(FORMAT('%s|t|%t|%d', ziarno, dzien, n)) * 82800) AS INT64) SECOND)
-          AS start_wizyty
-      FROM UNNEST(GENERATE_ARRAY(0, wizyty_dziennie - 1)) AS n
+        f AS dzien_pierwszej_wizyty,
+        CONCAT(
+          CAST(1000000000 + MOD(ABS(FARM_FINGERPRINT(FORMAT('u|%t|%d', f, nr))), 1000000000) AS STRING),
+          '.', CAST(UNIX_SECONDS(TIMESTAMP(f)) AS STRING)) AS id_ga
+      FROM UNNEST(GENERATE_DATE_ARRAY(DATE_SUB(dzien, INTERVAL 28 DAY), dzien)) AS f
+      CROSS JOIN UNNEST(GENERATE_ARRAY(0, liczba_nowych - 1)) AS nr
     ),
 
-    uzytkownicy AS (
-      -- user_pseudo_id jak w GA4: liczba + znacznik czasu pierwszej wizyty
+    plan_wizyt AS (
+      -- dni wizyt stałe dla użytkownika: pierwsza + do 4 powrotów w ciągu 28 dni; każdy dzień zna więc
+      -- wcześniejsze wizyty, a z nimi pierwszą wizytę w oknie testu (losowanie tagu, ab_assign)
+      SELECT id_ga, dzien_pierwszej_wizyty, dzien_pierwszej_wizyty AS dzien_wizyty
+      FROM uzytkownicy
+      UNION DISTINCT
+      SELECT
+        u.id_ga,
+        u.dzien_pierwszej_wizyty,
+        DATE_ADD(u.dzien_pierwszej_wizyty, INTERVAL 1 + CAST(FLOOR(los(FORMAT('lag|%s|%d', u.id_ga, j)) * 28) AS INT64) DAY)
+      FROM uzytkownicy AS u
+      CROSS JOIN UNNEST(GENERATE_ARRAY(0, 3)) AS j
+      WHERE los(FORMAT('pow|%s|%d', u.id_ga, j)) < udzial_powracajacych / (1 - udzial_powracajacych) / 4
+    ),
+
+    wizyty AS (
+      -- dzisiejsi odwiedzający z ich wizytami do dziś; _ga znika 7 dni po pierwszej wizycie u części
+      -- użytkowników: od pierwszej wizyty po tym terminie GA4 widzi nowy user_pseudo_id
       SELECT
         *,
-        CONCAT(
-          CAST(1000000000 + MOD(ABS(FARM_FINGERPRINT(FORMAT('u|%t|%d', dzien_pierwszej_wizyty, nr_uzytkownika))), 1000000000) AS STRING),
-          '.', CAST(UNIX_SECONDS(TIMESTAMP(dzien_pierwszej_wizyty)) AS STRING)) AS id_uzytkownika
-      FROM wizyty
-    ),
-
-    przydzialy AS (
-      -- wariant z hasha użytkownika i testu = cookie: ten sam przy każdej wizycie
-      SELECT
-        u.n,
-        t.slot,
-        t.etap,
-        t.warianty,
-        t.efekty,
-        los(FORMAT('w|%s|%s|%t', u.id_uzytkownika, t.slot, t.start_testu)) AS b,
-        IF(t.slot = usterka_srm_slot, usterka_srm_udzial_kontroli, 1 / ARRAY_LENGTH(t.warianty)) AS udzial_kontroli
-      FROM uzytkownicy AS u
-      CROSS JOIN UNNEST(testy) AS t
-      WHERE dzien BETWEEN t.start_testu AND t.koniec_testu
-    ),
-
-    warianty_wizyt AS (
-      SELECT
-        n,
-        slot,
-        etap,
-        warianty[OFFSET(nr)] AS wariant,
-        efekty[OFFSET(nr)] AS efekt
+        IF(dzien_wizyty >= dzien_utraty_ga,
+          CONCAT(CAST(1000000000 + MOD(ABS(FARM_FINGERPRINT(FORMAT('g|%s', id_ga))), 1000000000) AS STRING),
+            '.', CAST(UNIX_SECONDS(TIMESTAMP(dzien_utraty_ga)) AS STRING)),
+          id_ga) AS id_uzytkownika
       FROM (
         SELECT
           *,
-          IF(b < udzial_kontroli, 0,
-            1 + LEAST(ARRAY_LENGTH(warianty) - 2,
-              CAST(FLOOR((b - udzial_kontroli) / (1 - udzial_kontroli) * (ARRAY_LENGTH(warianty) - 1)) AS INT64)))
-            AS nr
-        FROM przydzialy
+          IF(los(FORMAT('ga|%s', id_ga)) < udzial_utraty_ga,
+            MIN(IF(dzien_wizyty >= DATE_ADD(dzien_pierwszej_wizyty, INTERVAL 7 DAY), dzien_wizyty, NULL))
+              OVER (PARTITION BY id_ga),
+            NULL) AS dzien_utraty_ga
+        FROM plan_wizyt
+        WHERE dzien_wizyty <= dzien
+          AND id_ga IN (SELECT id_ga FROM plan_wizyt WHERE dzien_wizyty = dzien)
       )
     ),
 
-    sciezki AS (
-      -- efekty testów aktywnych równolegle mnożą się; przejścia losowane niezależnie od wariantu
+    testy_wizyt AS (
       SELECT
-        u.*,
-        los(FORMAT('%s|k|%t|%d', ziarno, dzien, u.n)) < cr_koszyka * IFNULL(w.mnoznik_karta, 1) AS czy_koszyk,
-        los(FORMAT('%s|z|%t|%d', ziarno, dzien, u.n)) < cr_zakupu * IFNULL(w.mnoznik_checkout, 1) AS czy_zakup_z_koszyka,
-        IFNULL(w.karta, []) AS karta,
-        IFNULL(w.checkout, []) AS checkout
-      FROM uzytkownicy AS u
-      LEFT JOIN (
-        SELECT
-          n,
-          EXP(SUM(IF(etap = 'karta', LN(1 + efekt), 0))) AS mnoznik_karta,
-          EXP(SUM(IF(etap = 'checkout', LN(1 + efekt), 0))) AS mnoznik_checkout,
-          ARRAY_AGG(IF(etap = 'karta', STRUCT(slot AS klucz, wariant AS wartosc), NULL) IGNORE NULLS) AS karta,
-          ARRAY_AGG(IF(etap = 'checkout', STRUCT(slot AS klucz, wariant AS wartosc), NULL) IGNORE NULLS) AS checkout
-        FROM warianty_wizyt
-        GROUP BY n
-      ) AS w
-        USING (n)
+        w.id_ga,
+        w.dzien_wizyty,
+        t.slot,
+        t.start_testu,
+        t.etap,
+        t.warianty,
+        t.efekty,
+        IF(t.slot = usterka_srm_slot, usterka_srm_udzial_kontroli, 1 / ARRAY_LENGTH(t.warianty)) AS udzial_kontroli,
+        los(FORMAT('utrata|%s|%s|%t', w.id_ga, t.slot, t.start_testu)) < udzial_utraty_ciasteczka_testu AS czy_traci_ciasteczko
+      FROM wizyty AS w
+      JOIN UNNEST(testy) AS t
+        ON w.dzien_wizyty BETWEEN t.start_testu AND t.koniec_testu
+    ),
+
+    karta_przydzialy AS (
+      -- tag karty losuje na pierwszej wizycie w oknie testu; ciasteczko testu znika 7 dni później u części
+      -- użytkowników i tag losuje ponownie na pierwszej wizycie po tym terminie
+      SELECT
+        *,
+        IF(czy_traci_ciasteczko,
+          MIN(IF(dzien_wizyty >= DATE_ADD(dzien_przydzialu, INTERVAL 7 DAY), dzien_wizyty, NULL))
+            OVER (PARTITION BY id_ga, slot, start_testu),
+          NULL) AS dzien_ponownego_przydzialu
+      FROM (
+        SELECT *, MIN(dzien_wizyty) OVER (PARTITION BY id_ga, slot, start_testu) AS dzien_przydzialu
+        FROM testy_wizyt
+        WHERE etap = 'karta'
+      )
+    ),
+
+    karta_warianty AS (
+      SELECT
+        id_ga,
+        dzien_wizyty,
+        EXP(SUM(LN(1 + efekty[OFFSET(nr)]))) AS mnoznik_karta,
+        ARRAY_AGG(STRUCT(slot AS klucz, warianty[OFFSET(nr)] AS wartosc)) AS karta,
+        ARRAY_AGG(IF(czy_przydzial, STRUCT(slot AS klucz, warianty[OFFSET(nr)] AS wartosc), NULL) IGNORE NULLS)
+          AS karta_przydzial
+      FROM (
+        SELECT *, IF(los(FORMAT('w|%s|%s|%t%s', id_ga, slot, start_testu, IF(dzien_wizyty >= dzien_ponownego_przydzialu, '|r', ''))) < udzial_kontroli, 0,
+            1 + LEAST(ARRAY_LENGTH(warianty) - 2,
+              CAST(FLOOR((los(FORMAT('w|%s|%s|%t%s', id_ga, slot, start_testu, IF(dzien_wizyty >= dzien_ponownego_przydzialu, '|r', ''))) - udzial_kontroli) / (1 - udzial_kontroli) * (ARRAY_LENGTH(warianty) - 1)) AS INT64))) AS nr, dzien_wizyty = dzien_przydzialu OR IFNULL(dzien_wizyty = dzien_ponownego_przydzialu, FALSE) AS czy_przydzial
+        FROM karta_przydzialy
+      )
+      GROUP BY id_ga, dzien_wizyty
+    ),
+
+    koszyki AS (
+      -- przejście do checkoutu na każdej wizycie (też wcześniejszej): test checkoutu losuje dopiero
+      -- na pierwszej wizycie w oknie, na której użytkownik doszedł do checkoutu
+      SELECT
+        w.*,
+        IFNULL(k.karta, []) AS karta,
+        IFNULL(k.karta_przydzial, []) AS karta_przydzial,
+        los(FORMAT('%s|k|%s|%t', ziarno, w.id_ga, w.dzien_wizyty)) < cr_koszyka * IFNULL(k.mnoznik_karta, 1) AS czy_koszyk
+      FROM wizyty AS w
+      LEFT JOIN karta_warianty AS k
+        USING (id_ga, dzien_wizyty)
+    ),
+
+    checkout_przydzialy AS (
+      SELECT
+        *,
+        IF(czy_traci_ciasteczko,
+          MIN(IF(dzien_wizyty >= DATE_ADD(dzien_przydzialu, INTERVAL 7 DAY), dzien_wizyty, NULL))
+            OVER (PARTITION BY id_ga, slot, start_testu),
+          NULL) AS dzien_ponownego_przydzialu
+      FROM (
+        SELECT t.*, MIN(t.dzien_wizyty) OVER (PARTITION BY t.id_ga, t.slot, t.start_testu) AS dzien_przydzialu
+        FROM testy_wizyt AS t
+        JOIN koszyki AS k
+          USING (id_ga, dzien_wizyty)
+        WHERE t.etap = 'checkout'
+          AND k.czy_koszyk
+      )
+    ),
+
+    checkout_warianty AS (
+      SELECT
+        id_ga,
+        dzien_wizyty,
+        EXP(SUM(LN(1 + efekty[OFFSET(nr)]))) AS mnoznik_checkout,
+        ARRAY_AGG(STRUCT(slot AS klucz, warianty[OFFSET(nr)] AS wartosc)) AS checkout,
+        ARRAY_AGG(IF(czy_przydzial, STRUCT(slot AS klucz, warianty[OFFSET(nr)] AS wartosc), NULL) IGNORE NULLS)
+          AS checkout_przydzial
+      FROM (
+        SELECT *, IF(los(FORMAT('w|%s|%s|%t%s', id_ga, slot, start_testu, IF(dzien_wizyty >= dzien_ponownego_przydzialu, '|r', ''))) < udzial_kontroli, 0,
+            1 + LEAST(ARRAY_LENGTH(warianty) - 2,
+              CAST(FLOOR((los(FORMAT('w|%s|%s|%t%s', id_ga, slot, start_testu, IF(dzien_wizyty >= dzien_ponownego_przydzialu, '|r', ''))) - udzial_kontroli) / (1 - udzial_kontroli) * (ARRAY_LENGTH(warianty) - 1)) AS INT64))) AS nr, dzien_wizyty = dzien_przydzialu OR IFNULL(dzien_wizyty = dzien_ponownego_przydzialu, FALSE) AS czy_przydzial
+        FROM checkout_przydzialy
+      )
+      GROUP BY id_ga, dzien_wizyty
+    ),
+
+    sciezki AS (
+      -- tylko dzisiejsze wizyty; efekty testów aktywnych równolegle mnożą się
+      SELECT
+        k.*,
+        IFNULL(c.checkout, []) AS checkout,
+        IFNULL(c.checkout_przydzial, []) AS checkout_przydzial,
+        los(FORMAT('%s|z|%s|%t', ziarno, k.id_ga, k.dzien_wizyty)) < cr_zakupu * IFNULL(c.mnoznik_checkout, 1) AS czy_zakup_z_koszyka,
+        -- start wizyty do 23:00 UTC, żeby wszystkie eventy zostały w tym samym dniu
+        TIMESTAMP_ADD(TIMESTAMP(dzien), INTERVAL CAST(FLOOR(los(FORMAT('%s|t|%s|%t', ziarno, k.id_ga, dzien)) * 82800) AS INT64) SECOND)
+          AS start_wizyty
+      FROM koszyki AS k
+      LEFT JOIN checkout_warianty AS c
+        USING (id_ga, dzien_wizyty)
+      WHERE k.dzien_wizyty = dzien
     ),
 
     zdarzenia AS (
-      -- ab_assign tylko przy pierwszej wizycie (tag losuje, gdy nie ma cookie); powracający wchodzą
-      -- do testu przez parametr slotu na view_item / begin_checkout
+      -- ab_assign tylko wtedy, gdy tag losuje (brak ciasteczka testu); na pozostałych wizytach
+      -- użytkownik wchodzi do testu przez parametr slotu na view_item / begin_checkout
       SELECT s.id_uzytkownika, s.start_wizyty AS czas, 'ab_assign' AS nazwa,
         [STRUCT('ab_test' AS klucz, k.klucz AS wartosc), ('ab_variant', k.wartosc)] AS parametry
-      FROM sciezki AS s, UNNEST(s.karta) AS k
-      WHERE s.czy_nowy
+      FROM sciezki AS s, UNNEST(s.karta_przydzial) AS k
       UNION ALL
       SELECT id_uzytkownika, TIMESTAMP_ADD(start_wizyty, INTERVAL 5 SECOND), 'view_item',
         karta
@@ -163,8 +252,7 @@ WHILE dzien <= data_do DO
       UNION ALL
       SELECT s.id_uzytkownika, TIMESTAMP_ADD(s.start_wizyty, INTERVAL 119 SECOND), 'ab_assign',
         [STRUCT('ab_test' AS klucz, c.klucz AS wartosc), ('ab_variant', c.wartosc)]
-      FROM sciezki AS s, UNNEST(s.checkout) AS c
-      WHERE s.czy_nowy AND s.czy_koszyk
+      FROM sciezki AS s, UNNEST(s.checkout_przydzial) AS c
       UNION ALL
       SELECT id_uzytkownika, TIMESTAMP_ADD(start_wizyty, INTERVAL 120 SECOND), 'begin_checkout',
         ARRAY_CONCAT(karta, checkout)
@@ -211,11 +299,12 @@ END WHILE;
  Oczekiwany fct_wyniki_testow_ab po dbt build na danych 2026-08-24 – 2026-11-04 (domyślne
  parametry, bez usterek; liczby z symulacji tej samej logiki — FARM_FINGERPRINT da inne, ale
  bliskie): CR wariantu / CR kontroli ≈ 1 + efekt, rozrzut ok. ±5 pp w ab2 i ab3, większy w ab4 i ab5,
- które dopiero ruszyły. ab1 (A/A): CR v1 ≈ CR v0, wynik nieistotny.
- id_testu     | wariant | uzytkownicy | konwertujacy | CR     | prawda
- ab2_20260907 | v0      | 116829      | 4056         | 3,47%  | kontrola
- ab2_20260907 | v1      | 116854      | 4655         | 3,98%  | +10%
- ab3_20261005 | v0      | 78293       | 2801         | 3,58%  | kontrola
- ab3_20261005 | v1      | 77646       | 2746         | 3,54%  | 0%
- ab3_20261005 | v2      | 77837       | 3002         | 3,86%  | +12%
+ które dopiero ruszyły. ab1 (A/A): CR v1 ≈ CR v0, wynik nieistotny. Kolumny jakości to ok. 0,5–1%
+ użytkowników testu; ab4 i ab5 mają w nich 0, bo utrata ciasteczek zaczyna się 7 dni po przydziale.
+ id_testu     | wariant | uzytkownicy | konwertujacy | CR     | prawda   | wykluczeni_mieszani | ponownie_przydzieleni | bez_przydzialu
+ ab2_20260907 | v0      | 118076      | 4099         | 3,47%  | kontrola | 562                 | 1127                  | 1081
+ ab2_20260907 | v1      | 117937      | 4650         | 3,94%  | +10%     | 577                 | 1115                  | 983
+ ab3_20261005 | v0      | 78115       | 2740         | 3,51%  | kontrola | 467                 | 720                   | 655
+ ab3_20261005 | v1      | 78718       | 2845         | 3,61%  | 0%       | 503                 | 757                   | 667
+ ab3_20261005 | v2      | 78925       | 3043         | 3,86%  | +12%     | 471                 | 704                   | 691
 */

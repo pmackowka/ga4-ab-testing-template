@@ -12,7 +12,7 @@
    — z niego zapytanie wie, kto i kiedy wszedł do testu;
  - parametru o nazwie slotu (ab1…ab10) = zmienna „Własny plik cookie” slotu
    na wszystkich eventach (zalecany) — bez niego view_item nie jest
-   ekspozycją, a excluded_mixed nie wyłapie ponownego losowania.
+   ekspozycją, a excluded_mixed i no_assignment nie wyłapią utraty ciasteczek.
  Testy w innych slotach mogą trwać równolegle: zapytanie czyta tylko
  parametr test_name, a z ab_assign tylko ten z ab_test = test_name.
  Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
@@ -90,7 +90,10 @@ users_assigned AS (
       IF(event_name IN UNNEST(exposure_events), ab_variant, NULL)
       IGNORE NULLS ORDER BY event_timestamp LIMIT 1
     )[SAFE_OFFSET(0)] AS variant,
-    COUNT(DISTINCT ab_variant) AS variants_seen
+    COUNT(DISTINCT ab_variant) AS variants_seen,
+    -- tag wysyła ab_assign tylko przy losowaniu: 2+ = ciasteczko testu zginęło i tag
+    -- losował ponownie, 0 = wariant z ciasteczka pod nowym user_pseudo_id (usunięte _ga)
+    COUNTIF(event_name = 'ab_assign') AS assignments
   FROM events
   WHERE ab_variant IS NOT NULL
   GROUP BY user_pseudo_id
@@ -114,6 +117,8 @@ converters AS (
  users            → kalkulator: Użytkownicy A / Użytkownicy B
  converters       → kalkulator: Konwertujący A / Konwertujący B
  excluded_mixed   → do kalkulatora nie idzie: kontrola jakości danych
+ reassigned       → do kalkulatora nie idzie: kontrola jakości danych
+ no_assignment    → do kalkulatora nie idzie: kontrola jakości danych
 
  users: unikalni użytkownicy od pierwszej ekspozycji w okresie testu.
  converters: ci z nich, którzy kupili PO pierwszej ekspozycji; osoby, nie
@@ -124,8 +129,17 @@ converters AS (
  excluded_mixed: użytkownicy z 2+ wariantami (variants_seen > 1), wyjęci
  z users i converters, bo nie wiadomo, któremu wariantowi przypisać ich
  zakup. Wiersz = wariant ich PIERWSZEJ ekspozycji. To ok. połowa ponownie
- wylosowanych — druga połowa trafiła przypadkiem w ten sam wariant i jest
- niewidoczna (variants_seen = 1).
+ wylosowanych — druga połowa trafiła przypadkiem w ten sam wariant
+ (variants_seen = 1) i widać ją tylko w reassigned.
+
+ reassigned: użytkownicy z 2+ ab_assign (assignments > 1) — pełny wolumen
+ utraty ciasteczka testu przy zachowanym _ga, razem z excluded_mixed. Ci
+ z jednym wariantem zostają w users.
+ no_assignment: użytkownicy z wariantem, ale bez ab_assign (assignments = 0)
+ — przyszli z ciasteczkiem testu pod nowym user_pseudo_id (usunięte _ga),
+ więc ta sama osoba może być w users dwa razy. Zostają w users.
+ Niewidoczny zostaje przypadek, gdy znikają naraz _ga i ciasteczko testu:
+ nowy użytkownik z nowym losowaniem wygląda jak każdy inny.
  Jak czytać, przy podobnych users w wierszach: różnica excluded_mixed między
  wierszem wariantu a kontrolą większa niż 2 × √(suma obu) jest podejrzana.
  Przykład niżej: 410 − 398 = 12, próg 2 × √808 ≈ 57 → w normie.
@@ -138,10 +152,10 @@ converters AS (
  W obu przypadkach nie ufaj wynikowi bez wyjaśnienia różnicy.
 
  Przykład (liczby poglądowe, zgodne z domyślnymi danymi kalkulatora):
- calculator_field | users  | converters | excluded_mixed
- -----------------+--------+------------+---------------
- A (kontrola)     | 36 700 |        734 |            410
- B (wariant v1)   | 36 750 |        846 |            398
+ calculator_field | users  | converters | excluded_mixed | reassigned | no_assignment
+ -----------------+--------+------------+----------------+------------+--------------
+ A (kontrola)     | 36 700 |        734 |            410 |        826 |         1 190
+ B (wariant v1)   | 36 750 |        846 |            398 |        801 |         1 172
 
  → kalkulator: „Wdrażaj B”, p-value 0,0048, wzrost od +4,61% do +25,59%.
 */
@@ -158,7 +172,9 @@ SELECT
   END AS calculator_field,
   COUNTIF(u.variants_seen = 1) AS users,
   COUNTIF(u.variants_seen = 1 AND c.user_pseudo_id IS NOT NULL) AS converters,
-  COUNTIF(u.variants_seen > 1) AS excluded_mixed
+  COUNTIF(u.variants_seen > 1) AS excluded_mixed,
+  COUNTIF(u.assignments > 1) AS reassigned,
+  COUNTIF(u.assignments = 0) AS no_assignment
 FROM users_assigned AS u
 LEFT JOIN converters AS c
   USING (user_pseudo_id)

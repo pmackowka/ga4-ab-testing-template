@@ -31,6 +31,10 @@ models:
         description: Dzień pierwszej ekspozycji (strefa usługi GA4).
       - name: liczba_wariantow
         description: Liczba różnych wariantów na eventach testu; 2+ = ponowne losowanie.
+      - name: liczba_przydzialow
+        description: >
+          Liczba eventów ab_assign tego testu. 2+ = ponowne losowanie po utracie ciasteczka testu
+          (także w ten sam wariant), 0 = wariant z ciasteczka pod nowym user_pseudo_id (usunięte _ga).
 
   - name: int_ab__konwersje
     description: Jeden wiersz na test i użytkownika z konwersją po pierwszej ekspozycji.

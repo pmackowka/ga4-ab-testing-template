@@ -81,7 +81,7 @@ flowchart LR
 |---|---|---|---|
 | `stg_ga4__zdarzenia` | event × test | incremental, partycja dzienna | para (slot, wariant) z `ab_assign` albo parametru `abN` + eventy konwersji z seeda |
 | `stg_seeds__rejestr_testow` | test | view | seed z `id_testu`, listami jako `ARRAY<STRING>` i flagą `czy_koncowy` |
-| `int_ab__ekspozycje` | test × użytkownik | view | pierwsza ekspozycja, jej wariant, `liczba_wariantow` |
+| `int_ab__ekspozycje` | test × użytkownik | view | pierwsza ekspozycja, jej wariant, `liczba_wariantow`, `liczba_przydzialow` |
 | `int_ab__konwersje` | test × użytkownik | view | pierwsza konwersja po ekspozycji, w oknie testu |
 | `fct_wyniki_testow_ab` | test × wariant | table | liczby do kalkulatora Po teście |
 
@@ -231,12 +231,14 @@ Zbiór wygenerowany wcześniej od 2026-09-07 nie ma dni testu A/A: uruchom skryp
 3. Przyrost: przed każdą sesją uruchom skrypt bez zmian — sam nadrobi dni od ostatniej tabeli do wczoraj, także po kilku dniach przerwy — i `dbt build` z tymi samymi `--vars`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
 4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` z `--vars` — liczby z tych dni się zmieniają, starsze nie.
 
-Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 0% — test A/A, ab2 v1 +10%, ab3 v1 0%, ab3 v2 +12%, ab4 v1 −5%, ab5 v1 +10%). Przy 10 000 wizyt dziennie rozrzut w ab2 i ab3 to ok. ±5 pp; ab4 i ab5 dopiero ruszyły, więc ich wynik jeszcze szumi.
+Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 0% — test A/A, ab2 v1 +10%, ab3 v1 0%, ab3 v2 +12%, ab4 v1 −5%, ab5 v1 +10%). Przy 10 000 wizyt dziennie rozrzut w ab2 i ab3 to ok. ±5 pp; ab4 i ab5 dopiero ruszyły, więc ich wynik jeszcze szumi. Kolumny jakości (`wykluczeni_mieszani`, `ponownie_przydzieleni`, `bez_przydzialu`) mają po ok. 0,5–1% użytkowników testu; w ab4 i ab5 jeszcze 0, bo utrata ciasteczek zaczyna się 7 dni po przydziale. Ustaw oba udziały na 0, żeby kolumny się wyzerowały.
 
-| Usterka w skrypcie | Co psuje w danych | Test dbt, który ją łapie |
+| Parametr w skrypcie | Co psuje w danych | Co to pokazuje |
 |---|---|---|
 | `usterka_srm_slot` | kontrola dostaje 53% ruchu zamiast 50% | `sprawdz_srm` (warn) |
 | `usterka_brak_dnia` | brak tabeli dziennej; działa z `data_od` ≤ tego dnia, bo nadrabianie zaczyna od dnia po ostatniej tabeli | `sprawdz_komplet_dni_ga4` (error) |
+| `udzial_utraty_ciasteczka_testu` (domyślnie 0,10) | ciasteczko testu znika 7 dni po przydziale, tag losuje ponownie | kolumny `ponownie_przydzieleni` i `wykluczeni_mieszani` w `fct_wyniki_testow_ab` |
+| `udzial_utraty_ga` (domyślnie 0,10) | `_ga` znika 7 dni po pierwszej wizycie, ciasteczko testu zostaje | kolumna `bez_przydzialu` w `fct_wyniki_testow_ab` |
 
 ## Niesprawdzone
 

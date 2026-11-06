@@ -30,12 +30,21 @@ models:
       - name: uzytkownicy
         description: >
           Kalkulator: Użytkownicy A / B. Unikalni użytkownicy od pierwszej ekspozycji,
-          bez ponownie wylosowanych.
+          bez użytkowników z 2+ wariantami (wykluczeni_mieszani).
       - name: konwertujacy
         description: "Kalkulator: Konwertujący A / B. Osoby z konwersją po pierwszej ekspozycji."
       - name: wykluczeni_mieszani
         description: >
           Do kalkulatora nie idzie. Użytkownicy z 2+ wariantami, wyjęci z uzytkownicy i konwertujacy;
           wiersz = wariant pierwszej ekspozycji.
+      - name: ponownie_przydzieleni
+        description: >
+          Do kalkulatora nie idzie. Użytkownicy z 2+ ab_assign: ciasteczko testu zniknęło i tag losował
+          ponownie. Obejmuje wykluczeni_mieszani i tych, którym wypadł ten sam wariant (ci zostają
+          w uzytkownicy). Pełny wolumen utraty ciasteczka testu przy zachowanym _ga.
+      - name: bez_przydzialu
+        description: >
+          Do kalkulatora nie idzie. Użytkownicy z wariantem, ale bez ab_assign: przyszli z ciasteczkiem
+          testu pod nowym user_pseudo_id (usunięte _ga), więc ta sama osoba może być w uzytkownicy dwa razy.
       - name: czy_koncowy
         description: true, gdy od końca testu minęły 3 dni i GA4 nie dopisze już danych.
