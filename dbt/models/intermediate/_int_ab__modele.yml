@@ -3,10 +3,13 @@
 # data_tests: = użycie testów generic, które sprawdzają, czy DANE są poprawne. Definicje: not_null
 # i unique wbudowane w dbt, dbt_utils.* z pakietu (dbt deps), wariant_w_seedzie w tests/generic/.
 version: 2
+  # wersja formatu plików YAML z właściwościami (models:, sources:, seeds:) — stała wartość
 
 models:
   - name: int_ab__ekspozycje
     description: Jeden wiersz na test i eksponowanego użytkownika.
+    # test na poziomie modelu (nie kolumny): para id_testu + id_uzytkownika ma być unikalna.
+    # arguments: = parametry testu generic; od dbt 1.10 idą pod tym kluczem, osobno od config:
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

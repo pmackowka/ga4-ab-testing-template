@@ -1,4 +1,5 @@
 version: 2
+  # wersja formatu plików YAML z właściwościami (models:, sources:, seeds:) — stała wartość
 
 seeds:
   - name: rejestr_testow

@@ -12,9 +12,11 @@ WITH zdarzenia_testow AS (
 		e.data_zdarzenia,
 		e.czas_zdarzenia,
 		e.wariant,
+		-- x IN UNNEST(tablica) = czy x jest elementem tablicy; wynik BOOL
 		e.nazwa_zdarzenia IN UNNEST(t.zdarzenia_ekspozycji) AS czy_ekspozycja
 
 	FROM {{ ref('stg_ga4__zdarzenia') }} AS e
+	-- JOIN bez słowa INNER to INNER JOIN: event bez pasującego testu (slot, okno) odpada
 	JOIN {{ ref('stg_seeds__rejestr_testow') }} AS t
 		ON e.slot = t.slot
 		AND e.data_zdarzenia BETWEEN t.start_testu AND t.koniec_testu
@@ -27,10 +29,19 @@ pierwsza_ekspozycja AS (
 		id_testu,
 		slot,
 		id_uzytkownika,
+		-- czytaj od środka:
+		-- 1) IF: event ekspozycji → STRUCT z jego trzema polami, każdy inny → NULL
+		-- 2) ARRAY_AGG zbiera te wartości w tablicę dla grupy (test, użytkownik); IGNORE NULLS pomija
+		--    NULL-e, ORDER BY czas_zdarzenia sortuje, LIMIT 1 zostawia tylko najwcześniejszy
+		-- 3) [SAFE_OFFSET(0)] wyciąga element nr 0 z tablicy; SAFE_ zwraca NULL dla pustej tablicy
+		--    (użytkownik bez eventu ekspozycji), zwykły OFFSET rzuciłby błąd
+		-- fe = first exposure, pola czytane niżej jako fe.wariant, fe.czas_zdarzenia
 		ARRAY_AGG(
 			IF(czy_ekspozycja, STRUCT(czas_zdarzenia, data_zdarzenia, wariant), NULL)
 			IGNORE NULLS ORDER BY czas_zdarzenia LIMIT 1
 		)[SAFE_OFFSET(0)] AS fe,
+		-- liczy po WSZYSTKICH eventach testu, nie tylko ekspozycjach: zmiana wariantu na dowolnym
+		-- evencie znaczy, że cookie zginęło i tag wylosował od nowa
 		COUNT(DISTINCT wariant) AS liczba_wariantow
 
 	FROM zdarzenia_testow

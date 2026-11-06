@@ -3,6 +3,7 @@
 # data_tests: = użycie testów generic, które sprawdzają, czy DANE są poprawne. Definicje: not_null
 # i unique wbudowane w dbt, dbt_utils.* z pakietu (dbt deps), wariant_w_seedzie w tests/generic/.
 version: 2
+  # wersja formatu plików YAML z właściwościami (models:, sources:, seeds:) — stała wartość
 
 models:
   - name: fct_wyniki_testow_ab

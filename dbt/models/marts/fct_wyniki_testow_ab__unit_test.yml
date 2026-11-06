@@ -13,6 +13,7 @@ unit_tests:
     model: fct_wyniki_testow_ab
     given:
       - input: ref('stg_seeds__rejestr_testow')
+        # format: sql, bo warianty to ARRAY (dict go nie zapisze); wtedy wszystkie kolumny modelu wejściowego
         format: sql
         rows: |
           SELECT 'ab2_20260907' AS id_testu, 'ab2' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,

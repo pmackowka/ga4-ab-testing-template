@@ -8,14 +8,19 @@ SELECT
 	x.id_uzytkownika,
 	MIN(e.czas_zdarzenia) AS czas_pierwszej_konwersji,
 	-- dzień tego samego eventu co czas_pierwszej_konwersji, z sufiksu tabeli (strefa usługi GA4)
+	-- ARRAY_AGG … ORDER BY … LIMIT 1 = „wartość z najwcześniejszego wiersza grupy”; MIN(data_zdarzenia)
+	-- dałby najmniejszą datę, ale niekoniecznie z tego samego eventu. OFFSET(0) bez SAFE_, bo grupa
+	-- po JOIN zawsze ma co najmniej jeden wiersz
 	ARRAY_AGG(e.data_zdarzenia ORDER BY e.czas_zdarzenia LIMIT 1)[OFFSET(0)] AS data_pierwszej_konwersji
 
 FROM {{ ref('int_ab__ekspozycje') }} AS x
+-- USING (id_testu) = ON x.id_testu = t.id_testu, a w wyniku jedna kolumna id_testu zamiast dwóch
 JOIN {{ ref('stg_seeds__rejestr_testow') }} AS t
 	USING (id_testu)
 JOIN {{ ref('stg_ga4__zdarzenia') }} AS e
 	ON e.id_uzytkownika = x.id_uzytkownika
 	AND e.nazwa_zdarzenia = t.zdarzenie_konwersji
+	-- warunki nierówności w ON: JOIN dobiera tylko zakupy po ekspozycji, reszta nie wchodzi do grupy
 	AND e.czas_zdarzenia > x.czas_pierwszej_ekspozycji
 	AND e.data_zdarzenia <= t.koniec_testu
 GROUP BY x.id_testu, x.id_uzytkownika

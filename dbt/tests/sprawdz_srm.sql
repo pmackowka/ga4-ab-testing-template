@@ -18,8 +18,10 @@ WITH pary AS (
 		v.wariant,
 		c.uzytkownicy AS uzytkownicy_kontrola,
 		v.uzytkownicy AS uzytkownicy_wariant,
+		-- SAFE_DIVIDE zwraca NULL zamiast błędu dzielenia przez zero (test bez użytkowników)
 		SAFE_DIVIDE(POW(c.uzytkownicy - v.uzytkownicy, 2), c.uzytkownicy + v.uzytkownicy) AS chi2
 
+	-- self-join: ta sama tabela dwa razy — v to wiersze wariantów, c wiersz kontroli tego samego testu
 	FROM {{ ref('fct_wyniki_testow_ab') }} AS v
 	JOIN {{ ref('fct_wyniki_testow_ab') }} AS c
 		ON c.id_testu = v.id_testu
