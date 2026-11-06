@@ -129,8 +129,8 @@ windows AS (
  weeks               → planowana długość testu w tygodniach
  users_per_week      → kalkulator: Użytkownicy w tygodniu
  converters_per_week → kalkulator: Konwertujący w tygodniu
- revenue_per_user    → kalkulator (Przychód na użytkownika): Przychód na użytkownika
- revenue_sd          → kalkulator (Przychód na użytkownika): Odchylenie przychodu na użytkownika
+ revenue_per_user    → kalkulator (Przychód na użytkownika): Przychód na użytkownika (zł)
+ revenue_sd          → kalkulator (Przychód na użytkownika): Odchylenie przychodu na użytkownika (zł)
  revenue_per_user i revenue_sd dotyczą całego okna, nie tygodnia — tak jak
  przychód osoby w wyniku testu, który liczy się do końca testu.
  users i converters to osoby (user_pseudo_id), nie sesje ani zamówienia;

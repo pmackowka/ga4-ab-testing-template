@@ -157,8 +157,8 @@ users_final AS (
  calculator_field → który wiersz kalkulatora: A (kontrola) albo B (wariant)
  users            → kalkulator: Użytkownicy A / Użytkownicy B
  converters       → kalkulator: Konwertujący A / Konwertujący B
- revenue_per_user → kalkulator (Przychód na użytkownika): Przychód na użytkownika A / B
- revenue_sd       → kalkulator (Przychód na użytkownika): Odchylenie przychodu A / B
+ revenue_per_user → kalkulator (Przychód na użytkownika): Przychód na użytkownika A / B (zł)
+ revenue_sd       → kalkulator (Przychód na użytkownika): Odchylenie przychodu A / B (zł)
  revenue          → suma przychodu po przycięciu (revenue_per_user = revenue / users)
  excluded_mixed   → do kalkulatora nie idzie: kontrola jakości danych
  reassigned       → do kalkulatora nie idzie: kontrola jakości danych

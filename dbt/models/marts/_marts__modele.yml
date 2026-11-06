@@ -38,10 +38,10 @@ models:
           Suma przychodu osób z uzytkownicy po przycięciu każdej osoby do 99,9 percentyla
           przychodu konwertujących w teście (oba warianty razem).
       - name: przychod_na_uzytkownika
-        description: "Kalkulator (Przychód na użytkownika): Przychód na użytkownika A / B. przychod / uzytkownicy."
+        description: "Kalkulator (Przychód na użytkownika): Przychód na użytkownika A / B (zł). przychod / uzytkownicy."
       - name: odchylenie_przychodu
         description: >
-          Kalkulator (Przychód na użytkownika): Odchylenie przychodu A / B. Odchylenie standardowe
+          Kalkulator (Przychód na użytkownika): Odchylenie przychodu A / B (zł). Odchylenie standardowe
           przychodu na osobę z uzytkownicy, razem z zerami, po przycięciu.
       - name: wykluczeni_mieszani
         description: >
