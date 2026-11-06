@@ -38,6 +38,8 @@ WITH events AS (
     user_pseudo_id,
     event_name,
     event_timestamp,
+    ecommerce.transaction_id AS transaction_id,
+    ecommerce.purchase_revenue AS revenue,
     -- numer tygodnia w oknie: event_date to tekst 'YYYYMMDD' (stąd PARSE_DATE),
     -- DATE_DIFF daje dni od window_start, DIV dzieli całkowicie (ucina resztę),
     -- +1 numeruje od 1: dni 0–6 → tydzień 1, dni 7–13 → tydzień 2
@@ -68,35 +70,58 @@ first_view AS (
   GROUP BY user_pseudo_id
 ),
 
-first_purchase AS (
-  -- tydzień pierwszego zakupu PO pierwszym wejściu; osoby, nie zamówienia
+user_purchases AS (
+  -- zamówienia PO pierwszym wejściu, każde raz: odświeżona strona podziękowania
+  -- wysyła ten sam transaction_id ponownie; zakup bez niego liczy się raz na event
   SELECT
     f.user_pseudo_id,
-    MIN(p.week_no) AS purchase_week
+    IFNULL(p.transaction_id, CAST(p.event_timestamp AS STRING)) AS transaction_key,
+    MIN(p.week_no) AS week_no,
+    ANY_VALUE(p.revenue) AS revenue
   FROM first_view AS f
   JOIN events AS p
     ON p.user_pseudo_id = f.user_pseudo_id
     AND p.event_name = 'purchase'
     AND p.event_timestamp > f.first_view_ts
-  GROUP BY f.user_pseudo_id
+  GROUP BY f.user_pseudo_id, transaction_key
+),
+
+users_windows AS (
+  -- okno k tygodni: weszli w tygodniach 1..k, kupili do końca tygodnia k;
+  -- GENERATE_ARRAY(1, max_weeks) = [1, 2, …, max_weeks], UNNEST robi z tablicy
+  -- wiersze w; JOIN łączy każdego użytkownika z każdym oknem, w którym już był,
+  -- więc jeden przebieg liczy wszystkie długości okna naraz
+  SELECT
+    w AS weeks,
+    f.user_pseudo_id,
+    -- bez zakupu w oknie LOGICAL_OR daje NULL albo FALSE — osoba nie jest konwertującą
+    LOGICAL_OR(up.week_no <= w) AS converted,
+    IFNULL(SUM(IF(up.week_no <= w, up.revenue, 0)), 0) AS revenue
+  FROM UNNEST(GENERATE_ARRAY(1, max_weeks)) AS w
+  JOIN first_view AS f
+    ON f.first_week <= w
+  LEFT JOIN user_purchases AS up
+    ON up.user_pseudo_id = f.user_pseudo_id
+  GROUP BY w, f.user_pseudo_id
 ),
 
 windows AS (
-  -- okno k tygodni: weszli w tygodniach 1..k, kupili do końca tygodnia k
+  -- przychód osoby przycięty do 99,9 percentyla przychodu kupujących w oknie, jak
+  -- w wyniku testu; średnia i odchylenie po wszystkich osobach, razem z zerami
   SELECT
-    w AS weeks,
-    -- COUNTIF liczy wiersze z warunkiem TRUE; bez zakupu purchase_week jest NULL,
-    -- warunek daje NULL, więc taki użytkownik nie trafia do converters
-    COUNTIF(f.first_week <= w) AS users_unique,
-    COUNTIF(f.first_week <= w AND fp.purchase_week <= w) AS converters
-  -- GENERATE_ARRAY(1, max_weeks) = [1, 2, …, max_weeks], UNNEST robi z tablicy
-  -- wiersze w; CROSS JOIN łączy każdego użytkownika z każdym oknem, więc jeden
-  -- przebieg liczy wszystkie długości okna naraz
-  FROM UNNEST(GENERATE_ARRAY(1, max_weeks)) AS w
-  CROSS JOIN first_view AS f
-  LEFT JOIN first_purchase AS fp
-    ON fp.user_pseudo_id = f.user_pseudo_id
-  GROUP BY w
+    weeks,
+    COUNT(*) AS users_unique,
+    COUNTIF(converted) AS converters,
+    AVG(revenue_capped) AS revenue_per_user,
+    STDDEV_SAMP(revenue_capped) AS revenue_sd
+  FROM (
+    SELECT
+      *,
+      LEAST(revenue, IFNULL(PERCENTILE_CONT(IF(revenue > 0, revenue, NULL), 0.999)
+        OVER (PARTITION BY weeks), 0)) AS revenue_capped
+    FROM users_windows
+  )
+  GROUP BY weeks
 )
 
 /*
@@ -104,6 +129,10 @@ windows AS (
  weeks               → planowana długość testu w tygodniach
  users_per_week      → kalkulator: Użytkownicy w tygodniu
  converters_per_week → kalkulator: Konwertujący w tygodniu
+ revenue_per_user    → kalkulator (Przychód na użytkownika): Przychód na użytkownika
+ revenue_sd          → kalkulator (Przychód na użytkownika): Odchylenie przychodu na użytkownika
+ revenue_per_user i revenue_sd dotyczą całego okna, nie tygodnia — tak jak
+ przychód osoby w wyniku testu, który liczy się do końca testu.
  users i converters to osoby (user_pseudo_id), nie sesje ani zamówienia;
  CR liczy kalkulator, nie zapytanie.
 
@@ -117,13 +146,13 @@ windows AS (
  (test zbiera ich wolniej), a CR jest wyższy (więcej czasu na zakup).
 
  Przykład (liczby poglądowe):
- weeks | users_per_week | converters_per_week
- ------+----------------+--------------------
-     1 |         25 000 |                 375
-     2 |         22 500 |                 383
-     3 |         21 000 |                 392
-     4 |         20 000 |                 400
-     5 |         19 200 |                 403
+ weeks | users_per_week | converters_per_week | revenue_per_user | revenue_sd
+ ------+----------------+---------------------+------------------+-----------
+     1 |         25 000 |                 375 |             4.50 |      41.00
+     2 |         22 500 |                 383 |             5.10 |      43.50
+     3 |         21 000 |                 392 |             5.60 |      45.20
+     4 |         20 000 |                 400 |             6.00 |      46.50
+     5 |         19 200 |                 403 |             6.30 |      47.40
 
  → plan 5 tygodni: 19 200 / 403 → kalkulator (MDE +15%) liczy 4 tygodnie
    → wiersz 4: 20 000 / 400 → kalkulator liczy 4 tygodnie. Zgodne, koniec.
@@ -132,6 +161,8 @@ SELECT
   weeks,
   -- „/” na liczbach całkowitych daje FLOAT64; ROUND zaokrągla, CAST wraca do INT64
   CAST(ROUND(users_unique / weeks) AS INT64) AS users_per_week,
-  CAST(ROUND(converters / weeks) AS INT64) AS converters_per_week
+  CAST(ROUND(converters / weeks) AS INT64) AS converters_per_week,
+  ROUND(revenue_per_user, 2) AS revenue_per_user,
+  ROUND(revenue_sd, 2) AS revenue_sd
 FROM windows
 ORDER BY weeks;

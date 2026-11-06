@@ -33,6 +33,16 @@ models:
           bez użytkowników z 2+ wariantami (wykluczeni_mieszani).
       - name: konwertujacy
         description: "Kalkulator: Konwertujący A / B. Osoby z konwersją po pierwszej ekspozycji."
+      - name: przychod
+        description: >
+          Suma przychodu osób z uzytkownicy po przycięciu każdej osoby do 99,9 percentyla
+          przychodu konwertujących w teście (oba warianty razem).
+      - name: przychod_na_uzytkownika
+        description: "Kalkulator (Przychód na użytkownika): Przychód na użytkownika A / B. przychod / uzytkownicy."
+      - name: odchylenie_przychodu
+        description: >
+          Kalkulator (Przychód na użytkownika): Odchylenie przychodu A / B. Odchylenie standardowe
+          przychodu na osobę z uzytkownicy, razem z zerami, po przycięciu.
       - name: wykluczeni_mieszani
         description: >
           Do kalkulatora nie idzie. Użytkownicy z 2+ wariantami, wyjęci z uzytkownicy i konwertujacy;

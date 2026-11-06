@@ -54,3 +54,5 @@ models:
         description: Czas pierwszej konwersji po pierwszej ekspozycji.
       - name: data_pierwszej_konwersji
         description: Dzień pierwszej konwersji (strefa usługi GA4).
+      - name: przychod
+        description: Suma przychodu z konwersji po pierwszej ekspozycji, w oknie testu; każde id_transakcji raz.

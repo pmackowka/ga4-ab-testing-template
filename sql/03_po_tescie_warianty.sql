@@ -57,6 +57,8 @@ WITH events AS (
     user_pseudo_id,
     event_name,
     event_timestamp,
+    ecommerce.transaction_id AS transaction_id,
+    ecommerce.purchase_revenue AS revenue,
     -- ab_assign przypisuje do jednego testu: wariant tylko, gdy ab_test to nasz
     -- slot (parametry slotów na ab_assign należą do innych testów); pozostałe
     -- eventy niosą wariant w parametrze o nazwie slotu
@@ -112,6 +114,42 @@ converters AS (
     ON p.user_pseudo_id = u.user_pseudo_id
     AND p.event_name = conversion_event
     AND p.event_timestamp > u.first_exposure_ts
+),
+
+user_revenue AS (
+  -- przychód osoby, każde zamówienie raz: odświeżona strona podziękowania wysyła
+  -- ten sam transaction_id ponownie; zakup bez transaction_id liczy się raz na event
+  SELECT user_pseudo_id, SUM(revenue) AS revenue
+  FROM (
+    SELECT DISTINCT
+      u.user_pseudo_id,
+      IFNULL(p.transaction_id, CAST(p.event_timestamp AS STRING)) AS transaction_key,
+      p.revenue
+    FROM users_assigned AS u
+    JOIN events AS p
+      ON p.user_pseudo_id = u.user_pseudo_id
+      AND p.event_name = conversion_event
+      AND p.event_timestamp > u.first_exposure_ts
+  )
+  GROUP BY user_pseudo_id
+),
+
+users_final AS (
+  -- przychód przycięty do 99,9 percentyla przychodu konwertujących (oba warianty
+  -- razem), żeby jedno duże zamówienie nie przesądziło wyniku; mieszani bez przychodu
+  SELECT
+    u.*,
+    c.user_pseudo_id IS NOT NULL AS converted,
+    IF(u.variants_seen = 1,
+      LEAST(IFNULL(r.revenue, 0), IFNULL(PERCENTILE_CONT(
+        IF(u.variants_seen = 1 AND r.revenue > 0, r.revenue, NULL), 0.999
+      ) OVER (), 0)),
+      NULL) AS revenue
+  FROM users_assigned AS u
+  LEFT JOIN converters AS c
+    USING (user_pseudo_id)
+  LEFT JOIN user_revenue AS r
+    USING (user_pseudo_id)
 )
 
 /*
@@ -119,6 +157,9 @@ converters AS (
  calculator_field → który wiersz kalkulatora: A (kontrola) albo B (wariant)
  users            → kalkulator: Użytkownicy A / Użytkownicy B
  converters       → kalkulator: Konwertujący A / Konwertujący B
+ revenue_per_user → kalkulator (Przychód na użytkownika): Przychód na użytkownika A / B
+ revenue_sd       → kalkulator (Przychód na użytkownika): Odchylenie przychodu A / B
+ revenue          → suma przychodu po przycięciu (revenue_per_user = revenue / users)
  excluded_mixed   → do kalkulatora nie idzie: kontrola jakości danych
  reassigned       → do kalkulatora nie idzie: kontrola jakości danych
  no_assignment    → do kalkulatora nie idzie: kontrola jakości danych
@@ -155,11 +196,17 @@ converters AS (
    wypadają akurat najbardziej zaangażowani i wynik jest obciążony.
  W obu przypadkach nie ufaj wynikowi bez wyjaśnienia różnicy.
 
+ revenue_per_user i revenue_sd: po osobach z users, razem z zerami; przychód
+ osoby przycięty do 99,9 percentyla przychodu konwertujących w teście.
+ Metrykę decyzyjną (konwersja albo przychód na użytkownika) wybierz przed
+ testem: wybór po wyniku tej, która wyszła istotna, zawyża szansę fałszywego
+ zwycięzcy.
+
  Przykład (liczby poglądowe, zgodne z domyślnymi danymi kalkulatora):
- calculator_field | users  | converters | excluded_mixed | reassigned | no_assignment
- -----------------+--------+------------+----------------+------------+--------------
- A (kontrola)     | 36 700 |        734 |            410 |        826 |         1 190
- B (wariant v1)   | 36 750 |        846 |            398 |        801 |         1 172
+ calculator_field | users  | converters | revenue    | revenue_per_user | revenue_sd | excluded_mixed | reassigned | no_assignment
+ -----------------+--------+------------+------------+------------------+------------+----------------+------------+--------------
+ A (kontrola)     | 36 700 |        734 | 176 160.00 |             4.80 |      38.60 |            410 |        826 |         1 190
+ B (wariant v1)   | 36 750 |        846 | 202 860.00 |             5.52 |      41.30 |            398 |        801 |         1 172
 
  → kalkulator: „Wdrażaj B”, p-value 0,0048, wzrost od +4,61% do +25,59%.
 */
@@ -175,12 +222,13 @@ SELECT
     ELSE CONCAT('B (wariant ', u.variant, ')')
   END AS calculator_field,
   COUNTIF(u.variants_seen = 1) AS users,
-  COUNTIF(u.variants_seen = 1 AND c.user_pseudo_id IS NOT NULL) AS converters,
+  COUNTIF(u.variants_seen = 1 AND u.converted) AS converters,
+  ROUND(IFNULL(SUM(u.revenue), 0), 2) AS revenue,
+  ROUND(IFNULL(SAFE_DIVIDE(SUM(u.revenue), COUNTIF(u.variants_seen = 1)), 0), 2) AS revenue_per_user,
+  ROUND(IFNULL(STDDEV_SAMP(u.revenue), 0), 2) AS revenue_sd,
   COUNTIF(u.variants_seen > 1) AS excluded_mixed,
   COUNTIF(u.assignments > 1) AS reassigned,
   COUNTIF(u.assignments = 0) AS no_assignment
-FROM users_assigned AS u
-LEFT JOIN converters AS c
-  USING (user_pseudo_id)
+FROM users_final AS u
 GROUP BY u.variant
 ORDER BY u.variant = control_variant DESC, u.variant;

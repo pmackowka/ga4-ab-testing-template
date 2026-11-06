@@ -2,7 +2,9 @@
  GENERATOR · syntetyczny eksport GA4 dla projektu dbt
  Tworzy w osobnym datasecie tabele dzienne events_RRRRMMDD w schemacie eksportu GA4 — tylko
  kolumny, które czyta stg_ga4__zdarzenia — ze scenariuszem testów z dbt/seeds/rejestr_testow.csv.
- Scenariusz: wizyta = view_item; część przechodzi do begin_checkout, z niego część do purchase.
+ Scenariusz: wizyta = view_item; część przechodzi do begin_checkout, z niego część do purchase
+ z transaction_id i purchase_revenue (wartość zamówienia niezależna od wariantu: testy zmieniają
+ CR, a przychód na użytkownika zmienia się razem z nim).
  Testy na karcie produktu (ab1–ab4, ab1 = A/A) zmieniają przejście do checkoutu, test checkoutu (ab5)
  przejście do zakupu — efekt w DECLARE testy to względna zmiana CR wariantu wobec kontroli.
  Losowość z FARM_FINGERPRINT, nie RAND(): ten sam dzień generuje się zawsze tak samo, więc
@@ -30,6 +32,8 @@ DECLARE wizyty_dziennie INT64 DEFAULT 10000;
 DECLARE udzial_powracajacych FLOAT64 DEFAULT 0.3;           -- wizyty osób z poprzednich 28 dni; faktycznie nieco mniej, bo dwa powroty tego samego dnia to jedna wizyta
 DECLARE cr_koszyka FLOAT64 DEFAULT 0.10;                    -- view_item → begin_checkout
 DECLARE cr_zakupu FLOAT64 DEFAULT 0.30;                     -- begin_checkout → purchase
+DECLARE koszyk_mediana FLOAT64 DEFAULT 200;                 -- wartość zamówienia (zł): rozkład logarytmiczno-normalny,
+DECLARE koszyk_sigma FLOAT64 DEFAULT 0.8;                   -- mediana i rozrzut; 0,8 daje współczynnik zmienności ok. 1
 DECLARE udzial_utraty_ciasteczka_testu FLOAT64 DEFAULT 0.10; -- par użytkownik × test: ciasteczko testu znika po 7 dniach
 DECLARE udzial_utraty_ga FLOAT64 DEFAULT 0.10;              -- użytkowników: _ga znika po 7 dniach, ciasteczko testu zostaje
 -- inna wartość = inne zachowanie tych samych użytkowników, jak ponowne przetworzenie dnia przez GA4
@@ -260,25 +264,31 @@ WHILE dzien <= data_do DO
       -- ab_assign tylko wtedy, gdy tag losuje (brak ciasteczka testu); na pozostałych wizytach
       -- użytkownik wchodzi do testu przez parametr slotu na view_item / begin_checkout
       SELECT s.id_uzytkownika, s.start_wizyty AS czas, 'ab_assign' AS nazwa,
-        [STRUCT('ab_test' AS klucz, k.klucz AS wartosc), ('ab_variant', k.wartosc)] AS parametry
+        [STRUCT('ab_test' AS klucz, k.klucz AS wartosc), ('ab_variant', k.wartosc)] AS parametry,
+        CAST(NULL AS STRING) AS id_transakcji, CAST(NULL AS FLOAT64) AS przychod
       FROM sciezki AS s, UNNEST(s.karta_przydzial) AS k
       UNION ALL
       SELECT id_uzytkownika, TIMESTAMP_ADD(start_wizyty, INTERVAL 5 SECOND), 'view_item',
-        karta
+        karta, NULL, NULL
       FROM sciezki
       UNION ALL
       SELECT s.id_uzytkownika, TIMESTAMP_ADD(s.start_wizyty, INTERVAL 119 SECOND), 'ab_assign',
-        [STRUCT('ab_test' AS klucz, c.klucz AS wartosc), ('ab_variant', c.wartosc)]
+        [STRUCT('ab_test' AS klucz, c.klucz AS wartosc), ('ab_variant', c.wartosc)], NULL, NULL
       FROM sciezki AS s, UNNEST(s.checkout_przydzial) AS c
       UNION ALL
       SELECT id_uzytkownika, TIMESTAMP_ADD(start_wizyty, INTERVAL 120 SECOND), 'begin_checkout',
-        ARRAY_CONCAT(karta, checkout)
+        ARRAY_CONCAT(karta, checkout), NULL, NULL
       FROM sciezki
       WHERE czy_koszyk
       UNION ALL
-      -- purchase z parametrami slotów jak każdy event; staging bierze wariant z ekspozycji
+      -- purchase z parametrami slotów jak każdy event; staging bierze wariant z ekspozycji;
+      -- wartość zamówienia = mediana × e^(sigma × z), z ~ N(0, 1) z dwóch liczb (Box–Muller)
       SELECT id_uzytkownika, TIMESTAMP_ADD(start_wizyty, INTERVAL 300 SECOND), 'purchase',
-        ARRAY_CONCAT(karta, checkout)
+        ARRAY_CONCAT(karta, checkout),
+        CONCAT('T', CAST(MOD(ABS(FARM_FINGERPRINT(FORMAT('%s|tx|%s|%t', ziarno, id_ga, dzien))), 1000000000) AS STRING)),
+        ROUND(koszyk_mediana * EXP(koszyk_sigma
+          * SQRT(-2 * LN(1 - los(FORMAT('%s|r1|%s|%t', ziarno, id_ga, dzien))))
+          * COS(2 * ACOS(-1) * los(FORMAT('%s|r2|%s|%t', ziarno, id_ga, dzien)))), 2)
       FROM sciezki
       WHERE czy_koszyk AND czy_zakup_z_koszyka
     )
@@ -295,7 +305,8 @@ WHILE dzien <= data_do DO
             CAST(NULL AS FLOAT64) AS float_value, CAST(NULL AS FLOAT64) AS double_value) AS value
         FROM UNNEST(parametry) AS p
       ) AS event_params,
-      id_uzytkownika AS user_pseudo_id
+      id_uzytkownika AS user_pseudo_id,
+      STRUCT(id_transakcji AS transaction_id, przychod AS purchase_revenue) AS ecommerce
     FROM zdarzenia;
 
     EXECUTE IMMEDIATE FORMAT('CREATE OR REPLACE TABLE `%s.%s.events_%s` AS SELECT * FROM zdarzenia_dnia',
@@ -318,10 +329,12 @@ END WHILE;
  bliskie): CR wariantu / CR kontroli ≈ 1 + efekt, rozrzut ok. ±5 pp w ab2 i ab3, większy w ab4 i ab5,
  które dopiero ruszyły. ab1 (A/A): CR v1 ≈ CR v0, wynik nieistotny. Kolumny jakości to ok. 0,5–1%
  użytkowników testu; ab4 i ab5 mają w nich 0, bo utrata ciasteczek zaczyna się 7 dni po przydziale.
- id_testu     | wariant | uzytkownicy | konwertujacy | CR     | prawda   | wykluczeni_mieszani | ponownie_przydzieleni | bez_przydzialu
- ab2_20260907 | v0      | 118076      | 4129         | 3,50%  | kontrola | 562                 | 1127                  | 1081
- ab2_20260907 | v1      | 117937      | 4587         | 3,89%  | +10%     | 577                 | 1115                  | 983
- ab3_20261005 | v0      | 78115       | 2770         | 3,55%  | kontrola | 467                 | 720                   | 655
- ab3_20261005 | v1      | 78718       | 2769         | 3,52%  | 0%       | 503                 | 757                   | 667
- ab3_20261005 | v2      | 78925       | 3018         | 3,82%  | +12%     | 471                 | 704                   | 691
+ Przychód na użytkownika zmienia się jak CR (koszyk nie zależy od wariantu), ale jego względny
+ rozrzut jest ok. 1,9× większy (1 + CV² koszyka), więc ten sam test daje szerszy zakres.
+ id_testu     | wariant | uzytkownicy | konwertujacy | CR     | prawda   | przychod_na_uzytkownika | odchylenie_przychodu | wykluczeni_mieszani | ponownie_przydzieleni | bez_przydzialu
+ ab2_20260907 | v0      | 118076      | 4129         | 3,50%  | kontrola | 9,69                    | 70,07                | 562                 | 1127                  | 1081
+ ab2_20260907 | v1      | 117937      | 4587         | 3,89%  | +10%     | 10,67                   | 72,80                | 577                 | 1115                  | 983
+ ab3_20261005 | v0      | 78115       | 2770         | 3,55%  | kontrola | 9,88                    | 72,06                | 467                 | 720                   | 655
+ ab3_20261005 | v1      | 78718       | 2769         | 3,52%  | 0%       | 9,56                    | 67,69                | 503                 | 757                   | 667
+ ab3_20261005 | v2      | 78925       | 3018         | 3,82%  | +12%     | 10,73                   | 74,30                | 471                 | 704                   | 691
 */

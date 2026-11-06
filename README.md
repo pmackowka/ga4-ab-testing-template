@@ -5,7 +5,7 @@ SQL pod BigQuery (eksport GA4) do dwóch kalkulatorów testów A/B na pmdata.pl,
 - [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/) — ilu użytkowników potrzebujesz i ile tygodni potrwa test,
 - [Po teście](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/) — czy różnica jest istotna i jak duża może naprawdę być.
 
-Scenariusz: e-commerce testuje kartę produktu. Wejście do testu to `view_item`, konwersja to `purchase`. Każde zapytanie zwraca kolumny do wpisania w kalkulator (`03` dodatkowo kontrolę jakości `excluded_mixed`, `reassigned`, `no_assignment`); opis i przykład wyniku stoją tuż nad końcowym `SELECT`.
+Scenariusz: e-commerce testuje kartę produktu. Wejście do testu to `view_item`, konwersja to `purchase`. Metryka do wyboru przed testem: współczynnik konwersji albo przychód na użytkownika (`01` i `03` zwracają też średni przychód na użytkownika i jego odchylenie, z przychodem osoby przyciętym do 99,9 percentyla, żeby jedno duże zamówienie nie przesądziło wyniku). Każde zapytanie zwraca kolumny do wpisania w kalkulator (`03` dodatkowo kontrolę jakości `excluded_mixed`, `reassigned`, `no_assignment`); opis i przykład wyniku stoją tuż nad końcowym `SELECT`.
 
 Wynik `03` dla wszystkich testów naraz, z testami danych, liczy też projekt dbt — konfiguracja i działanie w osobnym [README](dbt/README.md).
 
