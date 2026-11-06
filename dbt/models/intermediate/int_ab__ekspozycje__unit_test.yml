@@ -43,6 +43,7 @@ unit_tests:
       wariantem (ciasteczko zniknęło, los wypadł tak samo) — 2, choć liczba_wariantow = 1. u2 wszedł
       przez view_item bez ab_assign (ciasteczko testu pod nowym _ga) — 0. u3 ma ab_assign innego
       testu (ab3) i view_item z ab2 — 0, bo przydział do ab3 nie jest przydziałem do ab2.
+      u4 ma ten sam ab_assign dwa razy (duplikat eventu w eksporcie, ten sam czas) — 1, nie 2.
     model: int_ab__ekspozycje
     given:
       - input: ref('stg_seeds__rejestr_testow')
@@ -58,8 +59,11 @@ unit_tests:
           - {data_zdarzenia: 2026-09-11, czas_zdarzenia: '2026-09-11 10:00:00', id_uzytkownika: u2, nazwa_zdarzenia: view_item, slot: ab2, wariant: v0}
           - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 10:00:00', id_uzytkownika: u3, nazwa_zdarzenia: ab_assign, slot: ab3, wariant: v1}
           - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 10:00:05', id_uzytkownika: u3, nazwa_zdarzenia: view_item, slot: ab2, wariant: v0}
+          - {data_zdarzenia: 2026-09-13, czas_zdarzenia: '2026-09-13 10:00:00', id_uzytkownika: u4, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-09-13, czas_zdarzenia: '2026-09-13 10:00:00', id_uzytkownika: u4, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
     expect:
       rows:
         - {id_testu: ab2_20260907, id_uzytkownika: u1, wariant: v1, liczba_wariantow: 1, liczba_przydzialow: 2}
         - {id_testu: ab2_20260907, id_uzytkownika: u2, wariant: v0, liczba_wariantow: 1, liczba_przydzialow: 0}
         - {id_testu: ab2_20260907, id_uzytkownika: u3, wariant: v0, liczba_wariantow: 1, liczba_przydzialow: 0}
+        - {id_testu: ab2_20260907, id_uzytkownika: u4, wariant: v1, liczba_wariantow: 1, liczba_przydzialow: 1}

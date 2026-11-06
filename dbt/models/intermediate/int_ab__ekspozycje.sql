@@ -2,9 +2,10 @@
 	Jeden wiersz na test (id_testu) i eksponowanego użytkownika: pierwsza ekspozycja, jej wariant i dzień
 	oraz liczba różnych wariantów (2+ = ponowne losowanie po utracie cookie). Liczy wszystkie
 	testy z seeda naraz — okno i eventy ekspozycji biorą się z wiersza testu, nie z DECLARE.
-	liczba_przydzialow = eventy ab_assign tego testu: tag wysyła ab_assign tylko wtedy, gdy losuje,
-	więc 2+ = ponowne losowanie także w ten sam wariant, a 0 = użytkownik przyszedł z ciasteczkiem
-	testu, ale nowym user_pseudo_id (usunięte _ga).
+	liczba_przydzialow = eventy ab_assign tego testu o różnym czasie (duplikat eventu w eksporcie to
+	jedno losowanie): tag wysyła ab_assign tylko wtedy, gdy losuje, więc 2+ = ponowne losowanie także
+	w ten sam wariant, a 0 = użytkownik przyszedł z ciasteczkiem testu pod nowym user_pseudo_id
+	(usunięte _ga) albo hit ab_assign zginął (adblock, wyjście ze strony przed wysyłką).
 #}
 WITH zdarzenia_testow AS (
 	SELECT
@@ -34,7 +35,7 @@ pierwsza_ekspozycja AS (
 			IGNORE NULLS ORDER BY czas_zdarzenia LIMIT 1
 		)[SAFE_OFFSET(0)] AS fe,
 		COUNT(DISTINCT wariant) AS liczba_wariantow,
-		COUNTIF(nazwa_zdarzenia = 'ab_assign') AS liczba_przydzialow
+		COUNT(DISTINCT IF(nazwa_zdarzenia = 'ab_assign', czas_zdarzenia, NULL)) AS liczba_przydzialow
 
 	FROM zdarzenia_testow
 	GROUP BY id_testu, slot, id_uzytkownika

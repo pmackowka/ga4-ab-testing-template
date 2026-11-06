@@ -5,8 +5,8 @@
 	na teście wariant_w_seedzie. sql/03 robi to samo funkcją ERROR().
 	Kontrola jakości, poza kalkulatorem: wykluczeni_mieszani (2+ warianty, wyjęci z wyniku),
 	ponownie_przydzieleni (2+ losowania, także w ten sam wariant — zostają w wyniku, jeśli wariant
-	się nie zmienił) i bez_przydzialu (wariant z ciasteczka bez ab_assign: nowe _ga, ta sama osoba
-	może być policzona dwa razy). Niewidoczny zostaje przypadek, gdy znikają naraz _ga i ciasteczko
+	się nie zmienił) i bez_przydzialu (wariant z ciasteczka bez ab_assign: nowe _ga, więc ta sama osoba
+	może być policzona dwa razy, albo zgubiony hit ab_assign). Niewidoczny zostaje przypadek, gdy znikają naraz _ga i ciasteczko
 	testu: nowy użytkownik z nowym losowaniem.
 #}
 WITH testy AS (

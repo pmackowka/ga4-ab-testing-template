@@ -12,7 +12,8 @@
    — z niego zapytanie wie, kto i kiedy wszedł do testu;
  - parametru o nazwie slotu (ab1…ab10) = zmienna „Własny plik cookie” slotu
    na wszystkich eventach (zalecany) — bez niego view_item nie jest
-   ekspozycją, a excluded_mixed i no_assignment nie wyłapią utraty ciasteczek.
+   ekspozycją, excluded_mixed nie wyłapie ponownego losowania, a no_assignment
+   jest zawsze 0 (reassigned liczy z samego ab_assign i działa dalej).
  Testy w innych slotach mogą trwać równolegle: zapytanie czyta tylko
  parametr test_name, a z ab_assign tylko ten z ab_test = test_name.
  Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
@@ -93,7 +94,9 @@ users_assigned AS (
     COUNT(DISTINCT ab_variant) AS variants_seen,
     -- tag wysyła ab_assign tylko przy losowaniu: 2+ = ciasteczko testu zginęło i tag
     -- losował ponownie, 0 = wariant z ciasteczka pod nowym user_pseudo_id (usunięte _ga)
-    COUNTIF(event_name = 'ab_assign') AS assignments
+    -- albo zgubiony hit ab_assign
+    -- różne event_timestamp: duplikat eventu w eksporcie to jedno losowanie
+    COUNT(DISTINCT IF(event_name = 'ab_assign', event_timestamp, NULL)) AS assignments
   FROM events
   WHERE ab_variant IS NOT NULL
   GROUP BY user_pseudo_id
@@ -128,16 +131,17 @@ converters AS (
 
  excluded_mixed: użytkownicy z 2+ wariantami (variants_seen > 1), wyjęci
  z users i converters, bo nie wiadomo, któremu wariantowi przypisać ich
- zakup. Wiersz = wariant ich PIERWSZEJ ekspozycji. To ok. połowa ponownie
- wylosowanych — druga połowa trafiła przypadkiem w ten sam wariant
- (variants_seen = 1) i widać ją tylko w reassigned.
+ zakup. Wiersz = wariant ich PIERWSZEJ ekspozycji. Przy n wariantach to ok.
+ (n−1)/n ponownie wylosowanych (przy 2 — połowa); reszta trafiła przypadkiem
+ w ten sam wariant (variants_seen = 1) i widać ją tylko w reassigned.
 
  reassigned: użytkownicy z 2+ ab_assign (assignments > 1) — pełny wolumen
  utraty ciasteczka testu przy zachowanym _ga, razem z excluded_mixed. Ci
  z jednym wariantem zostają w users.
  no_assignment: użytkownicy z wariantem, ale bez ab_assign (assignments = 0)
  — przyszli z ciasteczkiem testu pod nowym user_pseudo_id (usunięte _ga),
- więc ta sama osoba może być w users dwa razy. Zostają w users.
+ więc ta sama osoba może być w users dwa razy, albo hit ab_assign zginął
+ (adblock, wyjście ze strony przed wysyłką). Zostają w users.
  Niewidoczny zostaje przypadek, gdy znikają naraz _ga i ciasteczko testu:
  nowy użytkownik z nowym losowaniem wygląda jak każdy inny.
  Jak czytać, przy podobnych users w wierszach: różnica excluded_mixed między
