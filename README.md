@@ -45,13 +45,15 @@ Folder [`gtm/`](gtm/) losuje wariant w przeglądarce, zapisuje go w first-party 
 
 | Plik | Klucz | Co robi | Gdzie w GTM |
 |---|---|---|---|
-| [`01_dwa_warianty.html`](gtm/01_dwa_warianty.html) | `ab1` | `v0`/`v1` po 50%, cały ruch strony testowej | Tag → Custom HTML |
-| [`02_trzy_warianty.html`](gtm/02_trzy_warianty.html) | `ab2` | `v0`/`v1`/`v2` po 1/3 | Tag → Custom HTML |
-| [`03_dwa_warianty_50_procent.html`](gtm/03_dwa_warianty_50_procent.html) | `ab3` | 50% ruchu w teście (`v0`/`v1` po 25%), reszta `out` — poza analizą | Tag → Custom HTML |
-| [`04_rozszerzenie_do_100_procent.html`](gtm/04_rozszerzenie_do_100_procent.html) | `ab3` | podmiana kodu tagu z `03`: przydziały zostają, `out` i nowi dostają wariant | ten sam tag co `03` |
+| [`01_dwa_warianty.html`](gtm/01_dwa_warianty.html) | `ab1` (A/A), `ab2` | `v0`/`v1` po 50%, cały ruch strony testowej | Tag → Custom HTML |
+| [`02_trzy_warianty.html`](gtm/02_trzy_warianty.html) | `ab3` | `v0`/`v1`/`v2` po 1/3 | Tag → Custom HTML |
+| [`03_dwa_warianty_50_procent.html`](gtm/03_dwa_warianty_50_procent.html) | `ab4` | 50% ruchu w teście (`v0`/`v1` po 25%), reszta `out` — poza analizą | Tag → Custom HTML |
+| [`04_rozszerzenie_do_100_procent.html`](gtm/04_rozszerzenie_do_100_procent.html) | `ab4` | podmiana kodu tagu z `03`: przydziały zostają, `out` i nowi dostają wariant | ten sam tag co `03` |
 | — | jedna na slot | wartość ciasteczka slotu jako parametr `abN` na eventach GA4; `out` pomija SQL | Zmienna → Własny plik cookie |
 
-Konfiguracja tagów, zmiennych i procedura każdego testu (start, koniec, sekwencjonowanie) jest opisana w notatkach elementów w kontenerze GTM — zacznij od notatki tagu `AB - ab1`. Reguła, którą pilnuje repo: ciasteczko trzyma sam wariant i żyje 60 dni, więc test w tym samym slocie startuje ponad 60 dni po końcu poprzedniego — sprawdza to `sprawdz_konfiguracje_testow` w dbt.
+Konfiguracja tagów, zmiennych i procedura każdego testu (start, koniec) jest opisana w notatkach elementów w kontenerze GTM — zacznij od notatki tagu `AB - ab1`. Reguła, którą pilnuje repo: ciasteczko trzyma sam wariant i żyje 60 dni, więc test w tym samym slocie startuje ponad 60 dni po końcu poprzedniego — sprawdza to `sprawdz_konfiguracje_testow` w dbt.
+
+Pierwszy test po wdrożeniu to test A/A w slocie `ab1`: skrypt `01`, ale `v1` niczego na stronie nie zmienia. Sprawdza konfigurację, zanim zaufasz prawdziwym wynikom — oczekiwane: brak alarmu SRM i wynik nieistotny w kalkulatorze Po teście. Istotna różnica albo SRM = błąd w losowaniu, tagach lub danych; napraw, zanim ruszy test `ab2`. Dwa tygodnie wystarczą: test nie szuka efektu, tylko błędu.
 
 Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wariant, zostaje w nim. Dawni `out` wchodzą do analizy od dnia rozszerzenia, ale wcześniej widzieli obecną wersję strony — gdy to przeszkadza, `INCLUDE_OUT = false` wpuszcza tylko nowych. Plan z kalkulatora Przed testem liczyłeś dla 50% ruchu — po rozszerzeniu użytkownicy zbierają się 2× szybciej, więc kończysz po pierwszym pełnym tygodniu, w którym każdy wariant ma liczbę użytkowników z planu.
 
@@ -91,5 +93,5 @@ Rozszerzenie `03` → `04` zmienia skalę testu, nie jego przebieg: kto miał wa
 - SRM zakłada podział 50/50; przy 3+ wariantach kalkulator ocenia jedną parę z kontrolą.
 - Ocena to test z (przybliżenie normalne): przy kilku konwersjach w wariancie wynik jest przybliżony, a granice zakresu są ucinane tak, żeby CR B mieścił się między 0 a 100% (spadek najwyżej −100%).
 - Wariant w `03` pochodzi z `ab_assign` (`ab_test`, `ab_variant`) i z parametru slotu, który zmienna GTM czyta z first-party cookie i dokleja do eventów ([artykuł](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). Konwersja liczy się z każdego `purchase` (parametr `conversion_event`) po ekspozycji, także bez parametru `ab_variant` — wariant bierze się z przypisania użytkownika, nie z eventu zakupu.
-- Najwyżej 10 testów naraz (sloty `ab1`–`ab10`), bo GA4 przyjmuje do 25 parametrów na event — sprawdź, ile już wysyłasz. Równoległe testy losują niezależnie, więc wynik jednego jest uśredniony po wariantach drugiego; problemem jest tylko silna interakcja, np. oba zmieniają ten sam element.
+- Najwyżej 10 testów naraz (sloty `ab2`–`ab10`), bo GA4 przyjmuje do 25 parametrów na event — sprawdź, ile już wysyłasz. Równoległe testy losują niezależnie, więc wynik jednego jest uśredniony po wariantach drugiego; problemem jest tylko silna interakcja, np. oba zmieniają ten sam element.
 - Safari (ITP) skraca ciasteczka ustawione z JavaScriptu do 7 dni, także `_ga`. Gdy po tygodniu wygaśnie tylko ciasteczko testu, `excluded_mixed` to wyłapie. Gdy wygaśnie też `_ga`, ten sam człowiek wraca z nowym `user_pseudo_id` i nowym losowaniem, a zapytanie widzi dwóch użytkowników. Ciasteczka ustawiane z serwera (server-side GTM) usuwają ten problem.

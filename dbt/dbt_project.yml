@@ -26,7 +26,7 @@ vars:
     # projekt GCP z eksportem GA4 — jedyne miejsce do podmiany
   ga4_zbior_danych: 'analytics_123456789'
     # dataset z tabelami events_YYYYMMDD
-  ga4_data_startu: '2026-09-07'
+  ga4_data_startu: '2026-08-24'
     # pierwszy dzień, który czyta pełny rebuild stg_ga4__zdarzenia; najwcześniejszy start_testu
     # z seeds/rejestr_testow.csv — każdy dzień wcześniej to koszt bez pożytku
 

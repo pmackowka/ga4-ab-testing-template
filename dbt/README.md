@@ -55,11 +55,11 @@ Wiersz = test; nowy test to nowy wiersz + `dbt build`. Listy rozdziela `|`.
 
 ```csv
 slot,start_testu,koniec_testu,wariant_kontrolny,warianty,zdarzenie_konwersji,zdarzenia_ekspozycji
-ab3,2026-11-02,2026-12-13,v0,v0|v1,purchase,ab_assign|view_item
-ab4,2026-11-02,2026-11-29,v0,v0|v1,purchase,ab_assign|begin_checkout
+ab4,2026-11-02,2026-12-13,v0,v0|v1,purchase,ab_assign|view_item
+ab5,2026-11-02,2026-11-29,v0,v0|v1,purchase,ab_assign|begin_checkout
 ```
 
-`slot` (`ab1`–`ab10`) wraca w kolejnych testach, więc kluczem jest `id_testu` = slot + `start_testu` (np. `ab1_20260907`). Tagi GTM nie znają `start_testu` — test w slocie wyznacza okno z rejestru. Ekspozycję wyznacza `zdarzenia_ekspozycji`: `view_item` z parametrem `ab4` nie wciąga nikogo do testu checkoutu.
+`slot` (`ab1`–`ab10`) wraca w kolejnych testach, więc kluczem jest `id_testu` = slot + `start_testu` (np. `ab2_20260907`). Tagi GTM nie znają `start_testu` — test w slocie wyznacza okno z rejestru. Ekspozycję wyznacza `zdarzenia_ekspozycji`: `view_item` z parametrem `ab5` nie wciąga nikogo do testu checkoutu.
 
 `sprawdz_konfiguracje_testow` zatrzyma build, gdy start nie jest poniedziałkiem albo koniec niedzielą, kontroli nie ma wśród wariantów, wariantów jest mniej niż dwa, test zaczyna się przed `ga4_data_startu`, `slot` nie ma postaci `abN` albo okno nakłada się na poprzedni test w tym samym slocie lub zaczyna się w ciągu 60 dni od jego końca (ciasteczko testu żyje 60 dni i trzyma sam wariant).
 
@@ -224,12 +224,12 @@ Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym dataseci
 
 Wymaga projektu z billingiem: [sandbox BigQuery](https://cloud.google.com/bigquery/docs/sandbox) nie obsługuje DML, a `insert_overwrite` w dbt generuje `MERGE` ([dbt — BigQuery configs](https://docs.getdbt.com/reference/resource-configs/bigquery-configs)).
 
-1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery z Więcej → Ustawienia zapytania → lokalizacja danych = EU: skrypt czyta zbiór tylko przez `EXECUTE IMMEDIATE`, więc BigQuery nie wywnioskuje regionu i może uruchomić zadanie w US. Pierwszy raz generuje dni od 2026-09-07 do wczoraj.
+1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery z Więcej → Ustawienia zapytania → lokalizacja danych = EU: skrypt czyta zbiór tylko przez `EXECUTE IMMEDIATE`, więc BigQuery nie wywnioskuje regionu i może uruchomić zadanie w US. Pierwszy raz generuje dni od 2026-08-24 do wczoraj.
 2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'`.
 3. Przyrost: przed każdą sesją uruchom skrypt bez zmian — sam nadrobi dni od ostatniej tabeli do wczoraj, także po kilku dniach przerwy — i `dbt build` z tymi samymi `--vars`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
 4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` z `--vars` — liczby z tych dni się zmieniają, starsze nie.
 
-Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 +10%, ab2 v1 0%, ab2 v2 +12%, ab3 v1 −5%, ab4 v1 +10%). Przy 10 000 wizyt dziennie rozrzut w ab1 i ab2 to ok. ±5 pp; ab3 i ab4 dopiero ruszyły, więc ich wynik jeszcze szumi.
+Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 0% — test A/A, ab2 v1 +10%, ab3 v1 0%, ab3 v2 +12%, ab4 v1 −5%, ab5 v1 +10%). Przy 10 000 wizyt dziennie rozrzut w ab2 i ab3 to ok. ±5 pp; ab4 i ab5 dopiero ruszyły, więc ich wynik jeszcze szumi.
 
 | Usterka w skrypcie | Co psuje w danych | Test dbt, który ją łapie |
 |---|---|---|

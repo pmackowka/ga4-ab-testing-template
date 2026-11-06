@@ -5,9 +5,10 @@ seeds:
     description: >
       Rejestr testów A/B — jeden wiersz na test, zamiast DECLARE w sql/03. Nowy test = nowy wiersz.
       Listy rozdziela „|”, bo CSV nie ma typu tablicowego; stg_seeds__rejestr_testow robi z nich ARRAY.
-      Wiersze odpowiadają tagom z gtm/: ab1 = 01_dwa_warianty, ab2 = 02_trzy_warianty,
-      ab3 = 03_dwa_warianty_50_procent i 04_rozszerzenie_do_100_procent (jeden test, ten sam
-      klucz), ab4 = tag 01 z TEST = 'ab4' na checkoucie, równolegle z ab3 na karcie produktu.
+      Wiersze odpowiadają tagom z gtm/: ab1 = test A/A (01_dwa_warianty, v1 bez zmiany na stronie),
+      ab2 = 01_dwa_warianty, ab3 = 02_trzy_warianty,
+      ab4 = 03_dwa_warianty_50_procent i 04_rozszerzenie_do_100_procent (jeden test, ten sam
+      klucz), ab5 = tag 01 z TEST = 'ab5' na checkoucie, równolegle z ab4 na karcie produktu.
       Slot wraca cyklicznie ab1…ab10 — kolejny test w slocie to nowy wiersz z nowym
       start_testu, ponad 60 dni po końcu poprzedniego (czas życia ciasteczka testu).
     columns:

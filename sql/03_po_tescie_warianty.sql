@@ -1,7 +1,10 @@
 /*
  03 · PO TEŚCIE → kalkulator „Po teście A/B”
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
- Liczy test z gtm/01_dwa_warianty.html (klucz ab1, v0/v1 po 50%): wariant
+ Pierwszy test to A/A w slocie ab1 (ten sam tag 01, v1 bez zmiany na stronie):
+ test_name = 'ab1', jego daty; wynik ma być nieistotny i bez SRM, inaczej
+ konfiguracja jest zepsuta. Domyślnie liczy kolejny test z gtm/01_dwa_warianty.html
+ (klucz ab2, v0/v1 po 50%): wariant
  losuje tag w przeglądarce i zapisuje w first-party cookie, SQL tylko go czyta
  (https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/). Inne tagi z gtm/:
  zmień test_name i variants ('out' z 03/04 zapytanie pomija). Wymaga w GTM:
@@ -17,7 +20,7 @@
 
 DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- poniedziałek publikacji tagu
 DECLARE test_end DATE DEFAULT DATE '2026-10-04';    -- niedziela: ostatni dzień testu
-DECLARE test_name STRING DEFAULT 'ab1';             -- slot = TEST w tagu = nazwa parametru eventu
+DECLARE test_name STRING DEFAULT 'ab2';             -- slot = TEST w tagu = nazwa parametru eventu
 DECLARE control_variant STRING DEFAULT 'v0';        -- wersja dotychczasowa
 DECLARE variants ARRAY<STRING> DEFAULT ['v0', 'v1'];  -- = VARIANTS w tagu; inna wartość w danych = błąd
 DECLARE conversion_event STRING DEFAULT 'purchase';

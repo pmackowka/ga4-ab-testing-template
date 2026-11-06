@@ -3,7 +3,7 @@
  Tworzy w osobnym datasecie tabele dzienne events_RRRRMMDD w schemacie eksportu GA4 — tylko
  kolumny, które czyta stg_ga4__zdarzenia — ze scenariuszem testów z dbt/seeds/rejestr_testow.csv.
  Scenariusz: wizyta = view_item; część przechodzi do begin_checkout, z niego część do purchase.
- Testy na karcie produktu (ab1–ab3) zmieniają przejście do checkoutu, test checkoutu (ab4)
+ Testy na karcie produktu (ab1–ab4, ab1 = A/A) zmieniają przejście do checkoutu, test checkoutu (ab5)
  przejście do zakupu — efekt w DECLARE testy to względna zmiana CR wariantu wobec kontroli.
  Losowość z FARM_FINGERPRINT, nie RAND(): ten sam dzień generuje się zawsze tak samo, więc
  kolejne dni można dogenerować osobno, a powracający użytkownik ma ten sam wariant.
@@ -15,7 +15,7 @@
 
 DECLARE projekt_docelowy STRING DEFAULT 'twoj-projekt';
 DECLARE zbior_docelowy STRING DEFAULT 'ga4_syntetyczny';    -- = vars.ga4_zbior_danych w dbt
-DECLARE data_startu DATE DEFAULT DATE '2026-09-07';         -- = vars.ga4_data_startu; pierwszy dzień pustego zbioru
+DECLARE data_startu DATE DEFAULT DATE '2026-08-24';         -- = vars.ga4_data_startu; pierwszy dzień pustego zbioru
 DECLARE data_od DATE DEFAULT NULL;                          -- NULL = dzień po ostatniej tabeli events_ w zbiorze
 DECLARE data_do DATE DEFAULT DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY);
 DECLARE wizyty_dziennie INT64 DEFAULT 10000;
@@ -27,10 +27,11 @@ DECLARE ziarno STRING DEFAULT 'a';
 -- kopia seeda + efekt każdego wariantu; kontrola pierwsza na liście, efekt 0
 DECLARE testy ARRAY<STRUCT<slot STRING, start_testu DATE, koniec_testu DATE, warianty ARRAY<STRING>,
   efekty ARRAY<FLOAT64>, etap STRING>> DEFAULT [
-  ('ab1', DATE '2026-09-07', DATE '2026-10-04', ['v0', 'v1'], [0.0, 0.10], 'karta'),
-  ('ab2', DATE '2026-10-05', DATE '2026-11-01', ['v0', 'v1', 'v2'], [0.0, 0.0, 0.12], 'karta'),
-  ('ab3', DATE '2026-11-02', DATE '2026-12-13', ['v0', 'v1'], [0.0, -0.05], 'karta'),
-  ('ab4', DATE '2026-11-02', DATE '2026-11-29', ['v0', 'v1'], [0.0, 0.10], 'checkout')
+  ('ab1', DATE '2026-08-24', DATE '2026-09-06', ['v0', 'v1'], [0.0, 0.0], 'karta'),   -- test A/A: v1 = kontrola
+  ('ab2', DATE '2026-09-07', DATE '2026-10-04', ['v0', 'v1'], [0.0, 0.10], 'karta'),
+  ('ab3', DATE '2026-10-05', DATE '2026-11-01', ['v0', 'v1', 'v2'], [0.0, 0.0, 0.12], 'karta'),
+  ('ab4', DATE '2026-11-02', DATE '2026-12-13', ['v0', 'v1'], [0.0, -0.05], 'karta'),
+  ('ab5', DATE '2026-11-02', DATE '2026-11-29', ['v0', 'v1'], [0.0, 0.10], 'checkout')
 ];
 -- usterki (NULL = wyłączona), każda ma wywołać inny test dbt
 DECLARE usterka_srm_slot STRING DEFAULT NULL;               -- sprawdz_srm (warn)
@@ -201,20 +202,21 @@ END WHILE;
 /*
  Przykład: events_20260908 (pierwszy wiersz to nowy użytkownik, drugi powracający z 2026-09-01)
  event_date | event_timestamp  | event_name     | event_params                                    | user_pseudo_id
- 20260908   | 1788861600000000 | ab_assign      | [ab_test: ab1, ab_variant: v1]                  | 1482736401.1788825600
- 20260908   | 1788861605000000 | view_item      | [ab1: v1]                                       | 1482736401.1788825600
- 20260908   | 1788864012000000 | view_item      | [ab1: v0]                                       | 1730021954.1788220800
- 20260908   | 1788864127000000 | begin_checkout | [ab1: v0]                                       | 1730021954.1788220800
- 20260908   | 1788864307000000 | purchase       | [ab1: v0]                                       | 1730021954.1788220800
+ 20260908   | 1788861600000000 | ab_assign      | [ab_test: ab2, ab_variant: v1]                  | 1482736401.1788825600
+ 20260908   | 1788861605000000 | view_item      | [ab2: v1]                                       | 1482736401.1788825600
+ 20260908   | 1788864012000000 | view_item      | [ab2: v0]                                       | 1730021954.1788220800
+ 20260908   | 1788864127000000 | begin_checkout | [ab2: v0]                                       | 1730021954.1788220800
+ 20260908   | 1788864307000000 | purchase       | [ab2: v0]                                       | 1730021954.1788220800
 
- Oczekiwany fct_wyniki_testow_ab po dbt build na danych 2026-09-07 – 2026-11-04 (domyślne
+ Oczekiwany fct_wyniki_testow_ab po dbt build na danych 2026-08-24 – 2026-11-04 (domyślne
  parametry, bez usterek; liczby z symulacji tej samej logiki — FARM_FINGERPRINT da inne, ale
- bliskie): CR wariantu / CR kontroli ≈ 1 + efekt, rozrzut ok. ±5 pp w ab1 i ab2, większy w ab3 i ab4,
- które dopiero ruszyły.
+ bliskie): CR wariantu / CR kontroli ≈ 1 + efekt, rozrzut ok. ±5 pp w ab2 i ab3, większy w ab4 i ab5,
+ które dopiero ruszyły. ab1 (A/A): CR v1 ≈ CR v0, wynik nieistotny. Liczby ab2–ab3 policzono
+ przed dodaniem ab1 — powracający z okna A/A mogą je lekko przesunąć.
  id_testu     | wariant | uzytkownicy | konwertujacy | CR     | prawda
- ab1_20260907 | v0      | 116829      | 4056         | 3,47%  | kontrola
- ab1_20260907 | v1      | 116854      | 4655         | 3,98%  | +10%
- ab2_20261005 | v0      | 78293       | 2801         | 3,58%  | kontrola
- ab2_20261005 | v1      | 77646       | 2746         | 3,54%  | 0%
- ab2_20261005 | v2      | 77837       | 3002         | 3,86%  | +12%
+ ab2_20260907 | v0      | 116829      | 4056         | 3,47%  | kontrola
+ ab2_20260907 | v1      | 116854      | 4655         | 3,98%  | +10%
+ ab3_20261005 | v0      | 78293       | 2801         | 3,58%  | kontrola
+ ab3_20261005 | v1      | 77646       | 2746         | 3,54%  | 0%
+ ab3_20261005 | v2      | 77837       | 3002         | 3,86%  | +12%
 */

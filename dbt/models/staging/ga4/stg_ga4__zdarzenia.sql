@@ -100,12 +100,12 @@ WHERE t.wariant IS NOT NULL
 
 {#
 	Przykładowy wynik (dane syntetyczne). Ostatnie dwa wiersze to jeden event z dwoma slotami
-	(ab3 na karcie produktu i ab4 na checkoucie trwają równolegle); purchase bez slotu zostaje,
+	(ab4 na karcie produktu i ab5 na checkoucie trwają równolegle); purchase bez slotu zostaje,
 	bo jest eventem konwersji z seeda:
 	data_zdarzenia | czas_zdarzenia      | id_uzytkownika | nazwa_zdarzenia | slot | wariant
-	2026-09-08     | 2026-09-08 10:00:00 | 1234.5678      | ab_assign       | ab1  | v1
-	2026-09-08     | 2026-09-08 10:02:13 | 1234.5678      | view_item       | ab1  | v1
+	2026-09-08     | 2026-09-08 10:00:00 | 1234.5678      | ab_assign       | ab2  | v1
+	2026-09-08     | 2026-09-08 10:02:13 | 1234.5678      | view_item       | ab2  | v1
 	2026-09-12     | 2026-09-12 18:30:00 | 9999.0009      | purchase        | NULL | NULL
-	2026-11-03     | 2026-11-03 09:15:40 | 4444.0003      | view_item       | ab3  | v0
-	2026-11-03     | 2026-11-03 09:15:40 | 4444.0003      | view_item       | ab4  | v1
+	2026-11-03     | 2026-11-03 09:15:40 | 4444.0003      | view_item       | ab4  | v0
+	2026-11-03     | 2026-11-03 09:15:40 | 4444.0003      | view_item       | ab5  | v1
 #}

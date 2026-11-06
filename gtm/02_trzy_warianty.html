@@ -6,11 +6,11 @@
  Analiza: sql/03 zwróci wiersz kontroli i po wierszu na v1, v2; każdą parę
  z kontrolą wpisz do kalkulatora osobno, z „Liczba wariantów” = 3
  (kalkulator zaostrza wtedy próg p-value — korekta Bonferroniego).
- W sql/03 ustaw test_name = 'ab2' i variants = ['v0', 'v1', 'v2'] (w dbt: wiersz ab2 z v0|v1|v2
- w dbt/seeds/rejestr_testow.csv); parametr ab2 = zmienna „Własny plik cookie” ab2.
+ W sql/03 ustaw test_name = 'ab3' i variants = ['v0', 'v1', 'v2'] (w dbt: wiersz ab3 z v0|v1|v2
+ w dbt/seeds/rejestr_testow.csv); parametr ab3 = zmienna „Własny plik cookie” ab3.
 */
 (function () {
-  var TEST = 'ab2';                   // osobny numer — nie mieszaj z testem ab1
+  var TEST = 'ab3';                   // osobny numer — nie mieszaj z testem ab2
   var VARIANTS = ['v0', 'v1', 'v2'];  // v0 = wersja dotychczasowa, v1 i v2 = warianty testowe
   var DAYS = 60;
 
