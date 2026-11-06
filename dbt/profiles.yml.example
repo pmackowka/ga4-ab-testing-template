@@ -9,39 +9,23 @@
 #
 # Konto serwisowe potrzebuje: BigQuery Data Viewer na datasecie GA4, BigQuery Data Editor
 # na datasecie docelowym, BigQuery Job User w projekcie.
-# Pola opisane przy dev; w pozostałych targetach komentarz tylko tam, gdzie wartość się różni.
 testy_ab:
-  # nazwa profilu — musi pasować do `profile:` w dbt_project.yml
   target: dev
-    # target używany, gdy nie podasz --target
   outputs:
     dev:
       type: bigquery
-        # adapter dbt-bigquery
       method: service-account
-        # logowanie plikiem klucza konta serwisowego
       keyfile: "{{ env_var('BIGQUERY_KEYFILE') }}"
-        # ścieżka do klucza ze zmiennej środowiskowej, nie wpisana w plik
       project: "{{ env_var('BIGQUERY_PROJECT') }}"
-        # projekt GCP, w którym powstają tabele i który płaci za zapytania
       dataset: dbt_dev_testy_ab
-        # dataset docelowy; dbt tworzy go, jeśli nie istnieje
       location: EU
-        # region — musi się zgadzać z datasetem GA4, BigQuery nie łączy danych między regionami
       priority: interactive
-        # zapytania od razu, nie w kolejce batch
       threads: 4
-        # ile modeli dbt buduje równolegle
       job_execution_timeout_seconds: 300
-        # zapytanie dłuższe niż 5 min jest przerywane
       job_retries: 1
-        # jedno ponowienie przy błędzie przejściowym BigQuery
       maximum_bytes_billed: 10737418240
-        # 10 GiB: twardy limit na zapytanie, po przekroczeniu pada bez opłaty; pierwszy --full-refresh
-        # stg_ga4__zdarzenia czyta każdy dzień od ga4_data_startu — przy dużym ruchu podnieś świadomie
 
     prod:
-      # laptop z --target prod; własne zmienne bez fallbacku na dev — klucz dev nie połączy się z prod
       type: bigquery
       method: service-account
       keyfile: "{{ env_var('BIGQUERY_PROD_KEYFILE') }}"
@@ -53,14 +37,10 @@ testy_ab:
       job_execution_timeout_seconds: 300
       job_retries: 1
       maximum_bytes_billed: 107374182400
-        # 100 GiB
 
     prod_ci:
-      # prod z GitHub Actions: deploy (dbt.yml) i harmonogram (dbt-build.yml)
       type: bigquery
       method: oauth
-        # Application Default Credentials, które ustawia google-github-actions/auth z tokenu WIF —
-        # bez pliku klucza; service-account nie przyjmie poświadczeń external_account
       project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
       dataset: dbt_prod_testy_ab
       location: EU
@@ -69,20 +49,15 @@ testy_ab:
       job_execution_timeout_seconds: 300
       job_retries: 1
       maximum_bytes_billed: 107374182400
-        # 100 GiB
 
     ci:
-      # CI (dbt.yml): pusty build i unit testy; projekt i konto jak prod_ci
       type: bigquery
       method: oauth
-        # jak prod_ci
       project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
       dataset: dbt_ci_testy_ab
-        # osobny dataset: puste tabele z CI, oddzielone od prod
       location: EU
       priority: interactive
       threads: 4
       job_execution_timeout_seconds: 300
       job_retries: 1
       maximum_bytes_billed: 1073741824
-        # 1 GiB — pusty build i unit testy czytają ułamki MB

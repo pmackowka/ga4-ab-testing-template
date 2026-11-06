@@ -1,59 +1,38 @@
 # Projekt dbt: wyniki testów A/B z eksportu GA4 (odpowiednik sql/03).
 name: 'testy_ab'
-  # nazwa projektu; nie 'dbt_bigquery' — tę nazwę zajmuje wewnętrzny pakiet makr adaptera
 version: '1.0.0'
-  # wersja projektu — informacyjna, dbt jej nie sprawdza
 config-version: 2
-  # wersja formatu tego pliku wymagana przez dbt
 profile: 'testy_ab'
-  # który profil połączenia z profiles.yml użyć
 
 model-paths: ["models"]
-  # gdzie szukać modeli SQL i ich YAML
 test-paths: ["tests"]
-  # gdzie szukać testów singular i definicji testów generic
 seed-paths: ["seeds"]
-  # gdzie szukać plików CSV ładowanych przez dbt seed
 macro-paths: ["macros"]
-  # gdzie szukać makr Jinja (folder jeszcze nie istnieje — dbt to toleruje)
 target-path: "target"
-  # dokąd dbt zapisuje skompilowany SQL, manifest.json i run_results.json
 clean-targets: ["target", "dbt_packages"]
-  # co usuwa dbt clean
 
 vars:
   ga4_projekt: 'twoj-projekt'
-    # projekt GCP z eksportem GA4 — jedyne miejsce do podmiany
   ga4_zbior_danych: 'analytics_123456789'
-    # dataset z tabelami events_YYYYMMDD
   ga4_data_startu: '2026-08-24'
-    # pierwszy dzień, który czyta pełny rebuild stg_ga4__zdarzenia; najwcześniejszy start_testu
-    # z seeds/rejestr_testow.csv — każdy dzień wcześniej to koszt bez pożytku
 
 models:
   testy_ab:
-    # ustawienia dla wszystkich modeli tego projektu (+ = dziedziczone przez podfoldery)
     staging:
       +materialized: view
-        # widok: staging czyta tylko intermediate, kopia danych zbędna (stg_ga4__zdarzenia nadpisuje to na incremental)
     intermediate:
       +materialized: view
-        # widok: intermediate czytają tylko marty, osobna tabela byłaby kopią bez odbiorcy
     marts:
       +materialized: table
-        # tabela: marty czyta kalkulator i raporty, liczone raz na przebieg zamiast przy każdym odczycie
 
 seeds:
   testy_ab:
     rejestr_testow:
       +column_types:
-        # typy kolumn seeda zamiast zgadywania przez dbt z zawartości CSV
         slot: string
         start_testu: date
         koniec_testu: date
         wariant_kontrolny: string
         warianty: string
-          # tekst z listą rozdzieloną „|” — ARRAY robi z niego stg_seeds__rejestr_testow
         zdarzenie_konwersji: string
         zdarzenia_ekspozycji: string
-          # jak warianty

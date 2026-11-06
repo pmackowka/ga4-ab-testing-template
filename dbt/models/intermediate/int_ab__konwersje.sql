@@ -7,7 +7,6 @@ SELECT
 	x.id_testu,
 	x.id_uzytkownika,
 	MIN(e.czas_zdarzenia) AS czas_pierwszej_konwersji,
-	-- dzień tego samego eventu co czas_pierwszej_konwersji, z sufiksu tabeli (strefa usługi GA4)
 	ARRAY_AGG(e.data_zdarzenia ORDER BY e.czas_zdarzenia LIMIT 1)[OFFSET(0)] AS data_pierwszej_konwersji
 
 FROM {{ ref('int_ab__ekspozycje') }} AS x

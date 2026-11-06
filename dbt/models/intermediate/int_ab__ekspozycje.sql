@@ -4,7 +4,6 @@
 	testy z seeda naraz — okno i eventy ekspozycji biorą się z wiersza testu, nie z DECLARE.
 #}
 WITH zdarzenia_testow AS (
-	-- slot + okno testu wskazują jeden przebieg: okna testów w tym samym slocie się nie nakładają
 	SELECT
 		t.id_testu,
 		t.slot,
@@ -22,7 +21,6 @@ WITH zdarzenia_testow AS (
 ),
 
 pierwsza_ekspozycja AS (
-	-- STRUCT w ARRAY_AGG: czas, dzień i wariant z TEGO SAMEGO eventu, bez osobnego MIN i joina
 	SELECT
 		id_testu,
 		slot,
@@ -37,7 +35,6 @@ pierwsza_ekspozycja AS (
 	GROUP BY id_testu, slot, id_uzytkownika
 )
 
--- użytkownik z wariantem tylko na eventach spoza zdarzenia_ekspozycji nie wchodzi do testu
 SELECT
 	id_testu,
 	slot,

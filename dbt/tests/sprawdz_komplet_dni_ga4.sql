@@ -31,7 +31,6 @@ SELECT
 	dzien AS brakujacy_dzien
 
 FROM testy AS t
--- test, który jeszcze nie ma dnia starszego niż 3 dni, daje pustą tablicę i nic nie sprawdza
 CROSS JOIN UNNEST(GENERATE_DATE_ARRAY(t.start_testu, t.koniec_sprawdzania)) AS dzien
 LEFT JOIN dni_eksportu AS d
 	ON d.dzien_eksportu = dzien

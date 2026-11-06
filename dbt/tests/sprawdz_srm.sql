@@ -10,7 +10,6 @@
 	Zakłada równy podział ruchu między warianty, jak wszystkie tagi z gtm/.
 #}
 {{ config(severity='warn') }}
-	{# warn, nie error: SRM unieważnia wynik, ale o szukaniu błędu w tagu decyduje człowiek — build się kończy, wiersze wyniku pokazują parę do sprawdzenia #}
 
 WITH pary AS (
 	SELECT

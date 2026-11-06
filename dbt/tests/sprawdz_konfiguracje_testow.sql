@@ -7,7 +7,6 @@
 WITH testy AS (
 	SELECT
 		*,
-		-- poprzedni test w tym samym slocie: jego okno musi się skończyć przed startem tego
 		LAG(koniec_testu) OVER (PARTITION BY slot ORDER BY start_testu) AS poprzedni_koniec_w_slocie
 
 	FROM {{ ref('stg_seeds__rejestr_testow') }}
@@ -26,15 +25,11 @@ FROM testy,
 			'koniec_testu musi być niedzielą po start_testu: pełne tygodnie', NULL),
 		IF(wariant_kontrolny NOT IN UNNEST(warianty), 'wariant_kontrolny musi być na liście warianty', NULL),
 		IF(ARRAY_LENGTH(warianty) < 2, 'warianty musi mieć co najmniej dwa warianty', NULL),
-		-- pusta komórka daje NULL, a IN UNNEST(NULL) nigdy nie jest prawdą: zero ekspozycji bez błędu
 		IF(IFNULL(ARRAY_LENGTH(zdarzenia_ekspozycji), 0) = 0, 'zdarzenia_ekspozycji nie może być puste', NULL),
 		IF(start_testu < DATE '{{ var("ga4_data_startu") }}',
 			'start_testu przed ga4_data_startu: staging nie ma tych dni', NULL),
-		-- nakładające się okna w jednym slocie: event z parametrem slotu pasowałby do dwóch testów
 		IF(start_testu <= poprzedni_koniec_w_slocie,
 			'okno nakłada się na poprzedni test w tym slocie', NULL),
-		-- ciasteczko trzyma sam wariant i żyje DAYS = 60 dni od losowania (gtm/), a ostatnie losowanie
-		-- bywa w dniu końca testu; wcześniejszy start przeniósłby stary podział do nowego testu
 		IF(start_testu > poprzedni_koniec_w_slocie
 			AND DATE_DIFF(start_testu, poprzedni_koniec_w_slocie, DAY) <= 60,
 			'slot wraca przed wygaśnięciem ciasteczek poprzedniego testu: start musi być > 60 dni po jego końcu', NULL)

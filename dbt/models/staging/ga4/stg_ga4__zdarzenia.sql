@@ -19,20 +19,13 @@
 	Po podstawieniu filtr przyrostowy to _TABLE_SUFFIX >= '20261102', pełny rebuild: >= '20260824'.
 #}
 {%- set dni_wstecz = 3 -%}
-	{# GA4 dopisuje do dziennej tabeli jeszcze do 72 h #}
 
 {{ config(materialized='incremental') }}
-	{# tabela dopisywana przyrostowo, nie przeliczana od zera #}
 {{ config(incremental_strategy='insert_overwrite') }}
-	{# podmienia całe partycje-dni; merge odpada, bo eksport GA4 nie ma klucza gwarantującego unikalność zdarzenia — powody w README #}
 {{ config(partition_by={"field": "data_zdarzenia", "data_type": "date", "granularity": "day"}) }}
-	{# partycja = dzień z kolumny data_zdarzenia: jednostka nadpisywania i filtr ograniczający skan #}
 
 WITH zrodlo AS (
-	-- nazwy kolumn GA4 (event_date, user_pseudo_id…) zostają tylko tutaj, dalej polskie
 	SELECT
-		-- data z kolumny event_date, nie z _TABLE_SUFFIX: w tabelach dziennych to ta sama data, a pod
-		-- --empty (CI przed unit testami) dbt owija źródło w podzapytanie bez pseudokolumn
 		PARSE_DATE('%Y%m%d', event_date) AS data_zdarzenia,
 		TIMESTAMP_MICROS(event_timestamp) AS czas_zdarzenia,
 		user_pseudo_id AS id_uzytkownika,
@@ -40,15 +33,10 @@ WITH zrodlo AS (
 		event_params AS parametry
 
 	FROM {{ source('ga4', 'zdarzenia') }}
-	-- Consent Mode bez zgody na analytics_storage wysyła eventy bez user_pseudo_id; bez filtra
-	-- wszyscy tacy użytkownicy zlewają się w jednego z wariantem i zakupami wielu osób
 	WHERE user_pseudo_id IS NOT NULL
 	{%- if not flags.EMPTY %}
-		-- filtry na _TABLE_SUFFIX ze stałymi ograniczają, które tabele dzienne BigQuery w ogóle czyta;
-		-- 8 cyfr odcina events_intraday_*
 		AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
 		{%- if is_incremental() %}
-		-- pusta tabela daje _dbt_max_partition = NULL; bez COALESCE filtr nie przepuściłby nic, już na zawsze
 		AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', COALESCE(
 			DATE_SUB(_dbt_max_partition, INTERVAL {{ dni_wstecz }} DAY), DATE '{{ var("ga4_data_startu") }}'))
 		{%- else %}
@@ -58,11 +46,6 @@ WITH zrodlo AS (
 ),
 
 testy_zdarzen AS (
-	-- Para (test, wariant) z eventu. Testy w różnych slotach trwają równolegle, więc jeden event
-	-- może nieść kilka par:
-	-- - ab_assign przypisuje do jednego testu: para z ab_test/ab_variant, a parametry slotów
-	--   (doklejane do każdego eventu przez Ustawienia zdarzeń) należą tu do INNYCH testów;
-	-- - pozostałe eventy: każdy parametr o nazwie slotu (ab1…ab10) z wariantem jako wartością.
 	SELECT
 		data_zdarzenia,
 		czas_zdarzenia,
@@ -82,8 +65,6 @@ testy_zdarzen AS (
 				FROM UNNEST(parametry)
 				WHERE REGEXP_CONTAINS(key, r'^ab\d+$')
 					AND value.string_value IS NOT NULL
-					-- zmienna GTM „Własny plik cookie” wysyła surową wartość ciasteczka, także 'out'
-					-- z tagu 03 (użytkownik poza testem) — to nie wariant, więc nie wchodzi do analizy
 					AND value.string_value != 'out'
 			)
 		) AS testy
@@ -91,8 +72,6 @@ testy_zdarzen AS (
 	FROM zrodlo
 )
 
--- Ziarno: event × test. Event bez testu zostaje jednym wierszem z NULL-ami tylko wtedy,
--- gdy jest konwersją — int_ab__konwersje bierze wariant z ekspozycji, nie z zakupu.
 SELECT
 	e.data_zdarzenia,
 	e.czas_zdarzenia,
