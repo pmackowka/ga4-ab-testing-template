@@ -13,7 +13,6 @@ warianty_seeda AS (
 		t.id_testu,
 		wariant
 
-	-- CROSS JOIN UNNEST: jeden wiersz testu z tablicą [v0, v1] → dwa wiersze, po jednym na wariant
 	FROM testy AS t
 	CROSS JOIN UNNEST(t.warianty) AS wariant
 ),
@@ -24,13 +23,11 @@ zaobserwowane AS (
 	SELECT
 		x.id_testu,
 		x.wariant,
-		-- COUNTIF(warunek) = liczba wierszy, dla których warunek jest true; kilka liczników w jednym GROUP BY
 		COUNTIF(x.liczba_wariantow = 1) AS uzytkownicy,
 		COUNTIF(x.liczba_wariantow = 1 AND c.id_uzytkownika IS NOT NULL) AS konwertujacy,
 		COUNTIF(x.liczba_wariantow > 1) AS wykluczeni_mieszani
 
 	FROM {{ ref('int_ab__ekspozycje') }} AS x
-	-- LEFT: użytkownik bez konwersji zostaje, z c.id_uzytkownika = NULL — po tym COUNTIF go rozróżnia
 	LEFT JOIN {{ ref('int_ab__konwersje') }} AS c
 		USING (id_testu, id_uzytkownika)
 	GROUP BY x.id_testu, x.wariant
@@ -43,15 +40,11 @@ SELECT
 	wariant = t.wariant_kontrolny AS czy_kontrola,
 	IF(wariant = t.wariant_kontrolny, 'A (kontrola)', CONCAT('B (wariant ', wariant, ')'))
 		AS pole_kalkulatora,
-	-- wariant z seeda bez danych nie ma wiersza w zaobserwowane → po FULL JOIN NULL; IFNULL robi z niego 0
 	IFNULL(o.uzytkownicy, 0) AS uzytkownicy,
 	IFNULL(o.konwertujacy, 0) AS konwertujacy,
 	IFNULL(o.wykluczeni_mieszani, 0) AS wykluczeni_mieszani,
 	t.czy_koncowy
 
--- FULL JOIN zostawia wiersze z obu stron: wariant tylko w seedzie (zera) i wariant tylko w danych
--- (spoza seeda — złapie go test wariant_w_seedzie). Kolumny z USING (id_testu, wariant) są wtedy
--- wypełnione z tej strony, która ma wiersz, dlatego SELECT używa ich bez aliasu
 FROM warianty_seeda
 FULL JOIN zaobserwowane AS o
 	USING (id_testu, wariant)

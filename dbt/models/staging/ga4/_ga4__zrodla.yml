@@ -1,13 +1,10 @@
 version: 2
-  # wersja formatu plików YAML z właściwościami (models:, sources:, seeds:) — stała wartość
 
 sources:
   - name: ga4
     description: Eksport GA4 do BigQuery, jedna tabela na dzień (events_YYYYMMDD).
     database: "{{ var('ga4_projekt') }}"
-      # po podstawieniu z vars w dbt_project.yml: twoj-projekt (projekt GCP)
     schema: "{{ var('ga4_zbior_danych') }}"
-      # po podstawieniu: analytics_123456789 (dataset eksportu GA4)
     tables:
       - name: zdarzenia
         # Wildcard: dzień wybiera _TABLE_SUFFIX. Pasuje też do events_intraday_*, dlatego

@@ -10,21 +10,19 @@
 	Zmiana logiki tego pliku wymaga --full-refresh: przebieg przyrostowy nadpisałby tylko ostatnie
 	dni i zostawił w tabeli mieszankę starej i nowej logiki, bez błędu.
 
-	Jinja w tym pliku — dbt najpierw renderuje Jinja do czystego SQL (wynik: target/compiled/…),
-	dopiero ten SQL idzie do BigQuery:
-	- { # … # } komentarz Jinja (tu ze spacjami, bo prawdziwe # } zamknęłoby ten komentarz): znika
-	  przy kompilacji; -- to komentarz SQL i zostaje w skompilowanym kodzie
-	- {{ … }} wstawia wartość do SQL, np. nazwę tabeli z source() albo liczbę z dni_wstecz
-	- {% … %} instrukcja (set, if) — decyduje, jaki SQL powstanie, sama niczego nie wstawia
-	- minus przy nawiasie ({%- albo -%}) usuwa białe znaki i entery z tej strony, żeby
-	  skompilowany SQL nie miał pustych linii po instrukcjach
-	Uwaga: w komentarzu -- Jinja nadal działa, więc nawiasy klamrowe opisuj tylko w komentarzu Jinja.
+	Co jest w zmiennych (przykładowe wartości):
+	- dni_wstecz = 3
+	- var("ga4_data_startu") = '2026-08-24' — z vars w dbt_project.yml
+	- _dbt_max_partition = DATE '2026-11-05' — najnowszy dzień w tabeli; NULL, gdy tabela jest pusta
+	- flags.EMPTY = false w zwykłym buildzie, true przy dbt build --empty (CI)
+	- is_incremental() = false przy pierwszym buildzie i --full-refresh, true w kolejnych przebiegach
+	Po podstawieniu filtr przyrostowy to _TABLE_SUFFIX >= '20261102', pełny rebuild: >= '20260824'.
 #}
 {%- set dni_wstecz = 3 -%}
-	{# zmienna Jinja, nie SQL: niżej {{ dni_wstecz }} wstawia w kod liczbę 3; GA4 dopisuje do dziennej tabeli jeszcze do 72 h #}
+	{# GA4 dopisuje do dziennej tabeli jeszcze do 72 h #}
 
 {{ config(materialized='incremental') }}
-	{# config() w pliku modelu wygrywa z +materialized: view z dbt_project.yml; tabela dopisywana przyrostowo, nie przeliczana od zera #}
+	{# tabela dopisywana przyrostowo, nie przeliczana od zera #}
 {{ config(incremental_strategy='insert_overwrite') }}
 	{# podmienia całe partycje-dni; merge odpada, bo eksport GA4 nie ma klucza gwarantującego unikalność zdarzenia — powody w README #}
 {{ config(partition_by={"field": "data_zdarzenia", "data_type": "date", "granularity": "day"}) }}
@@ -42,56 +40,19 @@ WITH zrodlo AS (
 		event_params AS parametry
 
 	FROM {{ source('ga4', 'zdarzenia') }}
-		{#
-			source('ga4', 'zdarzenia') = tabela z _ga4__zrodla.yml, po kompilacji
-			`twoj-projekt`.`analytics_123456789`.`events_*`. Zamiast wpisanej nazwy, bo z source()
-			dbt rysuje lineage (dbt docs) i bierze projekt i dataset z vars — jedno miejsce do podmiany.
-		#}
 	-- Consent Mode bez zgody na analytics_storage wysyła eventy bez user_pseudo_id; bez filtra
 	-- wszyscy tacy użytkownicy zlewają się w jednego z wariantem i zakupami wielu osób
 	WHERE user_pseudo_id IS NOT NULL
-	{#
-		flags.EMPTY = true, gdy dbt biegnie z flagą --empty (CI buduje modele bez danych, żeby unit
-		testy znały typy kolumn). Wtedy dbt zamienia source() na podzapytanie
-		(select * from `…events_*` where false limit 0) — zero wierszy, zero kosztu. Pseudokolumna
-		_TABLE_SUFFIX istnieje tylko bezpośrednio na tabeli wildcard, nie w podzapytaniu, więc filtry
-		niżej dałyby błąd „Unrecognized name: _TABLE_SUFFIX”. Przy --empty cały blok do
-		{%- endif %} wypada z SQL; w zwykłym buildzie trafia do niego w całości.
-	#}
 	{%- if not flags.EMPTY %}
 		-- filtry na _TABLE_SUFFIX ze stałymi ograniczają, które tabele dzienne BigQuery w ogóle czyta;
 		-- 8 cyfr odcina events_intraday_*
 		AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
-			{# _TABLE_SUFFIX = część nazwy po events_: '20261105' przechodzi, 'intraday_20261106' odpada #}
-		{#
-			is_incremental() = true tylko wtedy, gdy tabela modelu już istnieje w BigQuery, model ma
-			materialized='incremental' i przebieg jest bez --full-refresh. Pierwszy build albo
-			--full-refresh → false → gałąź {%- else %}: czytaj wszystko od ga4_data_startu.
-			Kolejne przebiegi → true → czytaj tylko ostatnie dni.
-
-			_dbt_max_partition to nie kolumna, tylko zmienna skryptu BigQuery: dbt-bigquery widzi tę
-			nazwę w SQL i dokleja przed zapytaniem DECLARE _dbt_max_partition DATE DEFAULT
-			(SELECT MAX(data_zdarzenia) FROM <ta tabela>) — najnowszy dzień, który już jest w tabeli.
-			var("ga4_data_startu") wstawia tekst z vars w dbt_project.yml, stąd DATE '…' wokół.
-		#}
 		{%- if is_incremental() %}
 		-- pusta tabela daje _dbt_max_partition = NULL; bez COALESCE filtr nie przepuściłby nic, już na zawsze
 		AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', COALESCE(
 			DATE_SUB(_dbt_max_partition, INTERVAL {{ dni_wstecz }} DAY), DATE '{{ var("ga4_data_startu") }}'))
-		{#
-			Przykład z podstawionymi wartościami: dni_wstecz = 3, ga4_data_startu = '2026-08-24',
-			najnowsza partycja w tabeli = 2026-11-05. Po kompilacji Jinja:
-				AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', COALESCE(
-					DATE_SUB(_dbt_max_partition, INTERVAL 3 DAY), DATE '2026-08-24'))
-			W BigQuery: _dbt_max_partition = DATE '2026-11-05' → DATE_SUB daje 2026-11-02 → COALESCE
-			zostawia 2026-11-02 (nie NULL) → FORMAT_DATE daje '20261102'. Czyli:
-				AND _TABLE_SUFFIX >= '20261102'   — czyta events_20261102 … events_20261105 i nowsze
-			Pusta tabela: _dbt_max_partition = NULL → DATE_SUB daje NULL → COALESCE bierze 2026-08-24
-			→ _TABLE_SUFFIX >= '20260824'.
-		#}
 		{%- else %}
 		AND _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE '{{ var("ga4_data_startu") }}')
-			{# po kompilacji: FORMAT_DATE('%Y%m%d', DATE '2026-08-24') → _TABLE_SUFFIX >= '20260824' #}
 		{%- endif %}
 	{%- endif %}
 ),
@@ -107,16 +68,10 @@ testy_zdarzen AS (
 		czas_zdarzenia,
 		id_uzytkownika,
 		nazwa_zdarzenia,
-		-- obie gałęzie IF muszą mieć ten sam typ: ARRAY<STRUCT<slot, wariant>>, czyli tablicę par;
-		-- dlatego ab_assign też daje tablicę, choć zawsze z jedną parą
 		IF(
 			nazwa_zdarzenia = 'ab_assign',
-			-- ARRAY(SELECT …) zbiera wiersze podzapytania w tablicę; SELECT AS STRUCT skleja kolumny
-			-- jednego wiersza w jedną wartość STRUCT (rekord z polami slot i wariant)
 			ARRAY(
 				SELECT AS STRUCT
-					-- event_params to tablica par key/value: UNNEST rozwija ją w wiersze, WHERE key wybiera
-					-- jeden parametr, value.string_value to jego wartość tekstowa (liczby są w int_value)
 					(SELECT value.string_value FROM UNNEST(parametry) WHERE key = 'ab_test') AS slot,
 					(SELECT value.string_value FROM UNNEST(parametry) WHERE key = 'ab_variant') AS wariant
 			),
@@ -147,11 +102,8 @@ SELECT
 	t.wariant
 
 FROM testy_zdarzen AS e
--- JOIN z UNNEST tablicy z tego samego wiersza: event z 2 parami daje 2 wiersze. LEFT, nie zwykły
--- JOIN: event z pustą tablicą (purchase bez slotu) zostaje jednym wierszem z t.slot i t.wariant = NULL
 LEFT JOIN UNNEST(e.testy) AS t
 WHERE t.wariant IS NOT NULL
-	-- ref() wskazuje inny model dbt; z ref() dbt ustala kolejność budowy (seed → jego staging → ten model)
 	OR e.nazwa_zdarzenia IN (SELECT zdarzenie_konwersji FROM {{ ref('stg_seeds__rejestr_testow') }})
 
 {#

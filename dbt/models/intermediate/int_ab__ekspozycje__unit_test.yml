@@ -19,9 +19,6 @@ unit_tests:
     model: int_ab__ekspozycje
     given:
       - input: ref('stg_seeds__rejestr_testow')
-        # format: sql = wiersze jako zapytanie SELECT zamiast listy słowników (domyślne format: dict).
-        # Potrzebne, bo kolumny warianty i zdarzenia_ekspozycji to ARRAY — w dict nie da się ich zapisać.
-        # W tym formacie trzeba podać WSZYSTKIE kolumny modelu wejściowego, z typami.
         format: sql
         rows: |
           SELECT 'ab2_20260907' AS id_testu, 'ab2' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
