@@ -6,7 +6,8 @@
 */
 
 -- poniedziałek: początek pełnych tygodni PRZED testem (bez bieżącego tygodnia);
--- przykład: 5 tygodni 2026-08-03 – 2026-09-06 przed testem startującym 2026-09-07
+-- przykład: 5 tygodni 2026-08-03 – 2026-09-06 przed testem startującym 2026-09-07;
+-- okno może obejmować test A/A (ab1 od 2026-08-24): obie grupy widzą obecną stronę
 DECLARE window_start DATE DEFAULT DATE '2026-08-03';
 DECLARE max_weeks INT64 DEFAULT 5;  -- najwyżej 8: tyle co limit w kalkulatorze
 DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- pierwszy dzień testu

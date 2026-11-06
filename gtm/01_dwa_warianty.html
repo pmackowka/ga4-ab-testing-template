@@ -4,6 +4,9 @@
  GTM → Tag → Custom HTML. Wyzwalacz: strona testowa (np. karta produktu),
  dopiero po zgodzie na ciasteczka. Losuje raz, zapisuje wariant w first-party
  cookie i wysyła ab_assign do dataLayer — z niego liczy sql/03.
+ Jeden tag na slot: test A/A to TEST = 'ab1', kolejny test na tej stronie to kopia
+ tagu z TEST = 'ab2' — nie przełączaj v1 w tagu A/A, bo ciasteczka ab1 (60 dni)
+ przeniosłyby podział z A/A, a ab2 nie dostałby ekspozycji.
 */
 (function () {
   var TEST = 'ab1';             // slot ab1–ab10 = nazwa ciasteczka i parametru GA4 = test_name w sql/03 i slot w seedzie

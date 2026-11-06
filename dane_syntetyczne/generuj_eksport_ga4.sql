@@ -211,8 +211,7 @@ END WHILE;
  Oczekiwany fct_wyniki_testow_ab po dbt build na danych 2026-08-24 – 2026-11-04 (domyślne
  parametry, bez usterek; liczby z symulacji tej samej logiki — FARM_FINGERPRINT da inne, ale
  bliskie): CR wariantu / CR kontroli ≈ 1 + efekt, rozrzut ok. ±5 pp w ab2 i ab3, większy w ab4 i ab5,
- które dopiero ruszyły. ab1 (A/A): CR v1 ≈ CR v0, wynik nieistotny. Liczby ab2–ab3 policzono
- przed dodaniem ab1 — powracający z okna A/A mogą je lekko przesunąć.
+ które dopiero ruszyły. ab1 (A/A): CR v1 ≈ CR v0, wynik nieistotny.
  id_testu     | wariant | uzytkownicy | konwertujacy | CR     | prawda
  ab2_20260907 | v0      | 116829      | 4056         | 3,47%  | kontrola
  ab2_20260907 | v1      | 116854      | 4655         | 3,98%  | +10%

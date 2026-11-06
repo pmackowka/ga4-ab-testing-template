@@ -15,7 +15,7 @@ models:
             combination_of_columns: [id_testu, wariant]
     columns:
       - name: id_testu
-        description: Klucz testu — slot i przebieg, np. ab1_20260907.
+        description: Klucz testu — slot i przebieg, np. ab2_20260907.
         data_tests:
           - not_null
       - name: slot

@@ -32,14 +32,14 @@ unit_tests:
       #    i kiedy test się kończy (zakup po końcu testu nie liczyłby się).
       - input: ref('stg_seeds__rejestr_testow')
         rows:
-          - {id_testu: ab1_20260907, zdarzenie_konwersji: purchase, koniec_testu: 2026-10-04}
+          - {id_testu: ab2_20260907, zdarzenie_konwersji: purchase, koniec_testu: 2026-10-04}
 
       # 2) Ekspozycje — wynik poprzedniego modelu: kto i kiedy pierwszy raz zobaczył test.
       #    Obaj użytkownicy zobaczyli go 10 września o 12:00.
       - input: ref('int_ab__ekspozycje')
         rows:
-          - {id_testu: ab1_20260907, id_uzytkownika: u1, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
-          - {id_testu: ab1_20260907, id_uzytkownika: u2, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
+          - {id_testu: ab2_20260907, id_uzytkownika: u1, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
+          - {id_testu: ab2_20260907, id_uzytkownika: u2, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
 
       # 3) Zdarzenia z GA4 (staging). Każdy użytkownik kupił raz:
       #    u1 o 11:00 — godzinę PRZED ekspozycją, więc model ma go pominąć,
@@ -53,7 +53,7 @@ unit_tests:
     # drugi wiersz (u1) — o jedną konwertującą osobę za dużo — i test by padł.
     expect:
       rows:
-        - {id_testu: ab1_20260907, id_uzytkownika: u2, czas_pierwszej_konwersji: '2026-09-10 13:00:00', data_pierwszej_konwersji: 2026-09-10}
+        - {id_testu: ab2_20260907, id_uzytkownika: u2, czas_pierwszej_konwersji: '2026-09-10 13:00:00', data_pierwszej_konwersji: 2026-09-10}
 
   # Drugi test tej samej logiki, z tą samą budową. Reguła: zakup po koniec_testu się nie liczy —
   # użytkownik kupił już poza testem, więc wariant nie może dostać za to zasługi.
@@ -65,11 +65,11 @@ unit_tests:
     given:
       - input: ref('stg_seeds__rejestr_testow')
         rows:
-          - {id_testu: ab1_20260907, zdarzenie_konwersji: purchase, koniec_testu: 2026-10-04}
+          - {id_testu: ab2_20260907, zdarzenie_konwersji: purchase, koniec_testu: 2026-10-04}
       - input: ref('int_ab__ekspozycje')
         rows:
-          - {id_testu: ab1_20260907, id_uzytkownika: u1, czas_pierwszej_ekspozycji: '2026-10-04 12:00:00'}
-          - {id_testu: ab1_20260907, id_uzytkownika: u2, czas_pierwszej_ekspozycji: '2026-10-04 12:00:00'}
+          - {id_testu: ab2_20260907, id_uzytkownika: u1, czas_pierwszej_ekspozycji: '2026-10-04 12:00:00'}
+          - {id_testu: ab2_20260907, id_uzytkownika: u2, czas_pierwszej_ekspozycji: '2026-10-04 12:00:00'}
       - input: ref('stg_ga4__zdarzenia')
         rows:
           - {id_uzytkownika: u1, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-10-05 09:00:00', data_zdarzenia: 2026-10-05}
@@ -77,4 +77,4 @@ unit_tests:
     # bez filtra na koniec_testu pojawiłby się też u1
     expect:
       rows:
-        - {id_testu: ab1_20260907, id_uzytkownika: u2, czas_pierwszej_konwersji: '2026-10-04 13:00:00', data_pierwszej_konwersji: 2026-10-04}
+        - {id_testu: ab2_20260907, id_uzytkownika: u2, czas_pierwszej_konwersji: '2026-10-04 13:00:00', data_pierwszej_konwersji: 2026-10-04}

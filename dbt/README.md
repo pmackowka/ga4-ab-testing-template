@@ -226,6 +226,8 @@ Wymaga projektu z billingiem: [sandbox BigQuery](https://cloud.google.com/bigque
 
 1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery z Więcej → Ustawienia zapytania → lokalizacja danych = EU: skrypt czyta zbiór tylko przez `EXECUTE IMMEDIATE`, więc BigQuery nie wywnioskuje regionu i może uruchomić zadanie w US. Pierwszy raz generuje dni od 2026-08-24 do wczoraj.
 2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'`.
+Zbiór wygenerowany wcześniej od 2026-09-07 nie ma dni testu A/A: uruchom skrypt raz z `data_od = '2026-08-24'` (podmienia dni od niego), potem `dbt build` z `--full-refresh` — bez tego `sprawdz_komplet_dni_ga4` zgłosi 14 brakujących dni.
+
 3. Przyrost: przed każdą sesją uruchom skrypt bez zmian — sam nadrobi dni od ostatniej tabeli do wczoraj, także po kilku dniach przerwy — i `dbt build` z tymi samymi `--vars`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
 4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` z `--vars` — liczby z tych dni się zmieniają, starsze nie.
 
