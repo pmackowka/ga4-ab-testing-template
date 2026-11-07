@@ -1,84 +1,72 @@
 /*
  GENERATOR · syntetyczny eksport GA4 dla projektu dbt
- Tworzy w osobnym datasecie tabele dzienne events_RRRRMMDD w schemacie eksportu GA4 — tylko
- kolumny, które czyta stg_ga4__zdarzenia — ze scenariuszem testów z dbt/seeds/rejestr_testow.csv.
- Scenariusz: wizyta = view_item; część przechodzi do begin_checkout, z niego część do purchase
- z transaction_id i purchase_revenue (wartość zamówienia niezależna od wariantu: testy zmieniają
- CR, a przychód na użytkownika zmienia się razem z nim).
- Testy na karcie produktu (ab1–ab4, ab1 = A/A) zmieniają przejście do checkoutu, test checkoutu (ab5)
- przejście do zakupu — efekt w DECLARE testy to względna zmiana CR wariantu wobec kontroli.
- Losowość z FARM_FINGERPRINT, nie RAND(): ten sam dzień generuje się zawsze tak samo, więc
- kolejne dni można dogenerować osobno. Plan wizyt użytkownika (pierwsza + do 4 powrotów w 28 dni)
- też wynika z hasha, więc każdy dzień zna wcześniejsze wizyty: tag losuje (ab_assign) na pierwszej
- wizycie w oknie testu, a powracający niesie wariant z ciasteczka.
- Utrata ciasteczek, jak w Safari po 7 dniach: udzial_utraty_ciasteczka_testu — tag losuje ponownie
- (ponownie_przydzieleni; przy n wariantach (n−1)/n z nich w wykluczeni_mieszani); udzial_utraty_ga — nowy user_pseudo_id
- z ciasteczkiem testu, bez ab_assign (bez_przydzialu); u kogo oba terminy wypadną na tę samą wizytę,
- ten wraca jako nowy użytkownik z nowym losowaniem — żadna kolumna go nie pokaże.
- ziarno zmienia godziny wizyt i zakupy, nie wejścia do checkoutu: od wejść z wcześniejszych dni
- zależy przydział testu checkoutu, a te dni przy podmianie od data_od zostają bez zmian.
- Uruchomienie bez zmian nadrabia: generuje dni od ostatniej tabeli w zbiorze do wczoraj, także
- po kilku dniach przerwy; gdy wszystko jest, nic nie robi. Podane data_od podmienia dni od niego.
- Uruchom z lokalizacją danych EU (Ustawienia zapytania): zbiór jest czytany tylko przez EXECUTE
- IMMEDIATE, więc BigQuery nie wywnioskuje regionu i może uruchomić zadanie w US.
+ Tworzy tabele dzienne events_RRRRMMDD (tylko kolumny czytane przez stg_ga4__zdarzenia)
+ ze scenariuszem testów z dbt/seeds/rejestr_testow.csv. Wizyta = view_item → begin_checkout
+ → purchase. Losowość z FARM_FINGERPRINT: ten sam dzień generuje się zawsze tak samo.
+ Uruchom z lokalizacją danych EU (Ustawienia zapytania). Bez zmian nadrabia dni od ostatniej
+ tabeli do wczoraj; podane data_od podmienia dni od niego.
+
+ Parametry:
+ - zbior_docelowy = vars.ga4_zbior_danych, data_startu = vars.ga4_data_startu w dbt
+ - data_od: NULL = dzień po ostatniej tabeli events_ w zbiorze
+ - udzial_powracajacych < 0,8: wizyty osób z poprzednich 28 dni
+ - cr_koszyka: view_item → begin_checkout, cr_zakupu: begin_checkout → purchase
+ - koszyk_mediana, koszyk_sigma: wartość zamówienia (zł), rozkład logarytmiczno-normalny
+ - udzial_utraty_ciasteczka_testu: tag losuje ponownie 7 dni po przydziale
+ - udzial_utraty_ga: nowy user_pseudo_id 7 dni po pierwszej wizycie, ciasteczko testu zostaje
+ - ziarno: inne zachowanie tych samych użytkowników
+ - testy: kopia seeda + efekt wariantu (względna zmiana CR); kontrola pierwsza, efekt 0; ab1 = A/A;
+   etap 'karta' zmienia przejście do checkoutu, 'checkout' przejście do zakupu
+ - usterka_srm_slot → sprawdz_srm (warn); usterka_brak_dnia → sprawdz_komplet_dni_ga4 (error)
 */
 
 DECLARE projekt_docelowy STRING DEFAULT 'twoj-projekt';
-DECLARE zbior_docelowy STRING DEFAULT 'ga4_syntetyczny';    -- = vars.ga4_zbior_danych w dbt
-DECLARE data_startu DATE DEFAULT DATE '2026-08-24';         -- = vars.ga4_data_startu; pierwszy dzień pustego zbioru
-DECLARE data_od DATE DEFAULT NULL;                          -- NULL = dzień po ostatniej tabeli events_ w zbiorze
+DECLARE zbior_docelowy STRING DEFAULT 'ga4_syntetyczny';
+DECLARE data_startu DATE DEFAULT DATE '2026-08-24';
+DECLARE data_od DATE DEFAULT NULL;
 DECLARE data_do DATE DEFAULT DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY);
 DECLARE wizyty_dziennie INT64 DEFAULT 10000;
-DECLARE udzial_powracajacych FLOAT64 DEFAULT 0.3;           -- wizyty osób z poprzednich 28 dni; faktycznie nieco mniej, bo dwa powroty tego samego dnia to jedna wizyta
-DECLARE cr_koszyka FLOAT64 DEFAULT 0.10;                    -- view_item → begin_checkout
-DECLARE cr_zakupu FLOAT64 DEFAULT 0.30;                     -- begin_checkout → purchase
-DECLARE koszyk_mediana FLOAT64 DEFAULT 200;                 -- wartość zamówienia (zł): rozkład logarytmiczno-normalny,
-DECLARE koszyk_sigma FLOAT64 DEFAULT 0.8;                   -- mediana i rozrzut; 0,8 daje współczynnik zmienności ok. 1
-DECLARE udzial_utraty_ciasteczka_testu FLOAT64 DEFAULT 0.10; -- par użytkownik × test: ciasteczko testu znika po 7 dniach
-DECLARE udzial_utraty_ga FLOAT64 DEFAULT 0.10;              -- użytkowników: _ga znika po 7 dniach, ciasteczko testu zostaje
--- inna wartość = inne zachowanie tych samych użytkowników, jak ponowne przetworzenie dnia przez GA4
+DECLARE udzial_powracajacych FLOAT64 DEFAULT 0.3;
+DECLARE cr_koszyka FLOAT64 DEFAULT 0.10;
+DECLARE cr_zakupu FLOAT64 DEFAULT 0.30;
+DECLARE koszyk_mediana FLOAT64 DEFAULT 200;
+DECLARE koszyk_sigma FLOAT64 DEFAULT 0.8;
+DECLARE udzial_utraty_ciasteczka_testu FLOAT64 DEFAULT 0.10;
+DECLARE udzial_utraty_ga FLOAT64 DEFAULT 0.10;
 DECLARE ziarno STRING DEFAULT 'a';
--- kopia seeda + efekt każdego wariantu; kontrola pierwsza na liście, efekt 0
 DECLARE testy ARRAY<STRUCT<slot STRING, start_testu DATE, koniec_testu DATE, warianty ARRAY<STRING>,
   efekty ARRAY<FLOAT64>, etap STRING>> DEFAULT [
-  ('ab1', DATE '2026-08-24', DATE '2026-09-06', ['v0', 'v1'], [0.0, 0.0], 'karta'),   -- test A/A: v1 = kontrola
+  ('ab1', DATE '2026-08-24', DATE '2026-09-06', ['v0', 'v1'], [0.0, 0.0], 'karta'),
   ('ab2', DATE '2026-09-07', DATE '2026-10-04', ['v0', 'v1'], [0.0, 0.10], 'karta'),
   ('ab3', DATE '2026-10-05', DATE '2026-11-01', ['v0', 'v1', 'v2'], [0.0, 0.0, 0.12], 'karta'),
   ('ab4', DATE '2026-11-02', DATE '2026-12-13', ['v0', 'v1'], [0.0, -0.05], 'karta'),
   ('ab5', DATE '2026-11-02', DATE '2026-11-29', ['v0', 'v1'], [0.0, 0.10], 'checkout')
 ];
--- usterki (NULL = wyłączona), każda ma wywołać inny test dbt
-DECLARE usterka_srm_slot STRING DEFAULT NULL;               -- sprawdz_srm (warn)
+DECLARE usterka_srm_slot STRING DEFAULT NULL;
 DECLARE usterka_srm_udzial_kontroli FLOAT64 DEFAULT 0.53;
-DECLARE usterka_brak_dnia DATE DEFAULT NULL;                -- sprawdz_komplet_dni_ga4 (error); wymaga data_od <= ten dzień
+DECLARE usterka_brak_dnia DATE DEFAULT NULL;
 
 DECLARE dzien DATE;
 DECLARE liczba_nowych INT64 DEFAULT CAST(ROUND(wizyty_dziennie * (1 - udzial_powracajacych)) AS INT64);
 
 ASSERT NOT EXISTS (SELECT 1 FROM UNNEST(testy) AS t WHERE ARRAY_LENGTH(t.efekty) != ARRAY_LENGTH(t.warianty))
   AS 'każdy test musi mieć tyle efektów, ile wariantów';
--- szansa każdego z 4 powrotów = udzial_powracajacych / (1 − udzial_powracajacych) / 4; od 0,8 przekracza 1
 ASSERT udzial_powracajacych < 0.8
   AS 'udzial_powracajacych musi być < 0.8';
 
--- liczba z [0, 1) stała dla klucza — zamiennik RAND()
 CREATE TEMP FUNCTION los(klucz STRING) AS (MOD(ABS(FARM_FINGERPRINT(klucz)), 1000000) / 1000000);
--- indeks wariantu z liczby b z [0, 1): kontrola dostaje udzial_kontroli, reszta dzieli się po równo
 CREATE TEMP FUNCTION nr_z_liczby(b FLOAT64, udzial_kontroli FLOAT64, liczba INT64) AS (
   IF(b < udzial_kontroli, 0,
     1 + LEAST(liczba - 2, CAST(FLOOR((b - udzial_kontroli) / (1 - udzial_kontroli) * (liczba - 1)) AS INT64))));
--- wariant = ciasteczko testu: hash użytkownika i testu, po ponownym losowaniu nowy ('|r')
 CREATE TEMP FUNCTION nr_wariantu(id_ga STRING, slot STRING, start_testu DATE, czy_po_ponownym BOOL,
   udzial_kontroli FLOAT64, liczba INT64) AS (
   nr_z_liczby(los(FORMAT('w|%s|%s|%t%s', id_ga, slot, start_testu, IF(czy_po_ponownym, '|r', ''))),
     udzial_kontroli, liczba));
 
--- region jak w profiles.yml: BigQuery nie łączy danych między regionami
 EXECUTE IMMEDIATE FORMAT("CREATE SCHEMA IF NOT EXISTS `%s.%s` OPTIONS (location = 'EU')",
   projekt_docelowy, zbior_docelowy);
 
 IF data_od IS NULL THEN
-  -- tylko metadane zbioru, bez skanu danych; dziura w środku (usterka_brak_dnia) zostaje
   EXECUTE IMMEDIATE FORMAT("""
     SELECT DATE_ADD(MAX(PARSE_DATE('%%Y%%m%%d', SUBSTR(table_name, 8))), INTERVAL 1 DAY)
     FROM `%s.%s.INFORMATION_SCHEMA.TABLES`
@@ -93,12 +81,8 @@ WHILE dzien <= data_do DO
     EXECUTE IMMEDIATE FORMAT('DROP TABLE IF EXISTS `%s.%s.events_%s`',
       projekt_docelowy, zbior_docelowy, FORMAT_DATE('%Y%m%d', dzien));
   ELSE
-    -- wizyty dzisiejszych odwiedzających raz na dzień jako tabela: czytają je dwa CTE niżej, a BigQuery
-    -- nie materializuje CTE, więc bez tego liczyłby hashe planu wizyt kilka razy
     CREATE OR REPLACE TEMP TABLE wizyty_dnia AS
     WITH uzytkownicy AS (
-      -- liczba_nowych nowych użytkowników dziennie; okno 28 dni wstecz = wszyscy, którzy mogą dziś wrócić
-      -- id_ga jak user_pseudo_id w GA4: liczba + znacznik czasu pierwszej wizyty
       SELECT
         f AS dzien_pierwszej_wizyty,
         CONCAT(
@@ -109,8 +93,6 @@ WHILE dzien <= data_do DO
     ),
 
     plan_wizyt AS (
-      -- dni wizyt stałe dla użytkownika: pierwsza + do 4 powrotów w ciągu 28 dni; każdy dzień zna więc
-      -- wcześniejsze wizyty, a z nimi pierwszą wizytę w oknie testu (losowanie tagu, ab_assign)
       SELECT id_ga, dzien_pierwszej_wizyty, dzien_pierwszej_wizyty AS dzien_wizyty
       FROM uzytkownicy
       UNION DISTINCT
@@ -123,8 +105,6 @@ WHILE dzien <= data_do DO
       WHERE los(FORMAT('pow|%s|%d', u.id_ga, j)) < udzial_powracajacych / (1 - udzial_powracajacych) / 4
     )
 
-    -- dzisiejsi odwiedzający z ich wizytami do dziś; _ga znika 7 dni po pierwszej wizycie u części
-    -- użytkowników: od pierwszej wizyty po tym terminie GA4 widzi nowy user_pseudo_id
     SELECT
       *,
       IF(dzien_wizyty >= dzien_utraty_ga,
@@ -161,8 +141,6 @@ WHILE dzien <= data_do DO
     ),
 
     karta_przydzialy AS (
-      -- tag karty losuje na pierwszej wizycie w oknie testu; ciasteczko testu znika 7 dni później u części
-      -- użytkowników i tag losuje ponownie na pierwszej wizycie po tym terminie
       SELECT
         *,
         IF(czy_traci_ciasteczko,
@@ -196,8 +174,6 @@ WHILE dzien <= data_do DO
     ),
 
     koszyki AS (
-      -- przejście do checkoutu na każdej wizycie (też wcześniejszej): test checkoutu losuje dopiero
-      -- na pierwszej wizycie w oknie, na której użytkownik doszedł do checkoutu
       SELECT
         w.*,
         IFNULL(k.karta, []) AS karta,
@@ -245,13 +221,11 @@ WHILE dzien <= data_do DO
     ),
 
     sciezki AS (
-      -- tylko dzisiejsze wizyty; efekty testów aktywnych równolegle mnożą się
       SELECT
         k.*,
         IFNULL(c.checkout, []) AS checkout,
         IFNULL(c.checkout_przydzial, []) AS checkout_przydzial,
         los(FORMAT('%s|z|%s|%t', ziarno, k.id_ga, k.dzien_wizyty)) < cr_zakupu * IFNULL(c.mnoznik_checkout, 1) AS czy_zakup_z_koszyka,
-        -- start wizyty do 23:00 UTC, żeby wszystkie eventy zostały w tym samym dniu
         TIMESTAMP_ADD(TIMESTAMP(dzien), INTERVAL CAST(FLOOR(los(FORMAT('%s|t|%s|%t', ziarno, k.id_ga, dzien)) * 82800) AS INT64) SECOND)
           AS start_wizyty
       FROM koszyki AS k
@@ -261,8 +235,6 @@ WHILE dzien <= data_do DO
     ),
 
     zdarzenia AS (
-      -- ab_assign tylko wtedy, gdy tag losuje (brak ciasteczka testu); na pozostałych wizytach
-      -- użytkownik wchodzi do testu przez parametr slotu na view_item / begin_checkout
       SELECT s.id_uzytkownika, s.start_wizyty AS czas, 'ab_assign' AS nazwa,
         [STRUCT('ab_test' AS klucz, k.klucz AS wartosc), ('ab_variant', k.wartosc)] AS parametry,
         CAST(NULL AS STRING) AS id_transakcji, CAST(NULL AS FLOAT64) AS przychod
@@ -281,8 +253,6 @@ WHILE dzien <= data_do DO
       FROM sciezki
       WHERE czy_koszyk
       UNION ALL
-      -- purchase z parametrami slotów jak każdy event; staging bierze wariant z ekspozycji;
-      -- wartość zamówienia = mediana × e^(sigma × z), z ~ N(0, 1) z dwóch liczb (Box–Muller)
       SELECT id_uzytkownika, TIMESTAMP_ADD(start_wizyty, INTERVAL 300 SECOND), 'purchase',
         ARRAY_CONCAT(karta, checkout),
         CONCAT('T', CAST(MOD(ABS(FARM_FINGERPRINT(FORMAT('%s|tx|%s|%t', ziarno, id_ga, dzien))), 1000000000) AS STRING)),
@@ -293,7 +263,6 @@ WHILE dzien <= data_do DO
       WHERE czy_koszyk AND czy_zakup_z_koszyka
     )
 
-    -- kolumny i typy jak w eksporcie GA4; float_value w eksporcie nieużywane, ale jest w schemacie
     SELECT
       FORMAT_DATE('%Y%m%d', dzien) AS event_date,
       UNIX_MICROS(czas) AS event_timestamp,

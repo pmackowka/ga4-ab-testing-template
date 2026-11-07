@@ -1,11 +1,7 @@
 {#
-	Jeden wiersz na test (id_testu) i eksponowanego użytkownika: pierwsza ekspozycja, jej wariant i dzień
-	oraz liczba różnych wariantów (2+ = ponowne losowanie po utracie cookie). Liczy wszystkie
-	testy z seeda naraz — okno i eventy ekspozycji biorą się z wiersza testu, nie z DECLARE.
-	liczba_przydzialow = eventy ab_assign tego testu o różnym czasie (duplikat eventu w eksporcie to
-	jedno losowanie): tag wysyła ab_assign tylko wtedy, gdy losuje, więc 2+ = ponowne losowanie także
-	w ten sam wariant, a 0 = użytkownik przyszedł z ciasteczkiem testu pod nowym user_pseudo_id
-	(usunięte _ga) albo hit ab_assign zginął (adblock, wyjście ze strony przed wysyłką).
+	Wiersz = test × eksponowany użytkownik: pierwsza ekspozycja, jej wariant i dzień.
+	liczba_wariantow 2+ = ponowne losowanie w inny wariant.
+	liczba_przydzialow = ab_assign o różnym czasie: 2+ = ponowne losowanie, 0 = nowe _ga albo zgubiony hit.
 #}
 WITH zdarzenia_testow AS (
 	SELECT
@@ -55,9 +51,7 @@ FROM pierwsza_ekspozycja
 WHERE fe IS NOT NULL
 
 {#
-	Przykładowy wynik (dane syntetyczne). 3333.0002 zgubił cookie i później dostał v0 — liczba_wariantow
-	= 2, więc w wyniku trafi do wykluczeni_mieszani; 5555.0004 też zgubił cookie, ale wylosował znowu v0
-	— widać go tylko po liczba_przydzialow = 2; 4444.0003 wrócił z ciasteczkiem pod nowym _ga:
+	Przykładowy wynik (dane syntetyczne):
 	id_testu     | slot | id_uzytkownika | wariant | czas_pierwszej_ekspozycji | data_pierwszej_ekspozycji | liczba_wariantow | liczba_przydzialow
 	ab2_20260907 | ab2  | 1234.5678      | v1      | 2026-09-08 10:00:00       | 2026-09-08                | 1                | 1
 	ab2_20260907 | ab2  | 2222.0001      | v0      | 2026-09-09 08:15:00       | 2026-09-09                | 1                | 1

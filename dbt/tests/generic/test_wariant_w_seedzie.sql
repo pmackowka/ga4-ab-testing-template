@@ -1,17 +1,8 @@
 -- GENERIC
 
 {#
-	Test generic: sprawdza, czy DANE są poprawne. Ten plik to definicja (makro: jak sprawdzać),
-	użycie to `data_tests: - wariant_w_seedzie` przy kolumnie w YAML modelu (co sprawdzać). Wbudowane
-	not_null i unique oraz dbt_utils.unique_combination_of_columns nie mają definicji w repo — tylko
-	użycie w YAML. Biegnie w dbt build po modelu (deploy, harmonogram); CI go nie odpala.
-
-	Wariant spoza listy warianty testu w seeds/rejestr_testow.csv = błąd: tag z innymi wartościami albo
-	literówka w zmiennej GTM. Model musi mieć kolumnę id_testu.
-
-	Co jest w zmiennych (przykład: test przy int_ab__ekspozycje.wariant):
-	- model = `twoj-projekt`.`dbt_dev_testy_ab`.`int_ab__ekspozycje`
-	- column_name = wariant
+	Test generic: wiersz = wariant spoza listy warianty w seedzie (zły tag albo literówka w GTM).
+	Użycie: data_tests: - wariant_w_seedzie przy kolumnie modelu z id_testu.
 #}
 {% test wariant_w_seedzie(model, column_name) %}
 
@@ -25,3 +16,9 @@ JOIN {{ ref('stg_seeds__rejestr_testow') }} AS t
 WHERE m.{{ column_name }} NOT IN UNNEST(t.warianty)
 
 {% endtest %}
+
+{#
+	Przykładowy wynik (błąd):
+	id_testu     | wariant
+	ab2_20260907 | V1
+#}

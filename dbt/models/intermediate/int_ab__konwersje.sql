@@ -1,10 +1,6 @@
 {#
-	Jeden wiersz na test (id_testu) i użytkownika, który skonwertował PO pierwszej ekspozycji, w oknie testu.
-	Wiersz = osoba, nie zamówienie: zdublowany purchase (odświeżona strona podziękowania) nie
-	zawyża wyniku. Event konwersji nie musi mieć parametru slotu — wariant jest z ekspozycji.
-	przychod = suma zamówień tej osoby, każde id_transakcji raz: staging ma wiersz na event i slot,
-	więc zakup z parametrami dwóch slotów jest tam dwa razy, a odświeżona strona podziękowania
-	wysyła ten sam zakup ponownie. Zakup bez id_transakcji liczy się raz na event.
+	Wiersz = test × użytkownik z konwersją po pierwszej ekspozycji, w oknie testu.
+	przychod = suma zamówień osoby, każde id_transakcji raz (bez niego: raz na event).
 #}
 WITH zakupy AS (
 	SELECT
@@ -39,7 +35,7 @@ FROM zakupy
 GROUP BY id_testu, id_uzytkownika
 
 {#
-	Przykładowy wynik (dane syntetyczne) — tylko użytkownicy z konwersją, jeden wiersz na osobę i test:
+	Przykładowy wynik (dane syntetyczne):
 	id_testu     | id_uzytkownika | czas_pierwszej_konwersji | data_pierwszej_konwersji | przychod
 	ab2_20260907 | 1234.5678      | 2026-09-12 18:30:00      | 2026-09-12               | 249.90
 	ab2_20260907 | 3333.0002      | 2026-09-11 07:05:00      | 2026-09-11               | 118.00

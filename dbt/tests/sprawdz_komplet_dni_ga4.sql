@@ -1,13 +1,8 @@
 -- SINGULAR
 
--- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
--- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 {#
-	Brak dziennej tabeli eksportu (przerwa, limit) zaniża wynik po cichu. Sprawdza każdy dzień
-	każdego testu do dziś minus 3 dni — późniejsze dni GA4 jeszcze dopisuje. Wiersz = brakujący dzień.
-	Czyta tylko pseudokolumnę _TABLE_SUFFIX, bez kolumn z danymi, więc kosztuje minimum stawki.
-
-	Co jest w zmiennych: var("ga4_data_startu") = '2026-08-24' — z vars w dbt_project.yml.
+	Wiersz = brakująca dzienna tabela eksportu w dniach testu (do dziś minus 3 dni).
+	Czyta tylko _TABLE_SUFFIX, więc kosztuje minimum.
 #}
 WITH testy AS (
 	SELECT
@@ -35,3 +30,9 @@ CROSS JOIN UNNEST(GENERATE_DATE_ARRAY(t.start_testu, t.koniec_sprawdzania)) AS d
 LEFT JOIN dni_eksportu AS d
 	ON d.dzien_eksportu = dzien
 WHERE d.dzien_eksportu IS NULL
+
+{#
+	Przykładowy wynik (błąd):
+	id_testu     | brakujacy_dzien
+	ab2_20260907 | 2026-09-15
+#}

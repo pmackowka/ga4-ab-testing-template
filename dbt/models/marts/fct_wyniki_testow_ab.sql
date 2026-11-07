@@ -1,17 +1,7 @@
 {#
-	Wynik testu do kalkulatora „Po teście A/B” — jeden wiersz na test i wariant (odpowiednik sql/03).
-	Spine z seeda: wariant bez ani jednego użytkownika zostaje jako wiersz z zerami, zamiast zniknąć
-	z wyniku. FULL JOIN: wariant z danych, którego nie ma w seedzie, też zostaje i zatrzymuje build
-	na teście wariant_w_seedzie. sql/03 robi to samo funkcją ERROR().
-	Kontrola jakości, poza kalkulatorem: wykluczeni_mieszani (2+ warianty, wyjęci z wyniku),
-	ponownie_przydzieleni (2+ losowania, także w ten sam wariant — zostają w wyniku, jeśli wariant
-	się nie zmienił) i bez_przydzialu (wariant z ciasteczka bez ab_assign: nowe _ga, więc ta sama osoba
-	może być policzona dwa razy, albo zgubiony hit ab_assign). Niewidoczny zostaje przypadek, gdy znikają naraz _ga i ciasteczko
-	testu: nowy użytkownik z nowym losowaniem.
-	Przychód na użytkownika do kalkulatora w trybie „Przychód na użytkownika”: przychod / uzytkownicy
-	i odchylenie_przychodu liczone po osobach z uzytkownicy, razem z zerami. Przychód osoby jest
-	przycięty do 99,9 percentyla przychodu konwertujących w teście (oba warianty razem), żeby jedno
-	duże zamówienie nie przesądziło wyniku; przychod w wierszu to suma po przycięciu.
+	Wynik do kalkulatora „Po teście A/B”, wiersz = test × wariant (odpowiednik sql/03).
+	Warianty z seeda: wariant bez użytkowników zostaje z zerami; wariant spoza seeda zatrzymuje build
+	(test wariant_w_seedzie). Przychód osoby przycięty do 99,9 percentyla konwertujących w teście.
 #}
 WITH testy AS (
 	SELECT * FROM {{ ref('stg_seeds__rejestr_testow') }}
@@ -81,9 +71,7 @@ JOIN testy AS t
 	USING (id_testu)
 
 {#
-	Przykładowy wynik (dane syntetyczne) — uzytkownicy i konwertujacy (albo przychod_na_uzytkownika
-	i odchylenie_przychodu) idą do kalkulatora „Po teście A/B”,
-	ale tylko przy czy_koncowy = true (tu: ab2):
+	Przykładowy wynik (dane syntetyczne); do kalkulatora tylko wiersze z czy_koncowy = true:
 	id_testu     | slot | wariant | czy_kontrola | pole_kalkulatora | uzytkownicy | konwertujacy | przychod   | przychod_na_uzytkownika | odchylenie_przychodu | wykluczeni_mieszani | ponownie_przydzieleni | bez_przydzialu | czy_koncowy
 	ab2_20260907 | ab2  | v0      | true         | A (kontrola)     | 10234       | 412          | 98880.00   | 9.66                    | 62.40                | 37                  | 76                    | 118            | true
 	ab2_20260907 | ab2  | v1      | false        | B (wariant v1)   | 10198       | 455          | 109200.00  | 10.71                   | 65.90                | 41                  | 80                    | 109            | true

@@ -1,9 +1,6 @@
 -- SINGULAR
 
--- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
--- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
--- Reguły z ASSERT-ów sql/03 dla każdego wiersza seeds/rejestr_testow.csv. Wiersz wyniku = błąd konfiguracji.
--- Co jest w zmiennych: var("ga4_data_startu") = '2026-08-24' — z vars w dbt_project.yml.
+{# Wiersz = błąd konfiguracji w seedzie; reguły jak ASSERT-y w sql/03. #}
 WITH testy AS (
 	SELECT
 		*,
@@ -35,3 +32,9 @@ FROM testy,
 			'slot wraca przed wygaśnięciem ciasteczek poprzedniego testu: start musi być > 60 dni po jego końcu', NULL)
 	]) AS powod
 WHERE powod IS NOT NULL
+
+{#
+	Przykładowy wynik (błąd):
+	id_testu     | powod
+	ab3_20261006 | start_testu musi być poniedziałkiem
+#}

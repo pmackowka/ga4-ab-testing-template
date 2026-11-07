@@ -1,27 +1,9 @@
 {#
-	Staging: eventy GA4 potrzebne do testów A/B — z wariantem jakiegokolwiek testu (parametr slotu
-	ab1…ab10 albo ab_assign) i eventy konwersji z seeds/rejestr_testow.csv. Reszta ruchu nie trafia
-	do tabeli, więc jest mała mimo dużego eksportu.
-
-	Przyrost: każdy przebieg nadpisuje w całości ostatnie dni_wstecz dni od najnowszej partycji
-	w tabeli (_dbt_max_partition — zmienna, którą dbt deklaruje w skrypcie insert_overwrite), a nie
-	od CURRENT_DATE(), żeby kilkudniowa przerwa w harmonogramie nie zostawiła dziury w danych.
-
-	Target sandbox (BigQuery sandbox bez billingu): zwykła tabela bez partycji, odtwarzana w całości
-	przy każdym buildzie — sandbox nie obsługuje MERGE, którego używa insert_overwrite, a partycje
-	starsze niż 60 dni (licząc od data_zdarzenia) usuwa od razu.
-
-	Zmiana logiki tego pliku wymaga --full-refresh: przebieg przyrostowy nadpisałby tylko ostatnie
-	dni i zostawił w tabeli mieszankę starej i nowej logiki, bez błędu.
-
-	Co jest w zmiennych (przykładowe wartości):
-	- dni_wstecz = 3
-	- var("ga4_data_startu") = '2026-08-24' — z vars w dbt_project.yml
-	- _dbt_max_partition = DATE '2026-11-05' — najnowszy dzień w tabeli; NULL, gdy tabela jest pusta
-	- flags.EMPTY = false w zwykłym buildzie, true przy dbt build --empty (CI)
-	- target.name = 'dev', 'prod', 'ci' albo 'sandbox' — z profiles.yml
-	- is_incremental() = false przy pierwszym buildzie i --full-refresh, true w kolejnych przebiegach
-	Po podstawieniu filtr przyrostowy to _TABLE_SUFFIX >= '20261102', pełny rebuild: >= '20260824'.
+	Staging: eventy GA4 z wariantem dowolnego testu (parametr slotu ab1…ab10 albo ab_assign)
+	i eventy konwersji z seeda. Wiersz = event × slot.
+	Przyrost: nadpisuje ostatnie dni_wstecz dni od najnowszej partycji (_dbt_max_partition), nie od
+	CURRENT_DATE(), żeby przerwa w harmonogramie nie zostawiła dziury. Zmiana logiki = --full-refresh.
+	Target sandbox: zwykła tabela bez partycji, odtwarzana w całości (sandbox nie ma MERGE).
 #}
 {%- set dni_wstecz = 3 -%}
 
@@ -99,9 +81,7 @@ WHERE t.wariant IS NOT NULL
 	OR e.nazwa_zdarzenia IN (SELECT zdarzenie_konwersji FROM {{ ref('stg_seeds__rejestr_testow') }})
 
 {#
-	Przykładowy wynik (dane syntetyczne). Ostatnie dwa wiersze to jeden event z dwoma slotami
-	(ab4 na karcie produktu i ab5 na checkoucie trwają równolegle); purchase bez slotu zostaje,
-	bo jest eventem konwersji z seeda:
+	Przykładowy wynik (dane syntetyczne); dwa ostatnie wiersze to jeden event z dwoma slotami:
 	data_zdarzenia | czas_zdarzenia      | id_uzytkownika | nazwa_zdarzenia | przychod | id_transakcji | slot | wariant
 	2026-09-08     | 2026-09-08 10:00:00 | 1234.5678      | ab_assign       | NULL     | NULL          | ab2  | v1
 	2026-09-08     | 2026-09-08 10:02:13 | 1234.5678      | view_item       | NULL     | NULL          | ab2  | v1

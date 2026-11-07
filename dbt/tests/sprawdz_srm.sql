@@ -1,13 +1,8 @@
 -- SINGULAR
 
--- Test singular: sprawdza, czy DANE są poprawne. Plik .sql w tests/, każdy zwrócony wiersz = błąd.
--- Biegnie w dbt build po modelach, z których czyta (deploy, harmonogram); CI go nie odpala.
 {#
-	SRM (sample ratio mismatch): podział użytkowników między kontrolę a wariant odbiega od 50/50 bardziej,
-	niż tłumaczy przypadek. Ta sama reguła co w kalkulatorze „Po teście A/B” (srmCheck): para
-	kontrola–wariant, χ² z 1 stopniem swobody, alarm przy p < 0,001, czyli χ² > 10,828.
-	Dla pary χ² = Σ(obs − exp)²/exp z exp = (a + b)/2 upraszcza się do (a − b)²/(a + b).
-	Zakłada równy podział ruchu między warianty, jak wszystkie tagi z gtm/.
+	SRM: podział kontrola–wariant odbiega od 50/50 bardziej niż przypadek. Ta sama reguła co
+	w kalkulatorze: χ² = (a − b)² / (a + b), alarm przy χ² > 10,828 (p < 0,001).
 #}
 {{ config(severity='warn') }}
 
@@ -30,3 +25,9 @@ SELECT *
 
 FROM pary
 WHERE chi2 > 10.828
+
+{#
+	Przykładowy wynik (ostrzeżenie):
+	id_testu     | wariant | uzytkownicy_kontrola | uzytkownicy_wariant | chi2
+	ab2_20260907 | v1      | 10850                | 10198               | 20.2
+#}

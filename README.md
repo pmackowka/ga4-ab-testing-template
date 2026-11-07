@@ -12,7 +12,7 @@ Wynik `03` dla wszystkich testów naraz, z testami danych, liczy też projekt db
 ## Szybki start
 
 1. Podmień `twoj-projekt.analytics_123456789.events_*` na swój eksport GA4 — w każdym pliku w dwóch miejscach.
-2. Ustaw parametry `DECLARE` na górze pliku — opis każdego stoi w komentarzu obok, a `ASSERT` pod nimi zatrzyma zapytanie przy złej wartości albo brakujących dniach eksportu.
+2. Ustaw parametry `DECLARE` na górze pliku — opis każdego stoi w nagłówku pliku, a `ASSERT` pod nimi zatrzyma zapytanie przy złej wartości albo brakujących dniach eksportu.
 3. Uruchom zapytanie i przepisz liczby do pól kalkulatora według kroków.
 
 ## Kroki

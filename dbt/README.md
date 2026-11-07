@@ -123,7 +123,7 @@ Zasada: partycja, gdy źródło oddaje cały dzień naraz; merge, gdy dane przyc
 
 ## Testy
 
-Czym jest każdy typ, co sprawdza i kiedy biegnie, opisują komentarze na początku plików z testami: w `tests/` (generic i singular) oraz w `models/` (użycie generic w `_*_modele.yml`, unit testy w `<model>__unit_test.yml` obok modelu, który testują). Testy generic mają dwa miejsca: definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać) — dlatego `not_null`, `unique` i `unique_combination_of_columns` widać tylko w `models/`, a w `tests/generic/` jest jedynie własny `wariant_w_seedzie`.
+Typ testu oznacza pierwsza linia pliku, a co sprawdza — nagłówek pod nią: w `tests/` (generic i singular) oraz w `models/` (użycie generic w `_*_modele.yml`, unit testy w `<model>__unit_test.yml` obok modelu, który testują). Testy generic mają dwa miejsca: definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać) — dlatego `not_null`, `unique` i `unique_combination_of_columns` widać tylko w `models/`, a w `tests/generic/` jest jedynie własny `wariant_w_seedzie`.
 
 ```
 generic — sprawdza dane
