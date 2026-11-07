@@ -155,12 +155,12 @@ uv run dbt test --select test_type:unit --profiles-dir .
 ```mermaid
 flowchart LR
     PUSH(["push / PR<br/>zmiana w dbt/"]) --> PARSE
-    subgraph F1["dbt.yml"]
+    subgraph F1["dbt-ci-cd.yml"]
         PARSE["CI · parse<br/>składnia"] --> UNIT["CI · unit-tests<br/>logika na mockach"]
         UNIT -->|tylko push na main| DEPLOY["CD · deploy"]
     end
     CRON(["cron 10:00 UTC<br/>albo ręcznie"]) --> BUILD
-    subgraph F2["dbt-build.yml"]
+    subgraph F2["dbt-schedule.yml"]
         BUILD["harmonogram · build"]
     end
     F1 -->|kod z ostatniego<br/>zielonego przebiegu| BUILD
@@ -173,14 +173,14 @@ Linia ciągła: kolejność i źródło kodu. Przerywana: zapis do BigQuery.
 
 | Plik | Job | Rola | Wyzwalacz | Co robi |
 |---|---|---|---|---|
-| `dbt.yml` | `parse` | CI | push / PR w `dbt/` | SQL, Jinja, YAML, bez BigQuery |
-| `dbt.yml` | `unit-tests` | CI | zielony `parse` | `dbt build --empty`, potem unit testy |
-| `dbt.yml` | `deploy` | CD | zielony `unit-tests` + push na `main` | `dbt build --select state:modified+`, bez zmienionego `stg_ga4__zdarzenia` |
-| `dbt-build.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (`full_refresh`) | `dbt build` bez unit testów |
+| `dbt-ci-cd.yml` | `parse` | CI | push / PR w `dbt/` | SQL, Jinja, YAML, bez BigQuery |
+| `dbt-ci-cd.yml` | `unit-tests` | CI | zielony `parse` | `dbt build --empty`, potem unit testy |
+| `dbt-ci-cd.yml` | `deploy` | CD | zielony `unit-tests` + push na `main` | `dbt build --select state:modified+`, bez zmienionego `stg_ga4__zdarzenia` |
+| `dbt-schedule.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (`full_refresh`) | `dbt build` bez unit testów |
 
 - Czerwone CI: prod zostaje na ostatnim zielonym kodzie, dane są świeże.
 - `deploy` i `build` dzielą `concurrency: dbt-prod`: nigdy naraz, nowszy anuluje oczekujący.
-- Zmiana `stg_ga4__zdarzenia` czeka na Actions → dbt build → Run workflow → `full_refresh`.
+- Zmiana `stg_ga4__zdarzenia` czeka na Actions → dbt schedule → Run workflow → `full_refresh`.
 - Continuous delivery (prod po „Approve”) tylko jako benchmark: zatwierdzałbyś własny commit.
 - Alternatywy: GitLab CI/CD, Bitbucket Pipelines (ten sam model), dbt Cloud (płatny w zespole), Jenkins (własny serwer).
 

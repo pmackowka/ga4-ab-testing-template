@@ -8,10 +8,10 @@ name: dbt CI/CD
 # sama dokumentacja (*.md) nie zmienia modeli, więc nie odpala CI
 on:
   pull_request:
-    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt.yml"]
+    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt-ci-cd.yml"]
   push:
     branches: [main]
-    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt.yml"]
+    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt-ci-cd.yml"]
 
 defaults:
   run:
@@ -61,7 +61,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Ta sama grupa co harmonogram (dbt-build.yml): dwa przebiegi naraz nadpisywałyby te same partycje.
+    # Ta sama grupa co harmonogram (dbt-schedule.yml): dwa przebiegi naraz nadpisywałyby te same partycje.
     # Grupa NIE kolejkuje: czeka najwyżej jeden przebieg, a nowszy anuluje starszy oczekujący.
     # Anulowany deploy nic nie gubi, bo baza porównania to ostatni UDANY przebieg (krok niżej);
     # anulowany cron nadrobi następny dzień, bo staging nadpisuje 3 dni wstecz.
@@ -94,7 +94,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          BASE=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow dbt.yml --branch main \
+          BASE=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow dbt-ci-cd.yml --branch main \
             --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
           PREV="$RUNNER_TEMP/prev"
           if [ -z "$BASE" ]; then
@@ -123,7 +123,7 @@ jobs:
             # sama zmiana konfiguracji projektu go nie rusza.
             if uv run dbt --quiet ls --target prod_ci --profiles-dir . --resource-type model \
                 --select state:modified.body --state "$STATE" --output name | grep -qx stg_ga4__zdarzenia; then
-              echo "::warning::stg_ga4__zdarzenia zmieniony — deploy go pomija. Odpal Actions → dbt build → Run workflow z full_refresh."
+              echo "::warning::stg_ga4__zdarzenia zmieniony — deploy go pomija. Odpal Actions → dbt schedule → Run workflow z full_refresh."
               EXCLUDE="--exclude stg_ga4__zdarzenia"
             fi
           fi

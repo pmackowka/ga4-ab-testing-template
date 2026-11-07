@@ -1,9 +1,9 @@
-# Codzienny dbt build na prod — z ostatniego commita na main, dla którego dbt CI/CD (dbt.yml)
+# Codzienny dbt build na prod — z ostatniego commita na main, dla którego dbt CI/CD (dbt-ci-cd.yml)
 # skończył się na zielono, a nie z głowy main: kod odrzucony przez CI nie trafia na prod
 # także harmonogramem. GitHub loguje się do GCP przez Workload Identity Federation:
 # dostaje krótkotrwały token dla konta serwisowego, bez pliku klucza w sekretach.
 # Jednorazowa konfiguracja GCP i sekretów: dbt/README.md, sekcja „Konfiguracja GCP”.
-name: dbt build
+name: dbt schedule
 
 on:
   schedule:
@@ -45,7 +45,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          SHA=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow dbt.yml --branch main \
+          SHA=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow dbt-ci-cd.yml --branch main \
             --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
           if [ -z "$SHA" ]; then
             echo "::error::Na main nie ma commita z zielonym dbt CI/CD — nie ma czego budować."
