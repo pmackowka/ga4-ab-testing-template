@@ -95,10 +95,7 @@ Oba kalkulatory mają przełącznik „Metryka”. Wybierasz go przed testem, w 
 
 ## Ograniczenia
 
-- `user_pseudo_id` to przeglądarka, nie osoba: ten sam człowiek na telefonie i laptopie to dwóch użytkowników.
-- Test obejmuje tylko osoby ze zgodą na ciasteczka: tag losuje po zgodzie, a eventy bez zgody (Consent Mode) nie mają `user_pseudo_id` i zapytania je pomijają. Wynik mówi o tej grupie, nie o całym ruchu.
-- SRM zakłada podział 50/50; przy 3+ wariantach kalkulator ocenia jedną parę z kontrolą.
-- Ocena to test z (przybliżenie normalne): przy kilku konwersjach w wariancie wynik jest przybliżony, a granice zakresu są ucinane tak, żeby CR B mieścił się między 0 a 100% (spadek najwyżej −100%).
-- Wariant w `03` pochodzi z `ab_assign` (`ab_test`, `ab_variant`) i z parametru slotu, który zmienna GTM czyta z first-party cookie i dokleja do eventów ([artykuł](https://pmdata.pl/artykuly/wlasne-testy-ab-gtm-firebase/)). Konwersja liczy się z każdego `purchase` (parametr `conversion_event`) po ekspozycji, także bez parametru `ab_variant` — wariant bierze się z przypisania użytkownika, nie z eventu zakupu.
-- Najwyżej 10 testów naraz (sloty `ab1`–`ab10`), bo GA4 przyjmuje do 25 parametrów na event — sprawdź, ile już wysyłasz. Równoległe testy losują niezależnie, więc wynik jednego jest uśredniony po wariantach drugiego; problemem jest tylko silna interakcja, np. oba zmieniają ten sam element.
-- Safari (ITP) skraca ciasteczka ustawione z JavaScriptu do 7 dni, także `_ga`. Gdy po tygodniu wygaśnie tylko ciasteczko testu, tag losuje ponownie — `reassigned` liczy wszystkich takich, `excluded_mixed` tych z innym wariantem. Gdy wygaśnie tylko `_ga`, użytkownik wraca z ciasteczkiem testu pod nowym `user_pseudo_id` — to `no_assignment`. Gdy wygasną oba, ten sam człowiek wraca z nowym `user_pseudo_id` i nowym losowaniem, a zapytanie widzi dwóch użytkowników i żadna kolumna tego nie pokaże. Ciasteczka ustawiane z serwera (server-side GTM) usuwają ten problem.
+- `user_pseudo_id` to przeglądarka, nie osoba (telefon i laptop to dwóch użytkowników). Test obejmuje tylko osoby ze zgodą na ciasteczka.
+- Ocena to test z (przybliżenie normalne). SRM zakłada podział 50/50, a przy 3+ wariantach kalkulator ocenia jedną parę z kontrolą.
+- Najwyżej 10 testów naraz (sloty `ab1`–`ab10`, limit 25 parametrów na event w GA4). Równoległe testy losują niezależnie, problemem jest tylko silna interakcja, np. dwa testy zmieniają ten sam element.
+- Safari (ITP) skraca ciasteczka z JavaScriptu do 7 dni, także `_ga`. Skutki liczą `reassigned`, `excluded_mixed` i `no_assignment`; utraty obu ciasteczek naraz żadna kolumna nie pokaże. Pomaga przedłużanie ciasteczek z serwera (np. tag Cookie Extender od Stape), ale tylko przy server-side GTM pod tym samym adresem co strona (same-origin albo subdomena na IP strony). Serwer z innego IP Safari też ogranicza do 7 dni.
