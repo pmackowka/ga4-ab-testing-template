@@ -222,10 +222,10 @@ Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym dataseci
 
 [`dane_syntetyczne/generuj_eksport_ga4.sql`](../dane_syntetyczne/generuj_eksport_ga4.sql) tworzy w osobnym datasecie tabele `events_RRRRMMDD` w schemacie eksportu GA4, ze scenariuszem testów z seeda i znanym efektem każdego wariantu. Plik leży poza `dbt/`, więc zmiana w nim nie odpala CI.
 
-Wymaga projektu z billingiem: [sandbox BigQuery](https://cloud.google.com/bigquery/docs/sandbox) nie obsługuje DML, a `insert_overwrite` w dbt generuje `MERGE` ([dbt — BigQuery configs](https://docs.getdbt.com/reference/resource-configs/bigquery-configs)).
+Działa w darmowym [sandboxie BigQuery](https://docs.cloud.google.com/bigquery/docs/sandbox) (bez karty) z `--target sandbox`: `stg_ga4__zdarzenia` jest tam zwykłą tabelą bez partycji, odtwarzaną przy każdym buildzie, bo sandbox nie obsługuje `MERGE` z `insert_overwrite`, a partycje starsze niż 60 dni usuwa od razu. Sandbox ma też dożywotni limit 10 GiB zapisu i usuwa tabele 60 dni po utworzeniu — po tym czasie wygeneruj zbiór od nowa z `data_od = '2026-08-24'`.
 
 1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery z Więcej → Ustawienia zapytania → lokalizacja danych = EU: skrypt czyta zbiór tylko przez `EXECUTE IMMEDIATE`, więc BigQuery nie wywnioskuje regionu i może uruchomić zadanie w US. Pierwszy raz generuje dni od 2026-08-24 do wczoraj.
-2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'`.
+2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'` (w sandboxie dodaj `--target sandbox`).
 Zbiór wygenerowany wcześniej od 2026-09-07 nie ma dni testu A/A: uruchom skrypt raz z `data_od = '2026-08-24'` (podmienia dni od niego), potem `dbt build` z `--full-refresh` — bez tego `sprawdz_komplet_dni_ga4` zgłosi 14 brakujących dni.
 
 3. Przyrost: przed każdą sesją uruchom skrypt bez zmian — sam nadrobi dni od ostatniej tabeli do wczoraj, także po kilku dniach przerwy — i `dbt build` z tymi samymi `--vars`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.

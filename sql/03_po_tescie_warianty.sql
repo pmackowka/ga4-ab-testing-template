@@ -57,7 +57,8 @@ WITH events AS (
     user_pseudo_id,
     event_name,
     event_timestamp,
-    ecommerce.transaction_id AS transaction_id,
+    -- GA4 wpisuje '(not set)' albo '', gdy tag nie wysłał transaction_id — wtedy NULL
+    NULLIF(NULLIF(ecommerce.transaction_id, '(not set)'), '') AS transaction_id,
     ecommerce.purchase_revenue AS revenue,
     -- ab_assign przypisuje do jednego testu: wariant tylko, gdy ab_test to nasz
     -- slot (parametry slotów na ab_assign należą do innych testów); pozostałe
@@ -121,15 +122,17 @@ user_revenue AS (
   -- ten sam transaction_id ponownie; zakup bez transaction_id liczy się raz na event
   SELECT user_pseudo_id, SUM(revenue) AS revenue
   FROM (
-    SELECT DISTINCT
+    -- jedna kwota na zamówienie, także gdy duplikat ma inną kwotę
+    SELECT
       u.user_pseudo_id,
       IFNULL(p.transaction_id, CAST(p.event_timestamp AS STRING)) AS transaction_key,
-      p.revenue
+      ANY_VALUE(p.revenue) AS revenue
     FROM users_assigned AS u
     JOIN events AS p
       ON p.user_pseudo_id = u.user_pseudo_id
       AND p.event_name = conversion_event
       AND p.event_timestamp > u.first_exposure_ts
+    GROUP BY u.user_pseudo_id, transaction_key
   )
   GROUP BY user_pseudo_id
 ),

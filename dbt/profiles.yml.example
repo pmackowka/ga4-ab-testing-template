@@ -7,6 +7,10 @@
 #   export BIGQUERY_PROD_PROJECT="twoj-projekt-gcp-prod"
 #   export BIGQUERY_PROD_KEYFILE="/sciezka/do/klucza/service-account-prod.json"
 #
+# Tylko przy --target sandbox (BigQuery sandbox bez billingu, logowanie kontem Google):
+#   gcloud auth application-default login
+#   export BIGQUERY_PROJECT="twoj-projekt-gcp"
+#
 # Konto serwisowe potrzebuje: BigQuery Data Viewer na datasecie GA4, BigQuery Data Editor
 # na datasecie docelowym, BigQuery Job User w projekcie.
 testy_ab:
@@ -16,6 +20,18 @@ testy_ab:
       type: bigquery
       method: service-account
       keyfile: "{{ env_var('BIGQUERY_KEYFILE') }}"
+      project: "{{ env_var('BIGQUERY_PROJECT') }}"
+      dataset: dbt_dev_testy_ab
+      location: EU
+      priority: interactive
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      maximum_bytes_billed: 10737418240
+
+    sandbox:
+      type: bigquery
+      method: oauth
       project: "{{ env_var('BIGQUERY_PROJECT') }}"
       dataset: dbt_dev_testy_ab
       location: EU

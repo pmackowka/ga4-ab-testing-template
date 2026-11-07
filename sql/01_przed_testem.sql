@@ -38,7 +38,8 @@ WITH events AS (
     user_pseudo_id,
     event_name,
     event_timestamp,
-    ecommerce.transaction_id AS transaction_id,
+    -- GA4 wpisuje '(not set)' albo '', gdy tag nie wysłał transaction_id — wtedy NULL
+    NULLIF(NULLIF(ecommerce.transaction_id, '(not set)'), '') AS transaction_id,
     ecommerce.purchase_revenue AS revenue,
     -- numer tygodnia w oknie: event_date to tekst 'YYYYMMDD' (stąd PARSE_DATE),
     -- DATE_DIFF daje dni od window_start, DIV dzieli całkowicie (ucina resztę),

@@ -7,6 +7,10 @@
 	w tabeli (_dbt_max_partition — zmienna, którą dbt deklaruje w skrypcie insert_overwrite), a nie
 	od CURRENT_DATE(), żeby kilkudniowa przerwa w harmonogramie nie zostawiła dziury w danych.
 
+	Target sandbox (BigQuery sandbox bez billingu): zwykła tabela bez partycji, odtwarzana w całości
+	przy każdym buildzie — sandbox nie obsługuje MERGE, którego używa insert_overwrite, a partycje
+	starsze niż 60 dni (licząc od data_zdarzenia) usuwa od razu.
+
 	Zmiana logiki tego pliku wymaga --full-refresh: przebieg przyrostowy nadpisałby tylko ostatnie
 	dni i zostawił w tabeli mieszankę starej i nowej logiki, bez błędu.
 
@@ -15,14 +19,17 @@
 	- var("ga4_data_startu") = '2026-08-24' — z vars w dbt_project.yml
 	- _dbt_max_partition = DATE '2026-11-05' — najnowszy dzień w tabeli; NULL, gdy tabela jest pusta
 	- flags.EMPTY = false w zwykłym buildzie, true przy dbt build --empty (CI)
+	- target.name = 'dev', 'prod', 'ci' albo 'sandbox' — z profiles.yml
 	- is_incremental() = false przy pierwszym buildzie i --full-refresh, true w kolejnych przebiegach
 	Po podstawieniu filtr przyrostowy to _TABLE_SUFFIX >= '20261102', pełny rebuild: >= '20260824'.
 #}
 {%- set dni_wstecz = 3 -%}
 
-{{ config(materialized='incremental') }}
+{%- set sandbox = target.name == 'sandbox' -%}
+
+{{ config(materialized='table' if sandbox else 'incremental') }}
 {{ config(incremental_strategy='insert_overwrite') }}
-{{ config(partition_by={"field": "data_zdarzenia", "data_type": "date", "granularity": "day"}) }}
+{{ config(partition_by=none if sandbox else {"field": "data_zdarzenia", "data_type": "date", "granularity": "day"}) }}
 
 WITH zrodlo AS (
 	SELECT
@@ -32,7 +39,7 @@ WITH zrodlo AS (
 		event_name AS nazwa_zdarzenia,
 		event_params AS parametry,
 		ecommerce.purchase_revenue AS przychod,
-		ecommerce.transaction_id AS id_transakcji
+		NULLIF(NULLIF(ecommerce.transaction_id, '(not set)'), '') AS id_transakcji
 
 	FROM {{ source('ga4', 'zdarzenia') }}
 	WHERE user_pseudo_id IS NOT NULL
