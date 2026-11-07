@@ -59,9 +59,9 @@ ab4,2026-11-02,2026-12-13,v0,v0|v1,purchase,ab_assign|view_item
 ab5,2026-11-02,2026-11-29,v0,v0|v1,purchase,ab_assign|begin_checkout
 ```
 
-`slot` (`ab1`–`ab10`) wraca w kolejnych testach, więc kluczem jest `id_testu` = slot + `start_testu` (np. `ab2_20260907`). Tagi GTM nie znają `start_testu` — test w slocie wyznacza okno z rejestru. Ekspozycję wyznacza `zdarzenia_ekspozycji`: `view_item` z parametrem `ab5` nie wciąga nikogo do testu checkoutu.
+`slot` (`ab1`–`ab10`) wraca w kolejnych testach, więc kluczem jest `id_testu` = slot + `start_testu` (np. `ab2_20260907`); tagi GTM nie znają dat, okno bierze się z rejestru. Ekspozycję wyznacza `zdarzenia_ekspozycji`: `view_item` z parametrem `ab5` nie wciąga do testu checkoutu.
 
-`sprawdz_konfiguracje_testow` zatrzyma build, gdy start nie jest poniedziałkiem albo koniec niedzielą, kontroli nie ma wśród wariantów, wariantów jest mniej niż dwa, test zaczyna się przed `ga4_data_startu`, `slot` nie ma postaci `abN` albo okno nakłada się na poprzedni test w tym samym slocie lub zaczyna się w ciągu 60 dni od jego końca (ciasteczko testu żyje 60 dni i trzyma sam wariant).
+`sprawdz_konfiguracje_testow` zatrzyma build, gdy: start ≠ poniedziałek albo koniec ≠ niedziela; kontroli brak wśród wariantów; wariantów < 2; start przed `ga4_data_startu`; `slot` nie ma postaci `abN`; okno nachodzi na poprzedni test w slocie albo startuje do 60 dni po jego końcu (ciasteczko testu żyje 60 dni).
 
 ## Modele
 
@@ -79,51 +79,51 @@ flowchart LR
 
 | Model | Ziarno | Materializacja | Rola |
 |---|---|---|---|
-| `stg_ga4__zdarzenia` | event × test | incremental, partycja dzienna | para (slot, wariant) z `ab_assign` albo parametru `abN` + eventy konwersji z seeda |
+| `stg_ga4__zdarzenia` | event × test | incremental, partycja dzienna | (slot, wariant) z `ab_assign` albo parametru `abN` + eventy konwersji |
 | `stg_seeds__rejestr_testow` | test | view | seed z `id_testu`, listami jako `ARRAY<STRING>` i flagą `czy_koncowy` |
 | `int_ab__ekspozycje` | test × użytkownik | view | pierwsza ekspozycja, jej wariant, `liczba_wariantow`, `liczba_przydzialow` |
-| `int_ab__konwersje` | test × użytkownik | view | pierwsza konwersja po ekspozycji, w oknie testu, i przychód osoby (każde `transaction_id` raz) |
-| `fct_wyniki_testow_ab` | test × wariant | table | liczby do kalkulatora Po teście: konwersja albo przychód na użytkownika z odchyleniem (przychód osoby przycięty do 99,9 percentyla) |
+| `int_ab__konwersje` | test × użytkownik | view | pierwsza konwersja po ekspozycji w oknie testu, przychód osoby (`transaction_id` raz) |
+| `fct_wyniki_testow_ab` | test × wariant | table | do kalkulatora Po teście: konwersja albo przychód na użytkownika z odchyleniem (przycięty do 99,9 percentyla) |
 
-`fct_wyniki_testow_ab` ma wiersz dla każdego wariantu z seeda (także z 0 użytkowników) i dla wariantu spoza seeda, żeby testy go wyłapały.
+`fct_wyniki_testow_ab` ma wiersz dla każdego wariantu z seeda (także z 0 użytkowników) i spoza seeda, żeby wyłapały go testy.
 
 ## Przyrost i pełny rebuild
 
-`stg_ga4__zdarzenia` (`insert_overwrite`) nadpisuje ostatnie 3 dni od najnowszej partycji w tabeli, bo GA4 dopisuje dane do 72 h. Liczenie od partycji, nie od dziś, sprawia, że przerwa w harmonogramie nie zostawia dziury; pusta tabela (brak partycji) czyta od `ga4_data_startu`.
+`stg_ga4__zdarzenia` (`insert_overwrite`) nadpisuje 3 dni od najnowszej partycji (GA4 dopisuje dane do 72 h), nie od dziś, więc przerwa w harmonogramie nie zostawia dziury; pusta tabela czyta od `ga4_data_startu`.
 
-`merge` jest możliwy składniowo — dbt przyjmie złożony `unique_key` (np. `user_pseudo_id` + `ga_session_id` + `event_timestamp` + `event_name`) — ale eksport GA4 nie ma klucza, który gwarantuje unikalność zdarzenia:
-- kilka zdarzeń z jednego żądania może mieć ten sam `event_timestamp`; do kolejności Google dodał `batch_page_id`, `batch_ordering_id`, `batch_event_index`, nie unikalny identyfikator, a w starszych eksportach tych pól nie ma ([schemat eksportu](https://support.google.com/firebase/answer/7029846), [przykładowe zapytania](https://developers.google.com/analytics/bigquery/basic-queries));
-- duplikat klucza w źródle → `MERGE` pada błędem „UPDATE/MERGE must match at most one source row for each target row” ([MERGE](https://cloud.google.com/bigquery/docs/reference/standard-sql/dml-syntax));
-- w advanced consent mode przy `analytics_storage = denied` tagi „Won't read or write first-party analytics cookies” ([consent mode](https://developers.google.com/tag-platform/security/concepts/consent-mode)), więc takie zdarzenia mają w eksporcie pusty `user_pseudo_id` i `ga_session_id` ([obserwacja](https://twitter.com/SimoAhava/status/1501500798085341185)); NULL w kluczu nie łączy się w `MERGE`, więc te wiersze dublowałyby się przy każdym przebiegu (u nas staging i tak je odfiltrowuje);
-- `merge` nie usuwa wierszy, które GA4 skasował przy ponownym przetworzeniu dnia; `insert_overwrite` podmienia cały dzień.
+`merge` przyjmie złożony `unique_key` (np. `user_pseudo_id` + `ga_session_id` + `event_timestamp` + `event_name`), ale eksport GA4 nie gwarantuje unikalności zdarzenia:
+- zdarzenia z jednego żądania mogą mieć ten sam `event_timestamp`; pola `batch_page_id`, `batch_ordering_id`, `batch_event_index` ustalają kolejność, nie identyfikator, a starsze eksporty ich nie mają ([schemat](https://support.google.com/firebase/answer/7029846), [zapytania](https://developers.google.com/analytics/bigquery/basic-queries));
+- duplikat klucza w źródle → błąd „UPDATE/MERGE must match at most one source row for each target row” ([MERGE](https://cloud.google.com/bigquery/docs/reference/standard-sql/dml-syntax));
+- przy `analytics_storage = denied` (advanced consent mode) tagi „Won't read or write first-party analytics cookies” ([consent mode](https://developers.google.com/tag-platform/security/concepts/consent-mode)), więc `user_pseudo_id` i `ga_session_id` są puste ([obserwacja](https://twitter.com/SimoAhava/status/1501500798085341185)); NULL w kluczu się nie łączy i wiersz dublowałby się co przebieg (staging i tak je odfiltrowuje);
+- `merge` nie usuwa wierszy skasowanych przez GA4 przy ponownym przetworzeniu dnia; `insert_overwrite` podmienia cały dzień.
 
 `merge` ma sens dalej w potoku, gdzie ziarno ma prawdziwy klucz (np. data + `id_testu` + `wariant`).
 
 `--full-refresh -s stg_ga4__zdarzenia` jest potrzebny, gdy:
 - dodajesz `zdarzenie_konwersji`, którego nie ma jeszcze żaden test;
 - przesuwasz `ga4_data_startu` wstecz;
-- zmieniasz logikę pliku stagingu — przebieg przyrostowy przeliczyłby nową logiką tylko ostatnie dni, bez błędu; deploy w takim przypadku pomija staging i ostrzega.
+- zmieniasz logikę stagingu — przebieg przyrostowy przeliczyłby nową logiką tylko ostatnie dni, bez błędu; deploy wtedy pomija staging i ostrzega.
 
 `maximum_bytes_billed`: 10 GiB dev, 100 GiB prod — zapytanie ponad limit pada bez opłaty.
 
-Ta sama decyzja co przy ładowaniu z API w Pythonie — dbt i skrypt różnią się składnią, nie mechanizmem:
+Ta sama decyzja co przy ładowaniu z API w Pythonie — inna składnia, ten sam mechanizm:
 
-| Metoda | Gdzie | Parametry | Co robi z istniejącymi danymi | Czego wymaga od ziarna | Kiedy |
-|---|---|---|---|---|---|
-| `insert_overwrite` | dbt | `incremental_strategy='insert_overwrite'`, `partition_by`, okno od `_dbt_max_partition` (u nas `dni_wstecz = 3`) | podmienia całe partycje-dni z okna; usuwa też wiersze, które GA4 skasował przy ponownym przetworzeniu | nic — klucz zbędny | źródło oddaje cały dzień naraz; **u nas** |
-| `merge` (domyślna w dbt-bigquery) | dbt | `unique_key` = ziarno modelu (np. `data_zdarzenia` + `id_sesji`) | aktualizuje pasujące, dopisuje nowe; nie usuwa wierszy, których nie ma już w źródle | klucz unikalny w każdym przebiegu | dane kawałkami albo jako zmiany; nie u nas — eksport GA4 nie gwarantuje unikalnego klucza zdarzenia (wyżej) |
-| `microbatch` (dbt ≥ 1.9) | dbt | `event_time`, `batch_size`, `begin`, `lookback` + `partition_by` | jak `insert_overwrite`, ale osobne zapytanie na każdy dzień — partie można ponawiać pojedynczo | nic — `unique_key` w BigQuery nie dotyczy | długa historia, której jeden przebieg nie uniesie |
-| load job `WRITE_TRUNCATE` na `tabela$RRRRMMDD` | Python | `write_disposition`, dekorator partycji w nazwie tabeli | podmienia tylko wskazaną partycję; bez dekoratora nadpisuje całą tabelę | nic | odpowiednik `insert_overwrite`: dzień z API w całości |
-| `MERGE` po kluczu | Python (SQL) | `ON` = ziarno (np. `date` + `campaign_id`) | jak dbt `merge`; usuwanie tylko z jawnym `WHEN NOT MATCHED BY SOURCE THEN DELETE` | klucz = ziarno; grubszy (sama data) → przy drugim uruchomieniu błąd „UPDATE/MERGE must match at most one source row for each target row” | odpowiednik dbt `merge`: zmiany (`updated_since`), wymiary po ID |
-| `insert_rows_json` / append | Python | brak | tylko dopisuje — ponowne uruchomienie dubluje dane (`insertId` deduplikuje najwyżej przez ~1 min, bez gwarancji) | nic, ale też nic nie chroni | logi zdarzeń z deduplikacją dalej w potoku |
+| Metoda | Gdzie, parametry | Istniejące dane | Wymaga klucza | Kiedy |
+|---|---|---|---|---|
+| `insert_overwrite` | dbt: `partition_by`, okno od `_dbt_max_partition` (`dni_wstecz = 3`) | podmienia całe dni z okna, także usuwa skasowane przez GA4 | nie | źródło oddaje cały dzień; **u nas** |
+| `merge` (domyślna w dbt-bigquery) | dbt: `unique_key` = ziarno | aktualizuje pasujące, dopisuje nowe, nie usuwa | tak, unikalny w każdym przebiegu | dane kawałkami albo zmiany; nie u nas (wyżej) |
+| `microbatch` (dbt ≥ 1.9) | dbt: `event_time`, `batch_size`, `begin`, `lookback`, `partition_by` | jak `insert_overwrite`, zapytanie na dzień, partie ponawiasz osobno | nie (`unique_key` w BigQuery nie dotyczy) | długa historia ponad jeden przebieg |
+| load job `WRITE_TRUNCATE` na `tabela$RRRRMMDD` | Python: `write_disposition` + dekorator partycji | podmienia tę partycję; bez dekoratora całą tabelę | nie | jak `insert_overwrite`: dzień z API |
+| `MERGE` po kluczu | Python (SQL): `ON` = ziarno, np. `date` + `campaign_id` | jak dbt `merge`; usuwa tylko z `WHEN NOT MATCHED BY SOURCE THEN DELETE` | tak; grubszy (sama data) → błąd przy drugim uruchomieniu | zmiany (`updated_since`), wymiary po ID |
+| `insert_rows_json` / append | Python | tylko dopisuje, ponowne uruchomienie dubluje (`insertId` ~1 min, bez gwarancji) | nie, ale nic nie chroni | logi z deduplikacją dalej |
 
-Zasada: partycja, gdy źródło oddaje cały dzień naraz; merge, gdy dane przychodzą kawałkami, jako zmiany albo dla tabel wymiarów po ID. Ziarno raportu zagregowanego z API = data + wszystkie wymiary zapytania. Kontrola po każdym ładowaniu: `GROUP BY` po kluczu + `HAVING COUNT(*) > 1` zwraca zero wierszy.
+Ziarno raportu z API = data + wszystkie wymiary zapytania. Kontrola po ładowaniu: `GROUP BY` po kluczu + `HAVING COUNT(*) > 1` = zero wierszy.
 
 Źródła: [dbt — BigQuery configs](https://docs.getdbt.com/reference/resource-configs/bigquery-configs), [dbt — microbatch](https://docs.getdbt.com/docs/build/incremental-microbatch), [BigQuery — ładowanie do partycji](https://cloud.google.com/bigquery/docs/load-data-partitioned-tables), [BigQuery — MERGE](https://cloud.google.com/bigquery/docs/reference/standard-sql/dml-syntax), [BigQuery — streaming](https://cloud.google.com/bigquery/docs/streaming-data-into-bigquery).
 
 ## Testy
 
-Typ testu oznacza pierwsza linia pliku, a co sprawdza — nagłówek pod nią: w `tests/` (generic i singular) oraz w `models/` (użycie generic w `_*_modele.yml`, unit testy w `<model>__unit_test.yml` obok modelu, który testują). Testy generic mają dwa miejsca: definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać) — dlatego `not_null`, `unique` i `unique_combination_of_columns` widać tylko w `models/`, a w `tests/generic/` jest jedynie własny `wariant_w_seedzie`.
+Typ testu oznacza pierwsza linia pliku, co sprawdza — nagłówek. Generic ma definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać), więc wbudowane i z `dbt_utils` widać tylko w `models/`. Unit testy leżą w `<model>__unit_test.yml` obok modelu.
 
 ```
 generic — sprawdza dane
@@ -143,7 +143,7 @@ unit — sprawdza logikę na mockach
     └── marts/fct_wyniki_testow_ab__unit_test.yml      wyniki_* (1)
 ```
 
-Przy warn decyduje człowiek; parę wskaże `dbt test --select sprawdz_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc te muszą istnieć — z seedem, bo `dbt run` go nie ładuje, i z `--full-refresh`, bo pusta tabela stagingu bez niego zostaje pusta:
+Przy warn decyduje człowiek; parę wskaże `dbt test --select sprawdz_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc najpierw zbuduj je puste, z seedem (`dbt run` go nie ładuje) i `--full-refresh` (inaczej staging zostaje pusty):
 
 ```bash
 uv run dbt build --select +fct_wyniki_testow_ab --empty --full-refresh --resource-type seed --resource-type model --profiles-dir .
@@ -178,10 +178,10 @@ Linia ciągła: kolejność i źródło kodu. Przerywana: zapis do BigQuery.
 | `dbt.yml` | `deploy` | CD | zielony `unit-tests` + push na `main` | `dbt build --select state:modified+`, bez zmienionego `stg_ga4__zdarzenia` |
 | `dbt-build.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (`full_refresh`) | `dbt build` bez unit testów |
 
-- Czerwone CI: prod zostaje na ostatnim zielonym kodzie, ale dostaje świeże dane.
-- `deploy` i `build` dzielą grupę `concurrency: dbt-prod` — nigdy naraz; nowszy anuluje oczekujący.
+- Czerwone CI: prod zostaje na ostatnim zielonym kodzie, dane są świeże.
+- `deploy` i `build` dzielą `concurrency: dbt-prod`: nigdy naraz, nowszy anuluje oczekujący.
 - Zmiana `stg_ga4__zdarzenia` czeka na Actions → dbt build → Run workflow → `full_refresh`.
-- Continuous delivery (prod po „Approve”) tylko jako benchmark — zatwierdzałbyś własny commit.
+- Continuous delivery (prod po „Approve”) tylko jako benchmark: zatwierdzałbyś własny commit.
 - Alternatywy: GitLab CI/CD, Bitbucket Pipelines (ten sam model), dbt Cloud (płatny w zespole), Jenkins (własny serwer).
 
 ### Konfiguracja GCP
@@ -220,31 +220,29 @@ Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym dataseci
 
 ## Dane syntetyczne
 
-[`dane_syntetyczne/generuj_eksport_ga4.sql`](../dane_syntetyczne/generuj_eksport_ga4.sql) tworzy w osobnym datasecie tabele `events_RRRRMMDD` w schemacie eksportu GA4, ze scenariuszem testów z seeda i znanym efektem każdego wariantu. Plik leży poza `dbt/`, więc zmiana w nim nie odpala CI.
+[`dane_syntetyczne/generuj_eksport_ga4.sql`](../dane_syntetyczne/generuj_eksport_ga4.sql) tworzy w osobnym datasecie tabele `events_RRRRMMDD` w schemacie eksportu GA4, ze scenariuszem z seeda i znanym efektem każdego wariantu. Leży poza `dbt/`, więc jego zmiana nie odpala CI.
 
-Działa w darmowym [sandboxie BigQuery](https://docs.cloud.google.com/bigquery/docs/sandbox) (bez karty) z `--target sandbox`: `stg_ga4__zdarzenia` jest tam zwykłą tabelą bez partycji, odtwarzaną przy każdym buildzie, bo sandbox nie obsługuje `MERGE` z `insert_overwrite`, a partycje starsze niż 60 dni usuwa od razu. Sandbox ma też dożywotni limit 10 GiB zapisu i usuwa tabele 60 dni po utworzeniu — po tym czasie wygeneruj zbiór od nowa z `data_od = '2026-08-24'`.
+Działa w darmowym [sandboxie BigQuery](https://docs.cloud.google.com/bigquery/docs/sandbox) (bez karty) z `--target sandbox`: staging to zwykła tabela odtwarzana co build, bo sandbox nie ma `MERGE` (`insert_overwrite`) i od razu usuwa partycje starsze niż 60 dni. Limit 10 GiB zapisu na całe konto; tabele znikają 60 dni po utworzeniu — wtedy wygeneruj zbiór od nowa z `data_od = '2026-08-24'`.
 
-1. W skrypcie ustaw `projekt_docelowy` i uruchom go w konsoli BigQuery z Więcej → Ustawienia zapytania → lokalizacja danych = EU: skrypt czyta zbiór tylko przez `EXECUTE IMMEDIATE`, więc BigQuery nie wywnioskuje regionu i może uruchomić zadanie w US. Pierwszy raz generuje dni od 2026-08-24 do wczoraj.
-2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'` (w sandboxie dodaj `--target sandbox`).
-Zbiór wygenerowany wcześniej od 2026-09-07 nie ma dni testu A/A: uruchom skrypt raz z `data_od = '2026-08-24'` (podmienia dni od niego), potem `dbt build` z `--full-refresh` — bez tego `sprawdz_komplet_dni_ga4` zgłosi 14 brakujących dni.
+1. Ustaw `projekt_docelowy` i uruchom skrypt w konsoli BigQuery z Więcej → Ustawienia zapytania → lokalizacja danych = EU (czyta zbiór tylko przez `EXECUTE IMMEDIATE`, więc BigQuery może wybrać US). Generuje dni od 2026-08-24 do wczoraj. Starszy zbiór od 2026-09-07 (bez A/A) uzupełnij z `data_od = '2026-08-24'`, inaczej `sprawdz_komplet_dni_ga4` zgłosi 14 brakujących dni.
+2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'` (w sandboxie z `--target sandbox`).
+3. Przyrost: przed każdą sesją skrypt bez zmian (nadrobi dni do wczoraj, także po przerwie) i `dbt build` z tymi samymi `--vars`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
+4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` z `--vars` — zmieniają się tylko te dni.
 
-3. Przyrost: przed każdą sesją uruchom skrypt bez zmian — sam nadrobi dni od ostatniej tabeli do wczoraj, także po kilku dniach przerwy — i `dbt build` z tymi samymi `--vars`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
-4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` z `--vars` — liczby z tych dni się zmieniają, starsze nie.
-
-Prawda do odtworzenia w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 0% — test A/A, ab2 v1 +10%, ab3 v1 0%, ab3 v2 +12%, ab4 v1 −5%, ab5 v1 +10%). Przy 10 000 wizyt dziennie rozrzut w ab2 i ab3 to ok. ±5 pp; ab4 i ab5 dopiero ruszyły, więc ich wynik jeszcze szumi. `przychod_na_uzytkownika` zmienia się razem z CR (wartość zamówienia: logarytmiczno-normalna, mediana 200 zł, nie zależy od wariantu), ale ma ok. 1,9× większy względny rozrzut. Kolumny jakości (`wykluczeni_mieszani`, `ponownie_przydzieleni`, `bez_przydzialu`) mają po ok. 0,5–1% użytkowników testu; w ab4 i ab5 jeszcze 0, bo utrata ciasteczek zaczyna się 7 dni po przydziale. Żeby je wyzerować, ustaw oba udziały na 0, uruchom skrypt z `data_od = '2026-08-24'` (zwykłe nadrabianie generuje tylko nowe dni) i `dbt build` z `--full-refresh`.
+Prawda w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 0% — A/A, ab2 v1 +10%, ab3 v1 0%, ab3 v2 +12%, ab4 v1 −5%, ab5 v1 +10%), rozrzut ok. ±5 pp w ab2 i ab3 przy 10 000 wizyt dziennie; ab4 i ab5 dopiero ruszyły. `przychod_na_uzytkownika` idzie za CR (zamówienie logarytmiczno-normalne, mediana 200 zł, niezależne od wariantu), z ok. 1,9× większym względnym rozrzutem. Kolumny jakości to ok. 0,5–1% użytkowników testu, w ab4 i ab5 jeszcze 0 (utrata ciasteczek zaczyna się 7 dni po przydziale). Zerujesz je: oba udziały na 0, skrypt z `data_od = '2026-08-24'` i `dbt build --full-refresh`.
 
 | Parametr w skrypcie | Co psuje w danych | Co to pokazuje |
 |---|---|---|
 | `usterka_srm_slot` | kontrola dostaje 53% ruchu zamiast 50% | `sprawdz_srm` (warn) |
-| `usterka_brak_dnia` | brak tabeli dziennej; działa z `data_od` ≤ tego dnia, bo nadrabianie zaczyna od dnia po ostatniej tabeli | `sprawdz_komplet_dni_ga4` (error) |
-| `udzial_utraty_ciasteczka_testu` (domyślnie 0,10) | ciasteczko testu znika 7 dni po przydziale, tag losuje ponownie | kolumny `ponownie_przydzieleni` i `wykluczeni_mieszani` w `fct_wyniki_testow_ab` |
-| `udzial_utraty_ga` (domyślnie 0,10) | `_ga` znika 7 dni po pierwszej wizycie, ciasteczko testu zostaje | kolumna `bez_przydzialu` w `fct_wyniki_testow_ab` |
+| `usterka_brak_dnia` | brak tabeli dziennej; wymaga `data_od` ≤ tego dnia, bo nadrabianie zaczyna od dnia po ostatniej tabeli | `sprawdz_komplet_dni_ga4` (error) |
+| `udzial_utraty_ciasteczka_testu` (domyślnie 0,10) | ciasteczko testu znika 7 dni po przydziale, tag losuje ponownie | `ponownie_przydzieleni` i `wykluczeni_mieszani` |
+| `udzial_utraty_ga` (domyślnie 0,10) | `_ga` znika 7 dni po pierwszej wizycie, ciasteczko testu zostaje | `bez_przydzialu` |
 
 ## Niesprawdzone
 
 Poza `dbt parse` nic jeszcze nie biegło — `unit-tests`, `deploy` i harmonogram czekają na WIF. Do potwierdzenia:
 - czy `_dbt_max_partition` w filtrze na `_TABLE_SUFFIX` ogranicza czytane tabele (`total_bytes_billed` w `INFORMATION_SCHEMA.JOBS`);
 - czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
-- puste `user_pseudo_id` i `ga_session_id` przy `analytics_storage = denied` — dokumentacja Google tego nie opisuje, a wpis na X wymaga logowania; potwierdzają to tylko relacje praktyków; od kiedy eksport ma pola `batch_*` — dokumentacja nie podaje daty;
-- `dane_syntetyczne/generuj_eksport_ga4.sql` nie był uruchomiony — oczekiwane liczby pochodzą z symulacji tej samej logiki w Pythonie; m.in. czy `EXECUTE IMMEDIATE` widzi tabelę tymczasową skryptu (dokumentacja tego nie rozstrzyga);
-- czy load job z `WRITE_TRUNCATE` na `tabela$RRRRMMDD` podmienia tylko tę partycję — dokumentacja BigQuery opisuje to dla `bq load --replace` z dekoratorem, nie dla `write_disposition` w kliencie Pythona.
+- puste `user_pseudo_id` i `ga_session_id` przy `analytics_storage = denied` — potwierdzają tylko relacje praktyków; od kiedy eksport ma pola `batch_*` — dokumentacja nie podaje daty;
+- generator nie był uruchomiony — oczekiwane liczby pochodzą z symulacji tej samej logiki w Pythonie; m.in. czy `EXECUTE IMMEDIATE` widzi tabelę tymczasową skryptu (dokumentacja tego nie rozstrzyga);
+- czy load job z `WRITE_TRUNCATE` na `tabela$RRRRMMDD` podmienia tylko tę partycję — dokumentacja opisuje to dla `bq load --replace` z dekoratorem, nie dla `write_disposition` w kliencie Pythona.
