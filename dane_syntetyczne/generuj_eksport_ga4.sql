@@ -37,7 +37,7 @@ DECLARE ziarno STRING DEFAULT 'a';
 DECLARE testy ARRAY<STRUCT<slot STRING, start_testu DATE, koniec_testu DATE, warianty ARRAY<STRING>,
   efekty ARRAY<FLOAT64>, etap STRING>> DEFAULT [
   ('ab1', DATE '2026-08-24', DATE '2026-09-06', ['v0', 'v1'], [0.0, 0.0], 'karta'),
-  ('ab2', DATE '2026-09-07', DATE '2026-10-04', ['v0', 'v1'], [0.0, 0.10], 'karta'),
+  ('ab2', DATE '2026-09-07', DATE '2026-09-20', ['v0', 'v1'], [0.0, 0.10], 'karta'),
   ('ab3', DATE '2026-10-05', DATE '2026-11-01', ['v0', 'v1', 'v2'], [0.0, 0.0, 0.12], 'karta'),
   ('ab4', DATE '2026-11-02', DATE '2026-12-13', ['v0', 'v1'], [0.0, -0.05], 'karta'),
   ('ab5', DATE '2026-11-02', DATE '2026-11-29', ['v0', 'v1'], [0.0, 0.10], 'checkout')
@@ -295,14 +295,14 @@ END WHILE;
 
  Oczekiwany fct_wyniki_testow_ab po dbt build na danych 2026-08-24 – 2026-11-04 (domyślne
  parametry, bez usterek; liczby z symulacji tej samej logiki — FARM_FINGERPRINT da inne, ale
- bliskie): CR wariantu / CR kontroli ≈ 1 + efekt, rozrzut ok. ±5 pp w ab2 i ab3, większy w ab4 i ab5,
+ bliskie; wiersze ab2 z przebiegu w BigQuery 2026-11-08, test 2 tygodnie): CR wariantu / CR kontroli ≈ 1 + efekt, rozrzut ok. ±5 pp w ab2 i ab3, większy w ab4 i ab5,
  które dopiero ruszyły. ab1 (A/A): CR v1 ≈ CR v0, wynik nieistotny. Kolumny jakości to ok. 0,5–1%
  użytkowników testu; ab4 i ab5 mają w nich 0, bo utrata ciasteczek zaczyna się 7 dni po przydziale.
  Przychód na użytkownika zmienia się jak CR (koszyk nie zależy od wariantu), ale jego względny
  rozrzut jest ok. 1,9× większy (1 + CV² koszyka), więc ten sam test daje szerszy zakres.
  id_testu     | wariant | uzytkownicy | konwertujacy | CR     | prawda   | przychod_na_uzytkownika | odchylenie_przychodu | wykluczeni_mieszani | ponownie_przydzieleni | bez_przydzialu
- ab2_20260907 | v0      | 118076      | 4129         | 3,50%  | kontrola | 9,69                    | 70,07                | 562                 | 1127                  | 1081
- ab2_20260907 | v1      | 117937      | 4587         | 3,89%  | +10%     | 10,67                   | 72,80                | 577                 | 1115                  | 983
+ ab2_20260907 | v0      | 64266       | 2038         | 3,17%  | kontrola | 8,78                    | 67,30                | 68                  | 143                   | 148
+ ab2_20260907 | v1      | 64070       | 2313         | 3,61%  | +10%     | 9,97                    | 70,79                | 85                  | 161                   | 143
  ab3_20261005 | v0      | 78115       | 2770         | 3,55%  | kontrola | 9,88                    | 72,06                | 467                 | 720                   | 655
  ab3_20261005 | v1      | 78718       | 2769         | 3,52%  | 0%       | 9,56                    | 67,69                | 503                 | 757                   | 667
  ab3_20261005 | v2      | 78925       | 3018         | 3,82%  | +12%     | 10,73                   | 74,30                | 471                 | 704                   | 691
