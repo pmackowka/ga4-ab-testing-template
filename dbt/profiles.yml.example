@@ -1,34 +1,16 @@
 # Szablon połączenia z BigQuery. Skopiuj do profiles.yml (jest w .gitignore) albo ~/.dbt/profiles.yml.
+# Wszystkie targety logują się przez oauth, bez plików kluczy kont serwisowych.
 #
-# Wymagane zmienne środowiskowe (dev — domyślny target):
-#   export BIGQUERY_PROJECT="twoj-projekt-gcp"
-#   export BIGQUERY_KEYFILE="/sciezka/do/klucza/service-account.json"  # POZA folderem repo
-# Tylko przy --target prod (osobna tożsamość):
-#   export BIGQUERY_PROD_PROJECT="twoj-projekt-gcp-prod"
-#   export BIGQUERY_PROD_KEYFILE="/sciezka/do/klucza/service-account-prod.json"
-#
-# Tylko przy --target sandbox (BigQuery sandbox bez billingu, logowanie kontem Google):
+# sandbox (domyślny) — lokalnie, BigQuery sandbox bez billingu w projekcie ab-test-sandbox (EU):
 #   gcloud auth application-default login
-#   projekt ab-test-sandbox (bez billing account, EU) jest wpisany na stałe, zmienna niepotrzebna.
 #
+# ci, prod_ci — tylko GitHub Actions: token konta serwisowego dbt-prod z Workload Identity Federation,
+# projekt z sekretu BIGQUERY_PROD_PROJECT (dbt/README.md, sekcja „Konfiguracja GCP”).
 # Konto serwisowe potrzebuje: BigQuery Data Viewer na datasecie GA4, BigQuery Data Editor
 # na datasecie docelowym, BigQuery Job User w projekcie.
 testy_ab:
-  target: dev
+  target: sandbox
   outputs:
-    dev:
-      type: bigquery
-      method: service-account
-      keyfile: "{{ env_var('BIGQUERY_KEYFILE') }}"
-      project: "{{ env_var('BIGQUERY_PROJECT') }}"
-      dataset: dbt_dev_testy_ab
-      location: EU
-      priority: interactive
-      threads: 4
-      job_execution_timeout_seconds: 300
-      job_retries: 1
-      maximum_bytes_billed: 10737418240
-
     sandbox:
       type: bigquery
       method: oauth
@@ -40,19 +22,6 @@ testy_ab:
       job_execution_timeout_seconds: 300
       job_retries: 1
       maximum_bytes_billed: 10737418240
-
-    prod:
-      type: bigquery
-      method: service-account
-      keyfile: "{{ env_var('BIGQUERY_PROD_KEYFILE') }}"
-      project: "{{ env_var('BIGQUERY_PROD_PROJECT') }}"
-      dataset: dbt_prod_testy_ab
-      location: EU
-      priority: interactive
-      threads: 4
-      job_execution_timeout_seconds: 300
-      job_retries: 1
-      maximum_bytes_billed: 107374182400
 
     prod_ci:
       type: bigquery

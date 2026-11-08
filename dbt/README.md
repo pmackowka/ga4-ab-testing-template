@@ -4,16 +4,15 @@ To samo co [`sql/03`](../sql/03_po_tescie_warianty.sql), ale dla wszystkich test
 
 ## Uruchomienie
 
-Wymaga [uv](https://docs.astral.sh/uv/) i konta serwisowego z rolami BigQuery Data Viewer (GA4), Data Editor (dataset docelowy) i Job User.
+Wymaga [uv](https://docs.astral.sh/uv/), [gcloud](https://cloud.google.com/sdk/docs/install) i dostępu do projektu `ab-test-sandbox` (BigQuery sandbox, bez billingu). Logowanie kontem Google, bez klucza konta serwisowego.
 
 ```bash
 cd dbt
 uv sync                                  # Python 3.11 + dbt-bigquery 1.12.0 z uv.lock
 cp profiles.yml.example profiles.yml     # profiles.yml jest w .gitignore
-export BIGQUERY_PROJECT="twoj-projekt-gcp"
-export BIGQUERY_KEYFILE="/sciezka/poza/repo/service-account.json"
+gcloud auth application-default login    # oauth dla targetu sandbox (domyślny)
 uv run dbt deps
-uv run dbt build --profiles-dir .
+uv run dbt build --target sandbox --profiles-dir .
 ```
 
 Przed pierwszym uruchomieniem ustaw w `dbt_project.yml`:
@@ -24,7 +23,7 @@ Przed pierwszym uruchomieniem ustaw w `dbt_project.yml`:
 | `vars.ga4_data_startu` | najwcześniejszy `start_testu` z seeda — od tego dnia czyta `--full-refresh` |
 | `location` w `profiles.yml` | region datasetu GA4 (domyślnie `EU`) |
 
-Target `prod` ma osobne zmienne (`BIGQUERY_PROD_*`) bez fallbacku na dev.
+Targety `ci` i `prod_ci` działają tylko w GitHub Actions (projekt z sekretu `BIGQUERY_PROD_PROJECT`, [Konfiguracja GCP](#konfiguracja-gcp)).
 
 ## Pliki
 
@@ -104,7 +103,7 @@ flowchart LR
 - przesuwasz `ga4_data_startu` wstecz;
 - zmieniasz logikę stagingu — przebieg przyrostowy przeliczyłby nową logiką tylko ostatnie dni, bez błędu; deploy wtedy pomija staging i ostrzega.
 
-`maximum_bytes_billed`: 10 GiB dev, 100 GiB prod — zapytanie ponad limit pada bez opłaty.
+`maximum_bytes_billed`: 10 GiB sandbox, 1 GiB ci, 100 GiB prod_ci — zapytanie ponad limit pada bez opłaty.
 
 Ta sama decyzja co przy ładowaniu z API w Pythonie — inna składnia, ten sam mechanizm:
 
@@ -240,9 +239,9 @@ Prawda w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECL
 
 ## Niesprawdzone
 
-Poza `dbt parse` nic jeszcze nie biegło — `unit-tests`, `deploy` i harmonogram czekają na WIF. Do potwierdzenia:
+Na żywo w BigQuery (sandbox, EU) biegły generator i `dbt build --target sandbox` (39 PASS: testy danych i unit testy); `unit-tests` w CI, `deploy` i harmonogram jeszcze nie (czekają na WIF). Do potwierdzenia:
 - czy `_dbt_max_partition` w filtrze na `_TABLE_SUFFIX` ogranicza czytane tabele (`total_bytes_billed` w `INFORMATION_SCHEMA.JOBS`);
 - czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
 - puste `user_pseudo_id` i `ga_session_id` przy `analytics_storage = denied` — potwierdzają tylko relacje praktyków; od kiedy eksport ma pola `batch_*` — dokumentacja nie podaje daty;
-- generator nie był uruchomiony — oczekiwane liczby pochodzą z symulacji tej samej logiki w Pythonie; m.in. czy `EXECUTE IMMEDIATE` widzi tabelę tymczasową skryptu (dokumentacja tego nie rozstrzyga);
+- liczby z generatora (CR, kolumny jakości) pochodzą z symulacji w Pythonie, na żywo jeszcze niezmierzone (krok 5);
 - czy load job z `WRITE_TRUNCATE` na `tabela$RRRRMMDD` podmienia tylko tę partycję — dokumentacja opisuje to dla `bq load --replace` z dekoratorem, nie dla `write_disposition` w kliencie Pythona.
