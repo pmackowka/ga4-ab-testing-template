@@ -120,7 +120,7 @@ WHILE dzien <= data_do DO
           NULL) AS dzien_utraty_ga
       FROM plan_wizyt
       WHERE dzien_wizyty <= dzien
-        AND id_ga IN (SELECT id_ga FROM plan_wizyt WHERE dzien_wizyty = dzien)
+      QUALIFY LOGICAL_OR(dzien_wizyty = dzien) OVER (PARTITION BY id_ga)
     );
 
     CREATE OR REPLACE TEMP TABLE zdarzenia_dnia AS
