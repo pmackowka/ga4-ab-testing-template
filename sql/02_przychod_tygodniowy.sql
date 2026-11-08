@@ -3,25 +3,23 @@
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
  Test karty produktu: wejście = view_item, przychód z purchase.
- Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
-
- Parametry:
- - window_end: niedziela przed startem testu
- - window_weeks: to samo okno co max_weeks w 01
+ Tabela w obu miejscach: `ab-test-sandbox.ga4_syntetyczny.events_*` (dane syntetyczne); własny eksport GA4: `twoj-projekt.analytics_123456789.events_*`.
 
  Przychód z zakupów po pierwszym view_item, zamówienie raz na transaction_id.
  Mediana wyraźnie niższa od średniej = w oknie był pik (Black Friday):
  do kalkulatora bierz medianę.
 */
 
-DECLARE window_end DATE DEFAULT DATE '2026-09-06';
-DECLARE window_weeks INT64 DEFAULT 5;
+-- ===== DO UZUPEŁNIENIA: tylko te zmienne edytujesz, niżej nic nie zmieniaj =====
+DECLARE window_end DATE DEFAULT DATE '2026-09-06';  -- liczysz z rejestru: `start_testu` planowanego testu minus 1 dzień, niedziela tuż przed startem testu (domyślnie ab2: 2026-09-06), ostatni dzień okna
+DECLARE window_weeks INT64 DEFAULT 2;  -- Twoja decyzja, nie kolumna rejestru: ile pełnych tygodni wstecz od window_end liczyć, tyle samo co max_weeks w 01
+-- ===== KONIEC =====
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_end) = 1
   AS 'window_end musi być niedzielą: okno z pełnych tygodni przed poniedziałkowym startem';
 ASSERT (
   SELECT COUNT(DISTINCT _TABLE_SUFFIX)
-  FROM `twoj-projekt.analytics_123456789.events_*`
+  FROM `ab-test-sandbox.ga4_syntetyczny.events_*`
   WHERE _TABLE_SUFFIX BETWEEN
       FORMAT_DATE('%Y%m%d', DATE_SUB(window_end, INTERVAL window_weeks * 7 - 1 DAY))
     AND FORMAT_DATE('%Y%m%d', window_end)
@@ -43,7 +41,7 @@ WITH events AS (
       NULLIF(NULLIF(ecommerce.transaction_id, '(not set)'), ''),
       CONCAT(user_pseudo_id, '-', CAST(event_timestamp AS STRING))
     ) AS order_key
-  FROM `twoj-projekt.analytics_123456789.events_*`
+  FROM `ab-test-sandbox.ga4_syntetyczny.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE(
         '%Y%m%d',
@@ -101,10 +99,12 @@ FROM (
 );
 
 /*
- Przykładowy wynik (4 tygodnie po 100 000 i Black Friday 225 000):
+ Wynik dla testu ab2 (dane syntetyczne, okno 2026-08-24 – 2026-09-06, domyślne parametry):
  weekly_revenue | weekly_revenue_median
  ---------------+----------------------
-        125 000 |               100 000
+        572 968 |               572 968
+ Przy 2 tygodniach mediana równa się średniej; pik (np. 4 tygodnie po 100 000
+ i Black Friday 225 000 → 125 000 vs 100 000) widać od 3 tygodni okna.
 
  Kalkulator: Tygodniowy przychód ze strony testowej.
 */

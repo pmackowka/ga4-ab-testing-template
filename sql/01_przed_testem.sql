@@ -2,12 +2,7 @@
  01 · PRZED TESTEM → kalkulator „Przed testem A/B”
  https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
  Test karty produktu: wejście = view_item, konwersja = purchase.
- Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
-
- Parametry:
- - window_start: poniedziałek, początek pełnych tygodni przed testem
- - max_weeks: 1–8, tyle co limit w kalkulatorze
- - test_start: pierwszy dzień testu; okno musi się skończyć przed nim
+ Tabela w obu miejscach: `ab-test-sandbox.ga4_syntetyczny.events_*` (dane syntetyczne); własny eksport GA4: `twoj-projekt.analytics_123456789.events_*`.
 
  Każdy wiersz to okno k tygodni: osoba liczy się raz, od pierwszego view_item,
  z zakupami do końca okna — tak jak w wyniku testu. Zamówienie raz na
@@ -16,9 +11,11 @@
  czas? Weź wiersz z tym czasem i przelicz, aż czas zgodzi się z wierszem.
 */
 
-DECLARE window_start DATE DEFAULT DATE '2026-08-03';
-DECLARE max_weeks INT64 DEFAULT 5;
-DECLARE test_start DATE DEFAULT DATE '2026-09-07';
+-- ===== DO UZUPEŁNIENIA: tylko te zmienne edytujesz, niżej nic nie zmieniaj =====
+DECLARE window_start DATE DEFAULT DATE '2026-08-24';  -- liczysz z rejestru: `start_testu` planowanego testu minus 7 × max_weeks dni, poniedziałek, od którego liczysz ruch przed testem
+DECLARE max_weeks INT64 DEFAULT 2;  -- Twoja decyzja, nie kolumna rejestru: ile tygodni okna policzyć (1–8, tyle co limit w kalkulatorze); wynik ma wiersz dla 1…max_weeks
+DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- = `start_testu` z rejestr_testow.csv: poniedziałek, w którym ruszy test (domyślnie ab2); okno musi się skończyć przed nim
+-- ===== KONIEC =====
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
   AS 'window_start musi być poniedziałkiem';
@@ -28,7 +25,7 @@ ASSERT DATE_ADD(window_start, INTERVAL max_weeks * 7 DAY) <= test_start
   AS 'okno sięga w okres testu: przesuń window_start wstecz albo zmniejsz max_weeks';
 ASSERT (
   SELECT COUNT(DISTINCT _TABLE_SUFFIX)
-  FROM `twoj-projekt.analytics_123456789.events_*`
+  FROM `ab-test-sandbox.ga4_syntetyczny.events_*`
   WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', window_start)
     AND FORMAT_DATE('%Y%m%d', DATE_ADD(window_start, INTERVAL max_weeks * 7 - 1 DAY))
 ) = max_weeks * 7
@@ -43,7 +40,7 @@ WITH events AS (
     ecommerce.purchase_revenue AS revenue,
     DIV(DATE_DIFF(PARSE_DATE('%Y%m%d', event_date), window_start, DAY), 7) + 1
       AS week_no
-  FROM `twoj-projekt.analytics_123456789.events_*`
+  FROM `ab-test-sandbox.ga4_syntetyczny.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', window_start)
       AND FORMAT_DATE(
@@ -119,14 +116,11 @@ FROM windows
 ORDER BY weeks;
 
 /*
- Przykładowy wynik (liczby poglądowe):
+ Wynik dla testu ab2 (dane syntetyczne, okno 2026-08-24 – 2026-09-06, domyślne parametry):
  weeks | users_per_week | converters_per_week | revenue_per_user | revenue_sd
  ------+----------------+---------------------+------------------+-----------
-     1 |         25 000 |                 375 |             4.50 |      41.00
-     2 |         22 500 |                 383 |             5.10 |      43.50
-     3 |         21 000 |                 392 |             5.60 |      45.20
-     4 |         20 000 |                 400 |             6.00 |      46.50
-     5 |         19 200 |                 403 |             6.30 |      47.40
+     1 |         67 182 |               2 098 |             8.56 |      64.24
+     2 |         64 287 |               2 056 |             8.89 |      66.41
 
  Kalkulator: users_per_week → Użytkownicy w tygodniu, converters_per_week →
  Konwertujący w tygodniu; w trybie przychodu revenue_per_user i revenue_sd

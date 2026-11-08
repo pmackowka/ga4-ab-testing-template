@@ -3,13 +3,8 @@
  https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
  Domyślnie test ab2 z gtm/01_dwa_warianty.html (v0/v1 po 50%). Pierwszy test
  to A/A w ab1: wynik ma być nieistotny i bez SRM, inaczej konfiguracja jest zła.
- Tabelę `twoj-projekt.analytics_123456789.events_*` podmień w obu miejscach.
+ Tabela w obu miejscach: `ab-test-sandbox.ga4_syntetyczny.events_*` (dane syntetyczne); własny eksport GA4: `twoj-projekt.analytics_123456789.events_*`.
 
- Parametry:
- - test_start / test_end: poniedziałek publikacji tagu / niedziela, ostatni dzień
- - test_name: slot (ab1…ab10) = TEST w tagu = nazwa parametru eventu
- - variants: = VARIANTS w tagu; inny wariant w danych przerywa zapytanie
- - exposure_events: user wchodzi do testu na pierwszym z nich z wariantem
  Uruchom najwcześniej 3 dni po test_end: GA4 jeszcze dopisuje dane.
 
  Wymaga w GTM: eventu ab_assign z ab_test i ab_variant oraz parametru slotu
@@ -18,13 +13,15 @@
  raz na transaction_id, przychód osoby przycięty do 99,9 percentyla.
 */
 
-DECLARE test_start DATE DEFAULT DATE '2026-09-07';
-DECLARE test_end DATE DEFAULT DATE '2026-10-04';
-DECLARE test_name STRING DEFAULT 'ab2';
-DECLARE control_variant STRING DEFAULT 'v0';
-DECLARE variants ARRAY<STRING> DEFAULT ['v0', 'v1'];
-DECLARE conversion_event STRING DEFAULT 'purchase';
-DECLARE exposure_events ARRAY<STRING> DEFAULT ['ab_assign', 'view_item'];
+-- ===== DO UZUPEŁNIENIA: tylko te zmienne edytujesz, niżej nic nie zmieniaj =====
+DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- = `start_testu` z rejestr_testow.csv: poniedziałek, w który opublikowano tag testu (pierwszy dzień okna)
+DECLARE test_end DATE DEFAULT DATE '2026-09-20';  -- = `koniec_testu`: niedziela, ostatni dzień testu, co najmniej 3 dni temu
+DECLARE test_name STRING DEFAULT 'ab2';  -- = `slot`: slot testu (ab1…ab10), TEST w tagu i nazwa parametru eventu
+DECLARE control_variant STRING DEFAULT 'v0';  -- = `wariant_kontrolny`: wariant kontrolny, jeden z variants
+DECLARE variants ARRAY<STRING> DEFAULT ['v0', 'v1'];  -- = `warianty` (w CSV rozdzielone `|`): wszystkie warianty, jak VARIANTS w tagu; inny wariant w danych przerywa zapytanie
+DECLARE conversion_event STRING DEFAULT 'purchase';  -- = `zdarzenie_konwersji`: zdarzenie liczone jako konwersja
+DECLARE exposure_events ARRAY<STRING> DEFAULT ['ab_assign', 'view_item'];  -- = `zdarzenia_ekspozycji` (w CSV rozdzielone `|`): zdarzenia, na których user wchodzi do testu (pierwsze z wariantem)
+-- ===== KONIEC =====
 
 ASSERT EXTRACT(DAYOFWEEK FROM test_start) = 2
   AS 'test_start musi być poniedziałkiem';
@@ -36,7 +33,7 @@ ASSERT test_end <= DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)
   AS 'uruchom najwcześniej 3 dni po test_end: GA4 jeszcze dopisuje dane';
 ASSERT (
   SELECT COUNT(DISTINCT _TABLE_SUFFIX)
-  FROM `twoj-projekt.analytics_123456789.events_*`
+  FROM `ab-test-sandbox.ga4_syntetyczny.events_*`
   WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', test_start)
     AND FORMAT_DATE('%Y%m%d', test_end)
 ) = DATE_DIFF(test_end, test_start, DAY) + 1
@@ -58,7 +55,7 @@ WITH events AS (
       ),
       NULLIF((SELECT value.string_value FROM UNNEST(event_params) WHERE key = test_name), 'out')
     ) AS ab_variant
-  FROM `twoj-projekt.analytics_123456789.events_*`
+  FROM `ab-test-sandbox.ga4_syntetyczny.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', test_start)
       AND FORMAT_DATE('%Y%m%d', test_end)
@@ -146,16 +143,16 @@ GROUP BY u.variant
 ORDER BY u.variant = control_variant DESC, u.variant;
 
 /*
- Przykładowy wynik (liczby poglądowe, zgodne z domyślnymi danymi kalkulatora):
+ Wynik dla testu ab2 (dane syntetyczne, 2026-09-07 – 2026-09-20, domyślne parametry; prawdziwy efekt v1 +10%):
  calculator_field | users  | converters | revenue    | revenue_per_user | revenue_sd | excluded_mixed | reassigned | no_assignment
  -----------------+--------+------------+------------+------------------+------------+----------------+------------+--------------
- A (kontrola)     | 36 700 |        734 | 176 160.00 |             4.80 |      38.60 |            410 |        826 |         1 190
- B (wariant v1)   | 36 750 |        846 | 202 860.00 |             5.52 |      41.30 |            398 |        801 |         1 172
+ A (kontrola)     | 64 266 |      2 038 | 564 521.87 |             8.78 |      67.30 |             68 |        143 |           148
+ B (wariant v1)   | 64 070 |      2 313 | 638 626.47 |             9.97 |      70.79 |             85 |        161 |           143
 
  Kalkulator: users, converters; w trybie przychodu revenue_per_user i revenue_sd.
  Kontrola jakości, do kalkulatora nie idzie:
  - excluded_mixed: 2+ warianty, wyjęci z users; różnica między wierszami
-   większa niż 2 × √(suma obu) jest podejrzana (tu 12 < 57, w normie)
+   większa niż 2 × √(suma obu) jest podejrzana (tu 17 < 25, w normie)
  - reassigned: 2+ ab_assign, ciasteczko testu zniknęło i tag losował ponownie
  - no_assignment: wariant bez ab_assign, nowe _ga albo zgubiony hit
 */

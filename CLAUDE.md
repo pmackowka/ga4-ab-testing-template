@@ -31,7 +31,7 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 
 ## Konwencje
 
-- **Komentarze w SQL i dbt:** tylko nagłówek pliku (cel, parametry, kluczowe reguły) i przykładowa tabela wyniku na końcu. Zero komentarzy wewnątrz kodu. W dbt nagłówek i przykład w `{# #}`, pierwsza linia testu to `-- GENERIC` / `-- SINGULAR`.
+- **Komentarze w SQL i dbt:** tylko nagłówek pliku (cel, kluczowe reguły) i przykładowa tabela wyniku na końcu. Zero komentarzy wewnątrz kodu. Wyjątek: w `sql/` blok `DECLARE` do uzupełnienia ma baner „DO UZUPEŁNIENIA” i jednozdaniowy komentarz przy każdej zmiennej; parametry nie powtarzają się w nagłówku. W dbt nagłówek i przykład w `{# #}`, pierwsza linia testu to `-- GENERIC` / `-- SINGULAR`.
 - **Nazwy:** `sql/` po angielsku (`user_pseudo_id`, `revenue_per_user`), dbt po polsku (`id_uzytkownika`, `przychod_na_uzytkownika`). Komentarze i dokumentacja po polsku.
 - **Ta sama logika w trzech miejscach:** `sql/03`, model dbt i kalkulator muszą liczyć tak samo (pierwsza ekspozycja, konwersja po niej, zamówienie raz na `transaction_id`, przychód osoby przycięty do 99,9 percentyla, `(not set)`/'' jako NULL). Zmiana w jednym = sprawdź pozostałe.
 - **Poprawka = grep całego repo:** wartość, nazwa pliku albo parametr zwykle siedzi też w README, przykładach wyników, workflow i GTM. Każde trafienie popraw albo uzasadnij, czemu zostaje.
@@ -53,4 +53,4 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 
 - Na BigQuery nic jeszcze nie biegło (tylko `dbt parse` i `sqlfluff`). Lista rzeczy do potwierdzenia: `dbt/README.md`, sekcja „Niesprawdzone”.
 - CI `unit-tests` i deploy czekają na konfigurację Workload Identity Federation (sekrety w GitHub Actions).
-- Domyślne okno w `sql/01` i `02` zaczyna się 2026-08-03, a dane syntetyczne od 2026-08-24: przy syntetycznych ustaw `window_start = '2026-08-24'`.
+- Domyślne okna w `sql/01` i `02` (`window_start = '2026-08-24'`, 2 tygodnie) i tabela `ab-test-sandbox.ga4_syntetyczny.events_*` pasują do danych syntetycznych; przy prawdziwym eksporcie ustaw własne.
