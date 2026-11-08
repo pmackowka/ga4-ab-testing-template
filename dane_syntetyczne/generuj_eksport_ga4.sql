@@ -20,7 +20,7 @@
  - usterka_srm_slot → sprawdz_srm (warn); usterka_brak_dnia → sprawdz_komplet_dni_ga4 (error)
 */
 
-DECLARE projekt_docelowy STRING DEFAULT 'twoj-projekt';
+DECLARE projekt_docelowy STRING DEFAULT 'ab-test-sandbox';
 DECLARE zbior_docelowy STRING DEFAULT 'ga4_syntetyczny';
 DECLARE data_startu DATE DEFAULT DATE '2026-08-24';
 DECLARE data_od DATE DEFAULT NULL;

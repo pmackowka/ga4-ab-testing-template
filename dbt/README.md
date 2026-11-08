@@ -225,9 +225,9 @@ Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym dataseci
 Działa w darmowym [sandboxie BigQuery](https://docs.cloud.google.com/bigquery/docs/sandbox) (bez karty) z `--target sandbox`: staging to zwykła tabela odtwarzana co build, bo sandbox nie ma `MERGE` (`insert_overwrite`) i od razu usuwa partycje starsze niż 60 dni. Limit 10 GiB zapisu na całe konto; tabele znikają 60 dni po utworzeniu — wtedy wygeneruj zbiór od nowa z `data_od = '2026-08-24'`.
 
 1. Ustaw `projekt_docelowy` i uruchom skrypt w konsoli BigQuery z Więcej → Ustawienia zapytania → lokalizacja danych = EU (czyta zbiór tylko przez `EXECUTE IMMEDIATE`, więc BigQuery może wybrać US). Generuje dni od 2026-08-24 do wczoraj. Starszy zbiór od 2026-09-07 (bez A/A) uzupełnij z `data_od = '2026-08-24'`, inaczej `sprawdz_komplet_dni_ga4` zgłosi 14 brakujących dni.
-2. `uv run dbt build --profiles-dir . --full-refresh --vars '{ga4_projekt: twoj-projekt, ga4_zbior_danych: ga4_syntetyczny}'` (w sandboxie z `--target sandbox`).
-3. Przyrost: przed każdą sesją skrypt bez zmian (nadrobi dni do wczoraj, także po przerwie) i `dbt build` z tymi samymi `--vars`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
-4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build` z `--vars` — zmieniają się tylko te dni.
+2. `uv run dbt build --target sandbox --profiles-dir . --full-refresh` — `vars` w `dbt_project.yml` wskazują już `ab-test-sandbox.ga4_syntetyczny`.
+3. Przyrost: przed każdą sesją skrypt bez zmian (nadrobi dni do wczoraj, także po przerwie) i `dbt build --target sandbox`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
+4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build --target sandbox` — zmieniają się tylko te dni.
 
 Prawda w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 0% — A/A, ab2 v1 +10%, ab3 v1 0%, ab3 v2 +12%, ab4 v1 −5%, ab5 v1 +10%), rozrzut ok. ±5 pp w ab2 i ab3 przy 10 000 wizyt dziennie; ab4 i ab5 dopiero ruszyły. `przychod_na_uzytkownika` idzie za CR (zamówienie logarytmiczno-normalne, mediana 200 zł, niezależne od wariantu), z ok. 1,9× większym względnym rozrzutem. Kolumny jakości to ok. 0,5–1% użytkowników testu, w ab4 i ab5 jeszcze 0 (utrata ciasteczek zaczyna się 7 dni po przydziale). Zerujesz je: oba udziały na 0, skrypt z `data_od = '2026-08-24'` i `dbt build --full-refresh`.
 

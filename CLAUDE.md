@@ -23,11 +23,11 @@ Nie ma dbt dla `sql/01` i `02`: plan testu to zapytanie jednorazowe z innymi par
 ```bash
 cd dbt && uv sync && cp profiles.yml.example profiles.yml && uv run dbt deps
 uv run dbt parse --profiles-dir .                        # bez BigQuery; target dev wymaga BIGQUERY_KEYFILE
-uv run dbt build --target sandbox --profiles-dir . --vars '{ga4_projekt: <projekt>, ga4_zbior_danych: ga4_syntetyczny}'
+uv run dbt build --target sandbox --profiles-dir .        # vars w dbt_project.yml = ab-test-sandbox.ga4_syntetyczny
 uvx sqlfluff parse --dialect bigquery sql/*.sql          # składnia zwykłego SQL (z katalogu głównego)
 ```
 
-Projekt działa w darmowym BigQuery sandboxie (bez karty): zawsze `--target sandbox` (oauth przez `gcloud auth application-default login`). Sandbox nie ma DML (`MERGE`), usuwa tabele i partycje po 60 dniach, ma 10 GiB zapisu na całe konto. Lokalizacja danych: EU. Zmiana logiki `stg_ga4__zdarzenia` wymaga `--full-refresh`.
+Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-test-sandbox`: zawsze `--target sandbox` (oauth przez `gcloud auth application-default login`, projekt wpisany w profilu). Sandbox nie ma DML (`MERGE`), usuwa tabele i partycje po 60 dniach, ma 10 GiB zapisu na całe konto. Lokalizacja danych: EU. Zmiana logiki `stg_ga4__zdarzenia` wymaga `--full-refresh`.
 
 ## Konwencje
 
@@ -46,7 +46,7 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty): zawsze `--target sand
 - Zmiany zrobione na prośbę Piotra: commit i push na `main` od razu, bez PR.
 - Tytuł po polsku z prefiksem: `feat:`, `fix:`, `docs:`, `ci:`. Tylko zmiana techniczna, bez motywacji.
 - Autor `pmackowka@gmail.com`. Bez stopek `Co-Authored-By` / `Claude-Session`.
-- Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. W przykładach placeholdery (`twoj-projekt`, `analytics_123456789`), nigdy prawdziwe ID projektów i klientów.
+- Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. Repo jest prywatne: prawdziwe ID własnego projektu `ab-test-sandbox` i komentarze z przebiegu wolno wpisywać; publiczna kopia powstanie osobno, oczyszczona. ID klientów nigdy.
 - Bez przepisywania historii i force pusha bez zgody.
 
 ## Stan

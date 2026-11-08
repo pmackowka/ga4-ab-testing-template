@@ -9,7 +9,7 @@
 #
 # Tylko przy --target sandbox (BigQuery sandbox bez billingu, logowanie kontem Google):
 #   gcloud auth application-default login
-#   export BIGQUERY_PROJECT="twoj-projekt-gcp"
+#   projekt ab-test-sandbox (bez billing account, EU) jest wpisany na stałe, zmienna niepotrzebna.
 #
 # Konto serwisowe potrzebuje: BigQuery Data Viewer na datasecie GA4, BigQuery Data Editor
 # na datasecie docelowym, BigQuery Job User w projekcie.
@@ -32,7 +32,7 @@ testy_ab:
     sandbox:
       type: bigquery
       method: oauth
-      project: "{{ env_var('BIGQUERY_PROJECT') }}"
+      project: ab-test-sandbox
       dataset: dbt_dev_testy_ab
       location: EU
       priority: interactive

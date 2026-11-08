@@ -12,8 +12,9 @@ target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
 vars:
-  ga4_projekt: 'twoj-projekt'
-  ga4_zbior_danych: 'analytics_123456789'
+  # dane syntetyczne z dane_syntetyczne/generuj_eksport_ga4.sql w sandboxie; prawdziwy eksport GA4 → nadpisz przez --vars
+  ga4_projekt: 'ab-test-sandbox'
+  ga4_zbior_danych: 'ga4_syntetyczny'
   ga4_data_startu: '2026-08-24'
 
 models:
