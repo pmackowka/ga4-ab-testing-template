@@ -24,7 +24,7 @@ Nie ma dbt dla `sql/01` i `02`: plan testu to zapytanie jednorazowe z innymi par
 cd dbt && uv sync && cp profiles.yml.example profiles.yml && uv run dbt deps
 uv run dbt parse --profiles-dir .                        # bez połączenia z BigQuery
 uv run dbt build --target sandbox --profiles-dir .        # vars w dbt_project.yml = ab-test-sandbox.ga4_syntetyczny
-uvx sqlfluff parse --dialect bigquery sql/*.sql          # składnia zwykłego SQL (z katalogu głównego)
+uvx sqlfluff parse --dialect bigquery sql/               # składnia zwykłego SQL (z katalogu głównego)
 ```
 
 Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-test-sandbox`: zawsze `--target sandbox` (oauth przez `gcloud auth application-default login`, projekt wpisany w profilu). Sandbox nie ma DML (`MERGE`), usuwa tabele i partycje po 60 dniach, ma 10 GiB zapisu na całe konto. Lokalizacja danych: EU. Zmiana logiki `stg_ga4__zdarzenia` wymaga `--full-refresh`.
