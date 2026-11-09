@@ -18,6 +18,10 @@
  - testy: kopia seeda + efekt wariantu (względna zmiana CR); kontrola pierwsza, efekt 0; ab1 = A/A;
    etap 'karta' zmienia przejście do checkoutu, 'checkout' przejście do zakupu
  - usterka_srm_slot → sprawdz_srm (warn); usterka_brak_dnia → sprawdz_komplet_dni_ga4 (error)
+
+ Wyniki testu ab2 z tych danych (sql/01–03, domyślne parametry) są danymi przykładowymi
+ kalkulatorów na pmdata.pl (repo personal-page). Zmiana generatora, seeda albo SQL rozjedzie
+ je z kalkulatorami.
 */
 
 DECLARE projekt_docelowy STRING DEFAULT 'ab-test-sandbox';
