@@ -1,4 +1,4 @@
-# ab-test-bigquery
+# ga4-ab-testing
 
 Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkulatorów na pmdata.pl, skrypty GTM losują wariant. Opis dla ludzi: `README.md` (kroki testu, mapa folderów), `sql/README.md` (zapytania, kalkulatory, zrzuty), `gtm/README.md` (tagi) i `dbt/README.md` (dbt, CI/CD, dane syntetyczne) — przeczytaj je przed zmianą.
 

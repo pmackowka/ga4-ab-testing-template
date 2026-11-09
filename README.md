@@ -1,4 +1,4 @@
-# ab-test-bigquery
+# ga4-ab-testing
 
 SQL pod BigQuery (eksport GA4) do dwóch kalkulatorów testów A/B na pmdata.pl, plus skrypty GTM losujące wariant:
 

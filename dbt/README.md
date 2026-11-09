@@ -201,12 +201,12 @@ gcloud iam workload-identity-pools providers create-oidc github --project=$PROJE
   --location=global --workload-identity-pool=github \
   --issuer-uri=https://token.actions.githubusercontent.com \
   --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
-  --attribute-condition="assertion.repository=='<owner>/ab-test-bigquery'"
+  --attribute-condition="assertion.repository=='<owner>/ga4-ab-testing'"
 
 # 3. workflow z tego repo może działać jako dbt-prod
 gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT \
   --role=roles/iam.workloadIdentityUser \
-  --member=principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/<owner>/ab-test-bigquery
+  --member=principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/<owner>/ga4-ab-testing
 ```
 
 | Sekret (Settings → Secrets and variables → Actions) | Wartość |
