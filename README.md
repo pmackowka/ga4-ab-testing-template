@@ -13,6 +13,17 @@ Scenariusz: e-commerce testuje kartę produktu, wejście do testu to `view_item`
 | [`gtm/`](gtm/README.md) | tagi losujące wariant |
 | [`dbt/`](dbt/README.md) | wynik `03` dla wszystkich testów naraz, z testami danych, CI/CD i danymi syntetycznymi |
 
+## Dwie ścieżki
+
+Plan testu (kroki 1–3) i losowanie wariantu w GTM (krok 4) są wspólne. Różni się liczenie wyniku (krok 6):
+
+| Ścieżka | Jak liczysz wynik | Kiedy |
+|---|---|---|
+| Ręczna: GTM + SQL | [`03`](sql/03_po_tescie_warianty.sql) z parametrami testu w `DECLARE`, raz po teście | pojedynczy test, bez infrastruktury |
+| Automatyczna: GTM + dbt + GitHub Actions | test dopisujesz do [`rejestr_testow.csv`](dbt/seeds/rejestr_testow.csv), harmonogram codziennie przelicza [`fct_wyniki_testow_ab`](dbt/models/marts/fct_wyniki_testow_ab.sql) dla wszystkich testów | kilka testów naraz, wynik sprawdzony testami danych |
+
+Wynik ścieżki automatycznej w [Looker Studio](https://lookerstudio.google.com/reporting/c45c9272-2566-4ebf-a257-d2ed7ba516c0): rejestr testów i `fct_wyniki_testow_ab` z opisem, co wpisać do kalkulatora. Liczby z danych syntetycznych; raport skopiujesz i podepniesz pod własne tabele.
+
 ## Kroki
 
 ```mermaid
@@ -21,7 +32,7 @@ flowchart LR
     S2 --> S3["3 · Kalkulator Przed testem<br/>ilu użytkowników<br/>i ile tygodni"]
     S3 --> S4["4 · GTM<br/>start testu:<br/>losowanie wariantu"]
     S4 --> S5["5 · W trakcie<br/>nie zaglądasz<br/>do wyniku"]
-    S5 --> S6["6 · SQL 03<br/>użytkownicy<br/>i konwertujący A/B"]
+    S5 --> S6["6 · SQL 03 albo dbt<br/>użytkownicy<br/>i konwertujący A/B"]
     S6 --> S7["7 · Kalkulator Po teście<br/>czy wdrażać B"]
     S2 -.->|pole „Tygodniowy przychód<br/>ze strony testowej”| S7
     S3 -.->|blok „Dane z planu testu”:<br/>wymagani użytkownicy i MDE| S7
@@ -30,7 +41,7 @@ flowchart LR
 1. **Przed testem** · [`01`](sql/01_przed_testem.sql) — wiersz z planowaną liczbą tygodni: Użytkownicy i Konwertujący w tygodniu.
 2. **Przed testem** · [`02`](sql/02_przychod_tygodniowy.sql) — średnia albo mediana (przy piku sezonowym): Tygodniowy przychód ze strony testowej (opcjonalnie).
 3. **Przed testem** · kalkulator — pozostałe pola ([opis](sql/README.md#kalkulator-przed-testem)); inny czas testu → wiersz `01` z tym czasem.
-4. **Start testu** · GTM — tag losujący ([`gtm/`](gtm/README.md)) publikujesz w poniedziałek, bo `03` liczy pełne tygodnie.
+4. **Start testu** · GTM — tag losujący ([`gtm/`](gtm/README.md)) publikujesz w poniedziałek, bo `03` liczy pełne tygodnie. Ścieżka dbt: przed startem dopisujesz test do rejestru.
 5. **W trakcie** — nie zaglądasz do wyniku. Jak z monetą: licząc orły po każdym rzucie i przerywając przy przewadze, prędzej czy później „udowodnisz”, że uczciwa moneta jest krzywa.
-6. **Po teście** · [`03`](sql/03_po_tescie_warianty.sql) — najwcześniej 3 dni po końcu testu (GA4 dopisuje dane do 72 h): Użytkownicy A/B, Konwertujący A/B.
+6. **Po teście** · [`03`](sql/03_po_tescie_warianty.sql) albo wiersze testu z `czy_koncowy = true` w `fct_wyniki_testow_ab` — najwcześniej 3 dni po końcu testu (GA4 dopisuje dane do 72 h): Użytkownicy A/B, Konwertujący A/B.
 7. **Po teście** · kalkulator — w Dane z planu testu wymagani użytkownicy na wariant i MDE z kroku 3; zapisz je, bo „Wstaw z planu” działa tylko w tej samej karcie, a test trwa tygodnie. Przychód z kroku 2, bez ponownego `02`: w okresie testu zmienia go już wariant B.
