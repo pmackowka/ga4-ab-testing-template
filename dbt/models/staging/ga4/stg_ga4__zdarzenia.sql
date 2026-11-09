@@ -3,11 +3,12 @@
 	i eventy konwersji z seeda. Wiersz = event × slot.
 	Przyrost: nadpisuje ostatnie dni_wstecz dni od najnowszej partycji (_dbt_max_partition), nie od
 	CURRENT_DATE(), żeby przerwa w harmonogramie nie zostawiła dziury. Zmiana logiki = --full-refresh.
-	Target sandbox: zwykła tabela bez partycji, odtwarzana w całości (sandbox nie ma MERGE).
+	vars.sandbox = true (BigQuery sandbox, każdy target): zwykła tabela bez partycji, odtwarzana w całości —
+	sandbox nie ma MERGE i od razu usuwa partycje starsze niż 60 dni.
 #}
 {%- set dni_wstecz = 3 -%}
 
-{%- set sandbox = target.name == 'sandbox' -%}
+{%- set sandbox = var('sandbox') -%}
 
 {{ config(materialized='table' if sandbox else 'incremental') }}
 {{ config(incremental_strategy='insert_overwrite') }}

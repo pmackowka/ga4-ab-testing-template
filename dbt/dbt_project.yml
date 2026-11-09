@@ -16,6 +16,8 @@ vars:
   ga4_projekt: 'ab-test-sandbox'
   ga4_zbior_danych: 'ga4_syntetyczny'
   ga4_data_startu: '2026-08-24'
+  # true = projekt BigQuery sandbox (bez DML): staging jako zwykła tabela; płatny projekt → false
+  sandbox: true
 
 models:
   testy_ab:
