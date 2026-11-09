@@ -22,6 +22,8 @@ Obie zaczynają się tak samo: [`01`](sql/01_przed_testem.sql) i [`02`](sql/02_p
 | Ręczna: GTM + SQL | przed testem `01`–`02`, po teście [`03`](sql/03_po_tescie_warianty.sql) z parametrami testu w `DECLARE` | analityk, który zna SQL i BigQuery, a nie zna dbt ani gita. Trzy zapytania w konsoli BigQuery dają komplet liczb do obu kalkulatorów |
 | Automatyczna: GTM + SQL + dbt + GitHub Actions | przed testem `01`–`02`, potem test dopisujesz do [`rejestr_testow.csv`](dbt/seeds/rejestr_testow.csv), a harmonogram codziennie przelicza [`fct_wyniki_testow_ab`](dbt/models/marts/fct_wyniki_testow_ab.sql) dla wszystkich testów | analytics engineer. Wynik testu A/B jako pipeline: 25 testów danych (`unique`, `not_null`, unikalna para `id_testu` + `wariant`, SRM, komplet dziennych tabel GA4, poprawna konfiguracja testu), 8 unit testów logiki, CI/CD wdraża tylko zmienione modele i to, co od nich zależy, a GitHub loguje się do GCP bez kluczy (Workload Identity Federation) |
 
+Ścieżka automatyczna wymaga jednorazowej konfiguracji GCP i GitHuba: [krok po kroku](dbt/README.md#konfiguracja-gcp).
+
 Wynik ścieżki automatycznej w [Data Studio](https://datastudio.google.com/reporting/c45c9272-2566-4ebf-a257-d2ed7ba516c0) (do kwietnia 2026 Looker Studio): rejestr testów i `fct_wyniki_testow_ab` z opisem, co wpisać do kalkulatora. Liczby z danych syntetycznych; raport skopiujesz i podepniesz pod własne tabele.
 
 ## Kroki

@@ -185,37 +185,60 @@ Linia ciągła: kolejność i źródło kodu. Przerywana: zapis do BigQuery.
 
 ### Konfiguracja GCP
 
-Jednorazowo dla CI, deployu i harmonogramu (`PROJECT` = projekt prod, `PROJECT_NUMBER` z `gcloud projects describe $PROJECT`):
+Jednorazowo: GitHub Actions (CI, deploy, harmonogram) loguje się do BigQuery przez Workload Identity Federation, bez pliku klucza w sekretach. Działa też w sandboxie bez billingu — tak stoi `ab-test-sandbox`. W nawiasach nazwy z konsoli GCP po polsku.
 
-```bash
-# 1. konto serwisowe, z którego dbt buduje prod
-gcloud iam service-accounts create dbt-prod --project=$PROJECT
-SA=dbt-prod@$PROJECT.iam.gserviceaccount.com
-for ROLE in roles/bigquery.jobUser roles/bigquery.dataEditor roles/bigquery.dataViewer; do
-  gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=$ROLE
-done
+1. **Zmienne** — projekt docelowy, jego numer, repo i konto serwisowe:
+   ```bash
+   PROJECT=ab-test-sandbox
+   PROJECT_NUMBER=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
+   REPO=pmackowka/ga4-ab-testing
+   SA=dbt-prod@$PROJECT.iam.gserviceaccount.com
+   ```
+2. **API** — IAM, Security Token Service i IAM Service Account Credentials (w konsoli: „Identity and Access Management (IAM) API”, „Security Token Service API”, „IAM Service Account Credentials API”):
+   ```bash
+   gcloud services enable iam.googleapis.com sts.googleapis.com iamcredentials.googleapis.com --project=$PROJECT
+   ```
+3. **Konto serwisowe `dbt-prod`**, bez kluczy. `bigquery.jobUser` uruchamia zapytania, `bigquery.dataEditor` tworzy i nadpisuje tabele (obejmuje uprawnienia `dataViewer`, więc tej roli nie dodajesz):
+   ```bash
+   gcloud iam service-accounts create dbt-prod --project=$PROJECT
+   for ROLE in roles/bigquery.jobUser roles/bigquery.dataEditor; do
+     gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=$ROLE
+   done
+   ```
+4. **Pula i dostawca OIDC `github`** — GCP przyjmuje tokeny GitHuba, ale tylko z tego repo (`attribute-condition`):
+   ```bash
+   gcloud iam workload-identity-pools create github --project=$PROJECT --location=global
+   gcloud iam workload-identity-pools providers create-oidc github --project=$PROJECT \
+     --location=global --workload-identity-pool=github \
+     --issuer-uri=https://token.actions.githubusercontent.com \
+     --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
+     --attribute-condition="assertion.repository=='$REPO'"
+   ```
+5. **Powiązanie** — workflow z tego repo działa jako `dbt-prod`. W konsoli widać je na koncie usługi → „Podmioty zabezpieczeń z dostępem”, nie w uprawnieniach projektu:
+   ```bash
+   gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT \
+     --role=roles/iam.workloadIdentityUser \
+     --member=principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/$REPO
+   ```
+6. **Sekrety GitHuba** (Settings → Secrets and variables → Actions):
 
-# 2. Workload Identity: GCP ufa tokenom GitHuba, ale tylko z tego repo
-gcloud iam workload-identity-pools create github --project=$PROJECT --location=global
-gcloud iam workload-identity-pools providers create-oidc github --project=$PROJECT \
-  --location=global --workload-identity-pool=github \
-  --issuer-uri=https://token.actions.githubusercontent.com \
-  --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
-  --attribute-condition="assertion.repository=='<owner>/ga4-ab-testing'"
+   | Sekret | Wartość |
+   |---|---|
+   | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github` |
+   | `GCP_SERVICE_ACCOUNT` | `dbt-prod@PROJECT.iam.gserviceaccount.com` |
+   | `BIGQUERY_PROD_PROJECT` | `PROJECT` |
 
-# 3. workflow z tego repo może działać jako dbt-prod
-gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT \
-  --role=roles/iam.workloadIdentityUser \
-  --member=principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/<owner>/ga4-ab-testing
-```
-
-| Sekret (Settings → Secrets and variables → Actions) | Wartość |
-|---|---|
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github` |
-| `GCP_SERVICE_ACCOUNT` | `dbt-prod@PROJECT.iam.gserviceaccount.com` |
-| `BIGQUERY_PROD_PROJECT` | `PROJECT` |
-
-Eksport GA4 w innym projekcie → `roles/bigquery.dataViewer` na tamtym datasecie.
+   Albo z terminala:
+   ```bash
+   gh secret set GCP_WORKLOAD_IDENTITY_PROVIDER --body "projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github"
+   gh secret set GCP_SERVICE_ACCOUNT --body "$SA"
+   gh secret set BIGQUERY_PROD_PROJECT --body "$PROJECT"
+   ```
+7. **Eksport GA4 w innym projekcie** — `dbt-prod` dostaje tam `roles/bigquery.dataViewer` na datasecie eksportu.
+8. **Sprawdzenie**:
+   - `gcloud iam service-accounts get-iam-policy $SA` pokazuje `roles/iam.workloadIdentityUser` dla `principalSet` z repo;
+   - push zmiany w `dbt/` na `main` → dbt CI/CD: `parse`, `unit-tests` i `deploy` na zielono (pierwszy `deploy` buduje cały projekt);
+   - Actions → dbt schedule → Run workflow → zielony `build` w `dbt_prod_testy_ab`.
 
 ## Dane syntetyczne
 
@@ -239,7 +262,7 @@ Prawda w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECL
 
 ## Niesprawdzone
 
-Na żywo w BigQuery (sandbox, EU) biegły generator i `dbt build --target sandbox` (39 PASS: testy danych i unit testy); `unit-tests` w CI, `deploy` i harmonogram jeszcze nie (czekają na WIF). Do potwierdzenia:
+Na żywo w BigQuery (sandbox, EU) biegły generator, `dbt build --target sandbox` (39 PASS: testy danych i unit testy) oraz GitHub Actions przez WIF: `unit-tests` i `deploy` w CI/CD i ręczny przebieg harmonogramu (po 31 PASS w `prod_ci`). Do potwierdzenia:
 - czy `_dbt_max_partition` w filtrze na `_TABLE_SUFFIX` ogranicza czytane tabele (`total_bytes_billed` w `INFORMATION_SCHEMA.JOBS`);
 - czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
 - puste `user_pseudo_id` i `ga_session_id` przy `analytics_storage = denied` — potwierdzają tylko relacje praktyków; od kiedy eksport ma pola `batch_*` — dokumentacja nie podaje daty;
