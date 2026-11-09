@@ -1,6 +1,6 @@
 # ab-test-bigquery
 
-Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkulatorów na pmdata.pl, skrypty GTM losują wariant. Opis dla ludzi: `README.md` (SQL, kalkulatory, GTM) i `dbt/README.md` (dbt, CI/CD, dane syntetyczne) — przeczytaj je przed zmianą.
+Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkulatorów na pmdata.pl, skrypty GTM losują wariant. Opis dla ludzi: `README.md` (kroki testu, mapa folderów), `sql/README.md` (zapytania, kalkulatory, zrzuty), `gtm/README.md` (tagi) i `dbt/README.md` (dbt, CI/CD, dane syntetyczne) — przeczytaj je przed zmianą.
 
 ## Mapa
 
@@ -14,7 +14,7 @@ Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkula
 | `gtm/` | tagi Custom HTML losujące wariant w slotach `ab1`–`ab10` |
 | `.github/workflows/dbt-ci-cd.yml` | parse → unit testy → deploy zmienionych modeli (push na `main`) |
 | `.github/workflows/dbt-schedule.yml` | codzienny `dbt build` na prod z ostatniego zielonego commita CI |
-| `docs/img/` | zrzuty kalkulatorów do README |
+| `docs/img/` | zrzuty BigQuery i kalkulatorów do `sql/README.md` |
 
 Nie ma dbt dla `sql/01` i `02`: plan testu to zapytanie jednorazowe z innymi parametrami za każdym razem, a staging trzyma tylko eventy z wariantem testu.
 
@@ -51,6 +51,6 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 
 ## Stan
 
-- Na BigQuery nic jeszcze nie biegło (tylko `dbt parse` i `sqlfluff`). Lista rzeczy do potwierdzenia: `dbt/README.md`, sekcja „Niesprawdzone”.
-- CI `unit-tests` i deploy czekają na konfigurację Workload Identity Federation (sekrety w GitHub Actions).
+- Generator, `sql/01`–`03` i `dbt build` biegły w sandboxie; lista rzeczy do potwierdzenia: `dbt/README.md`, sekcja „Niesprawdzone”.
+- GitHub Actions działa w `ab-test-sandbox` przez Workload Identity Federation (konto `dbt-prod`, bez kluczy): CI/CD buduje `dbt_ci_testy_ab` i `dbt_prod_testy_ab`, harmonogram (10:00 UTC) najpierw generuje wczorajszy dzień. Staging w sandboxie: `vars.sandbox: true`.
 - Domyślne okna w `sql/01` i `02` (`window_start = '2026-08-24'`, 2 tygodnie) i tabela `ab-test-sandbox.ga4_syntetyczny.events_*` pasują do danych syntetycznych; przy prawdziwym eksporcie ustaw własne.

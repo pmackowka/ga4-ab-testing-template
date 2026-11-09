@@ -1,6 +1,6 @@
 # dbt — wyniki testów A/B
 
-To samo co [`sql/03`](../sql/03_po_tescie_warianty.sql), ale dla wszystkich testów naraz: konfiguracja w seedzie zamiast `DECLARE`, testy danych zamiast `ASSERT`. Tagowanie i kalkulatory: [README główne](../README.md).
+To samo co [`sql/03`](../sql/03_po_tescie_warianty.sql), ale dla wszystkich testów naraz: konfiguracja w seedzie zamiast `DECLARE`, testy danych zamiast `ASSERT`. Tagowanie: [`gtm/`](../gtm/README.md), kalkulatory: [`sql/`](../sql/README.md).
 
 ## Uruchomienie
 
