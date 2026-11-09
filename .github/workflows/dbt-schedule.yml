@@ -66,6 +66,16 @@ jobs:
       - run: uv sync --locked
       - run: cp profiles.yml.example profiles.yml
       - run: uv run dbt deps
+      # Tylko dane syntetyczne: generator dopisuje dni od ostatniej tabeli events_ do wczoraj (zamiast
+      # eksportu GA4, który robi to sam). Klient BigQuery z dbt-bigquery, logowanie z kroku auth.
+      # Prawdziwy eksport GA4 → usuń ten krok.
+      - name: generator danych syntetycznych
+        run: |
+          uv run python -c "
+          from google.cloud import bigquery
+          sql = open('../dane_syntetyczne/generuj_eksport_ga4.sql').read()
+          bigquery.Client(project='$BIGQUERY_PROD_PROJECT').query(sql, location='EU').result()
+          "
       # unit testy sprawdzają logikę, nie dane — biegną przy zmianie kodu, nie co dzień na prod
       - run: uv run dbt build --target prod_ci --profiles-dir . --exclude-resource-type unit_test ${{ inputs.full_refresh && '--full-refresh' || '' }}
       # run_results.json pokazuje, który model albo test padł; artefakt żyje 14 dni
