@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: fct_wyniki_testow_ab
+    description: >
+      Wynik testu do kalkulatora „Po teście A/B”: wiersz kontroli (A) i po wierszu na każdy
+      wariant (B). Do kalkulatora bierz tylko wiersze z czy_koncowy = true.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_testu, wariant]
+    columns:
+      - name: id_testu
+        description: Klucz testu — slot i przebieg, np. ab1_20270104.
+        data_tests:
+          - not_null
+      - name: slot
+        description: Slot testu (ab1–ab10).
+      - name: wariant
+        description: Wariant z listy warianty w rejestrze testu; wariant bez użytkowników zostaje z zerami.
+        data_tests:
+          - not_null
+          - wariant_w_seedzie
+      - name: czy_kontrola
+        description: true dla wariantu kontrolnego (wariant_kontrolny w rejestrze testu).
+      - name: pole_kalkulatora
+        description: Który wiersz kalkulatora — A (kontrola) albo B (wariant).
+      - name: uzytkownicy
+        description: >
+          Kalkulator: Użytkownicy A / B. Unikalni użytkownicy od pierwszej ekspozycji,
+          bez użytkowników z 2+ wariantami (wykluczeni_mieszani).
+      - name: konwertujacy
+        description: "Kalkulator: Konwertujący A / B. Osoby z konwersją po pierwszej ekspozycji."
+      - name: przychod
+        description: >
+          Suma przychodu osób z uzytkownicy po przycięciu każdej osoby do 99,9 percentyla
+          przychodu konwertujących w teście (oba warianty razem).
+      - name: przychod_na_uzytkownika
+        description: "Kalkulator (Przychód na użytkownika): Przychód na użytkownika A / B (zł). przychod / uzytkownicy."
+      - name: odchylenie_przychodu
+        description: >
+          Kalkulator (Przychód na użytkownika): Odchylenie przychodu A / B (zł). Odchylenie standardowe
+          przychodu na osobę z uzytkownicy, razem z zerami, po przycięciu.
+      - name: wykluczeni_mieszani
+        description: >
+          Do kalkulatora nie idzie. Użytkownicy z 2+ wariantami, wyjęci z uzytkownicy i konwertujacy;
+          wiersz = wariant pierwszej ekspozycji.
+      - name: ponownie_przydzieleni
+        description: >
+          Do kalkulatora nie idzie. Użytkownicy z 2+ ab_assign: ciasteczko testu zniknęło i tag losował
+          ponownie. Obejmuje wykluczeni_mieszani i tych, którym wypadł ten sam wariant (ci zostają
+          w uzytkownicy). Pełny wolumen utraty ciasteczka testu przy zachowanym _ga.
+      - name: bez_przydzialu
+        description: >
+          Do kalkulatora nie idzie. Użytkownicy z wariantem, ale bez ab_assign: przyszli z ciasteczkiem
+          testu pod nowym user_pseudo_id (usunięte _ga), więc ta sama osoba może być w uzytkownicy dwa razy,
+          albo hit ab_assign zginął (adblock, wyjście ze strony przed wysyłką).
+      - name: czy_koncowy
+        description: true, gdy od końca testu minęły 3 dni i GA4 nie dopisze już danych.

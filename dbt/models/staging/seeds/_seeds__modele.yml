@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: stg_seeds__rejestr_testow
+    description: Rejestr testów z seeds/rejestr_testow.csv z listami jako ARRAY<STRING>.
+    columns:
+      - name: id_testu
+        description: Klucz testu — slot i przebieg, np. ab1_20270104.
+        data_tests:
+          - unique
+          - not_null
+      - name: slot
+        description: Slot ab1–ab10 — nazwa ciasteczka i parametru eventu; wraca w kolejnych testach.
+        data_tests:
+          - not_null
+      - name: start_testu
+        description: Poniedziałek wznowienia i publikacji tagu slotu w GTM.
+        data_tests:
+          - not_null
+      - name: koniec_testu
+        description: Niedziela, ostatni dzień testu.
+        data_tests:
+          - not_null
+      - name: wariant_kontrolny
+        description: Wersja dotychczasowa, jeden z elementów warianty.
+        data_tests:
+          - not_null
+      - name: warianty
+        description: Wszystkie warianty testu razem z kontrolą, = VARIANTS w tagu GTM.
+      - name: zdarzenie_konwersji
+        description: Nazwa eventu GA4 liczonego jako konwersja.
+        data_tests:
+          - not_null
+      - name: zdarzenia_ekspozycji
+        description: Eventy, na których użytkownik wchodzi do testu (pierwszy z wariantem).
+      - name: dni_testu
+        description: Długość testu w dniach.
+      - name: czy_koncowy
+        description: >
+          true, gdy od koniec_testu minęły co najmniej 3 dni i GA4 nie dopisze już danych.
+          Do kalkulatora bierz tylko wiersze z czy_koncowy = true.

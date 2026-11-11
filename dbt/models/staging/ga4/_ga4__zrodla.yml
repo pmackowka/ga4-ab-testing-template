@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: ga4
+    description: Eksport GA4 do BigQuery, jedna tabela na dzień (events_YYYYMMDD).
+    database: "{{ var('ga4_projekt') }}"
+    schema: "{{ var('ga4_zbior_danych') }}"
+    tables:
+      - name: zdarzenia
+        identifier: "events_*"

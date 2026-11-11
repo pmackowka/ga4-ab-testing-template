@@ -1,0 +1,49 @@
+version: 2
+
+unit_tests:
+  - name: ekspozycje_tylko_z_eventu_ekspozycji_w_oknie
+    model: int_ab__ekspozycje
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab2_20260907' AS id_testu, 'ab2' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+      - input: ref('stg_ga4__zdarzenia')
+        rows:
+          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: purchase, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-10-05, czas_zdarzenia: '2026-10-05 10:00:00', id_uzytkownika: u2, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 10:00:00', id_uzytkownika: u3, nazwa_zdarzenia: ab_assign, slot: ab3, wariant: v1}
+          - {data_zdarzenia: 2026-09-11, czas_zdarzenia: '2026-09-11 10:00:00', id_uzytkownika: u4, nazwa_zdarzenia: view_item, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 10:00:00', id_uzytkownika: u5, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 11:00:00', id_uzytkownika: u5, nazwa_zdarzenia: view_item, slot: ab2, wariant: v0}
+    expect:
+      rows:
+        - {id_testu: ab2_20260907, id_uzytkownika: u4, wariant: v1, czas_pierwszej_ekspozycji: '2026-09-11 10:00:00', liczba_wariantow: 1}
+        - {id_testu: ab2_20260907, id_uzytkownika: u5, wariant: v1, czas_pierwszej_ekspozycji: '2026-09-12 10:00:00', liczba_wariantow: 2}
+
+  - name: ekspozycje_liczba_przydzialow
+    model: int_ab__ekspozycje
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab2_20260907' AS id_testu, 'ab2' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+      - input: ref('stg_ga4__zdarzenia')
+        rows:
+          - {data_zdarzenia: 2026-09-10, czas_zdarzenia: '2026-09-10 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-09-18, czas_zdarzenia: '2026-09-18 10:00:00', id_uzytkownika: u1, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-09-11, czas_zdarzenia: '2026-09-11 10:00:00', id_uzytkownika: u2, nazwa_zdarzenia: view_item, slot: ab2, wariant: v0}
+          - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 10:00:00', id_uzytkownika: u3, nazwa_zdarzenia: ab_assign, slot: ab3, wariant: v1}
+          - {data_zdarzenia: 2026-09-12, czas_zdarzenia: '2026-09-12 10:00:05', id_uzytkownika: u3, nazwa_zdarzenia: view_item, slot: ab2, wariant: v0}
+          - {data_zdarzenia: 2026-09-13, czas_zdarzenia: '2026-09-13 10:00:00', id_uzytkownika: u4, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
+          - {data_zdarzenia: 2026-09-13, czas_zdarzenia: '2026-09-13 10:00:00', id_uzytkownika: u4, nazwa_zdarzenia: ab_assign, slot: ab2, wariant: v1}
+    expect:
+      rows:
+        - {id_testu: ab2_20260907, id_uzytkownika: u1, wariant: v1, liczba_wariantow: 1, liczba_przydzialow: 2}
+        - {id_testu: ab2_20260907, id_uzytkownika: u2, wariant: v0, liczba_wariantow: 1, liczba_przydzialow: 0}
+        - {id_testu: ab2_20260907, id_uzytkownika: u3, wariant: v0, liczba_wariantow: 1, liczba_przydzialow: 0}
+        - {id_testu: ab2_20260907, id_uzytkownika: u4, wariant: v1, liczba_wariantow: 1, liczba_przydzialow: 1}

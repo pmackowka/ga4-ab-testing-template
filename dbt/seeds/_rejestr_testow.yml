@@ -1,0 +1,30 @@
+version: 2
+
+seeds:
+  - name: rejestr_testow
+    description: >
+      Rejestr testów A/B — jeden wiersz na test, zamiast DECLARE w sql/03. Nowy test = nowy wiersz.
+      Listy rozdziela „|”, bo CSV nie ma typu tablicowego; stg_seeds__rejestr_testow robi z nich ARRAY.
+      Wiersz odpowiada tagowi GTM slotu: slot = TEST, warianty = VARIANTS. Rozszerzenie testu
+      z 50% do 100% ruchu to ten sam wiersz (ten sam slot i start_testu).
+      Slot wraca cyklicznie ab1…ab10 — kolejny test w slocie to nowy wiersz z nowym
+      start_testu, ponad 60 dni po końcu poprzedniego (czas życia ciasteczka testu).
+    columns:
+      - name: slot
+        description: Slot ab1–ab10, = TEST w tagu GTM i nazwa parametru eventu GA4.
+      - name: start_testu
+        description: Poniedziałek wznowienia i publikacji tagu slotu w GTM.
+      - name: koniec_testu
+        description: Niedziela, ostatni dzień testu.
+      - name: wariant_kontrolny
+        description: Wersja dotychczasowa, musi być na liście warianty.
+      - name: warianty
+        description: Warianty rozdzielone „|”, = VARIANTS w tagu GTM.
+      - name: zdarzenie_konwersji
+        description: >
+          Nazwa eventu GA4 liczonego jako konwersja. Nowa nazwa, której nie ma jeszcze żaden test,
+          wymaga `dbt build --full-refresh -s stg_ga4__zdarzenia`: staging trzyma tylko eventy
+          z wariantem dowolnego testu i eventy konwersji z tego seeda.
+      - name: zdarzenia_ekspozycji
+        description: >
+          Eventy rozdzielone „|”, na których użytkownik wchodzi do testu (pierwszy z wariantem).

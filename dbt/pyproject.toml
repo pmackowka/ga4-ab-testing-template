@@ -1,0 +1,11 @@
+[project]
+name = "ab-testing"
+version = "1.0.0"
+description = "dbt Core na BigQuery — wyniki testów A/B z eksportu GA4"
+requires-python = ">=3.11"
+dependencies = [
+    "dbt-bigquery==1.12.0",
+]
+
+[tool.uv]
+package = false

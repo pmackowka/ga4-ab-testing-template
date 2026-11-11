@@ -1,0 +1,32 @@
+<script>
+(function () {
+  var TEST = 'ab1';
+  var VARIANTS = ['v0', 'v1'];
+  var DAYS = 60;
+
+  function getCookie(name) {
+    var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  function setCookie(name, value, days) {
+    var exp = new Date(Date.now() + days * 864e5);
+    document.cookie = name + '=' + encodeURIComponent(value) +
+      '; expires=' + exp.toUTCString() + '; path=/; SameSite=Lax' +
+      (location.protocol === 'https:' ? '; Secure' : '');
+  }
+
+  function getAssignment() {
+    var v = getCookie(TEST);
+    return VARIANTS.indexOf(v) > -1 ? v : null;
+  }
+
+  if (getAssignment()) return;
+
+  var variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
+  setCookie(TEST, variant, DAYS);
+
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: 'ab_assign', ab_test: TEST, ab_variant: variant });
+})();
+</script>

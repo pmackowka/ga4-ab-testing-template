@@ -1,0 +1,73 @@
+version: 2
+
+unit_tests:
+  - name: wyniki_bez_mieszanych_z_pustym_wariantem
+    model: fct_wyniki_testow_ab
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab2_20260907' AS id_testu, 'ab2' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1', 'v2'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+      - input: ref('int_ab__ekspozycje')
+        rows:
+          - {id_testu: ab2_20260907, id_uzytkownika: u1, wariant: v0, liczba_wariantow: 1}
+          - {id_testu: ab2_20260907, id_uzytkownika: u2, wariant: v1, liczba_wariantow: 1}
+          - {id_testu: ab2_20260907, id_uzytkownika: u3, wariant: v1, liczba_wariantow: 2}
+      - input: ref('int_ab__konwersje')
+        rows:
+          - {id_testu: ab2_20260907, id_uzytkownika: u2}
+          - {id_testu: ab2_20260907, id_uzytkownika: u3}
+    expect:
+      rows:
+        - {id_testu: ab2_20260907, wariant: v0, pole_kalkulatora: 'A (kontrola)', uzytkownicy: 1, konwertujacy: 0, wykluczeni_mieszani: 0}
+        - {id_testu: ab2_20260907, wariant: v1, pole_kalkulatora: 'B (wariant v1)', uzytkownicy: 1, konwertujacy: 1, wykluczeni_mieszani: 1}
+        - {id_testu: ab2_20260907, wariant: v2, pole_kalkulatora: 'B (wariant v2)', uzytkownicy: 0, konwertujacy: 0, wykluczeni_mieszani: 0}
+
+  - name: wyniki_ponownie_przydzieleni_i_bez_przydzialu
+    model: fct_wyniki_testow_ab
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab2_20260907' AS id_testu, 'ab2' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+      - input: ref('int_ab__ekspozycje')
+        rows:
+          - {id_testu: ab2_20260907, id_uzytkownika: u1, wariant: v0, liczba_wariantow: 1, liczba_przydzialow: 1}
+          - {id_testu: ab2_20260907, id_uzytkownika: u2, wariant: v0, liczba_wariantow: 1, liczba_przydzialow: 2}
+          - {id_testu: ab2_20260907, id_uzytkownika: u3, wariant: v1, liczba_wariantow: 1, liczba_przydzialow: 0}
+          - {id_testu: ab2_20260907, id_uzytkownika: u4, wariant: v1, liczba_wariantow: 2, liczba_przydzialow: 2}
+      - input: ref('int_ab__konwersje')
+        rows: []
+    expect:
+      rows:
+        - {id_testu: ab2_20260907, wariant: v0, uzytkownicy: 2, wykluczeni_mieszani: 0, ponownie_przydzieleni: 1, bez_przydzialu: 0}
+        - {id_testu: ab2_20260907, wariant: v1, uzytkownicy: 1, wykluczeni_mieszani: 1, ponownie_przydzieleni: 1, bez_przydzialu: 1}
+
+  - name: wyniki_przychod_na_uzytkownika
+    model: fct_wyniki_testow_ab
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        format: sql
+        rows: |
+          SELECT 'ab2_20260907' AS id_testu, 'ab2' AS slot, DATE '2026-09-07' AS start_testu, DATE '2026-10-04' AS koniec_testu,
+            'v0' AS wariant_kontrolny, ['v0', 'v1'] AS warianty, 'purchase' AS zdarzenie_konwersji,
+            ['ab_assign', 'view_item'] AS zdarzenia_ekspozycji, 28 AS dni_testu, TRUE AS czy_koncowy
+      - input: ref('int_ab__ekspozycje')
+        rows:
+          - {id_testu: ab2_20260907, id_uzytkownika: u1, wariant: v0, liczba_wariantow: 1, liczba_przydzialow: 1}
+          - {id_testu: ab2_20260907, id_uzytkownika: u2, wariant: v1, liczba_wariantow: 1, liczba_przydzialow: 1}
+          - {id_testu: ab2_20260907, id_uzytkownika: u3, wariant: v0, liczba_wariantow: 1, liczba_przydzialow: 1}
+          - {id_testu: ab2_20260907, id_uzytkownika: u4, wariant: v1, liczba_wariantow: 2, liczba_przydzialow: 2}
+      - input: ref('int_ab__konwersje')
+        rows:
+          - {id_testu: ab2_20260907, id_uzytkownika: u1, przychod: 100}
+          - {id_testu: ab2_20260907, id_uzytkownika: u2, przychod: 1100}
+          - {id_testu: ab2_20260907, id_uzytkownika: u4, przychod: 5000}
+    expect:
+      rows:
+        - {id_testu: ab2_20260907, wariant: v0, uzytkownicy: 2, konwertujacy: 1, przychod: 100, przychod_na_uzytkownika: 50, odchylenie_przychodu: 70.71}
+        - {id_testu: ab2_20260907, wariant: v1, uzytkownicy: 1, konwertujacy: 1, przychod: 1099, przychod_na_uzytkownika: 1099, odchylenie_przychodu: 0}

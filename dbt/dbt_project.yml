@@ -1,0 +1,43 @@
+name: 'testy_ab'
+version: '1.0.0'
+config-version: 2
+profile: 'testy_ab'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  ga4_projekt: 'twoj-projekt'
+  ga4_zbior_danych: 'analytics_123456789'
+  ga4_data_startu: '2027-01-04'
+
+models:
+  testy_ab:
+    +persist_docs:
+      relation: true
+      columns: true
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+
+seeds:
+  testy_ab:
+    +persist_docs:
+      relation: true
+      columns: true
+    rejestr_testow:
+      +column_types:
+        slot: string
+        start_testu: date
+        koniec_testu: date
+        wariant_kontrolny: string
+        warianty: string
+        zdarzenie_konwersji: string
+        zdarzenia_ekspozycji: string

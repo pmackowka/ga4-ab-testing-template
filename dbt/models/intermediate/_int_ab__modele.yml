@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: int_ab__ekspozycje
+    description: Jeden wiersz na test i eksponowanego użytkownika.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_testu, id_uzytkownika]
+    columns:
+      - name: id_testu
+        description: Klucz testu — slot i przebieg, np. ab1_20270104.
+        data_tests:
+          - not_null
+      - name: slot
+        description: Slot testu (ab1–ab10).
+      - name: id_uzytkownika
+        description: user_pseudo_id z GA4 — identyfikator przeglądarki z cookie _ga.
+        data_tests:
+          - not_null
+      - name: wariant
+        description: Wariant z pierwszego eventu ekspozycji.
+        data_tests:
+          - not_null
+          - wariant_w_seedzie
+      - name: czas_pierwszej_ekspozycji
+        description: Czas pierwszego eventu z listy zdarzenia_ekspozycji z wariantem tego testu.
+      - name: data_pierwszej_ekspozycji
+        description: Dzień pierwszej ekspozycji (strefa usługi GA4).
+      - name: liczba_wariantow
+        description: Liczba różnych wariantów na eventach testu; 2+ = ponowne losowanie.
+      - name: liczba_przydzialow
+        description: >
+          Liczba eventów ab_assign tego testu o różnym czasie (duplikat eventu = jedno losowanie).
+          2+ = ponowne losowanie po utracie ciasteczka testu (także w ten sam wariant), 0 = wariant
+          z ciasteczka pod nowym user_pseudo_id (usunięte _ga) albo zgubiony hit ab_assign.
+
+  - name: int_ab__konwersje
+    description: Jeden wiersz na test i użytkownika z konwersją po pierwszej ekspozycji.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_testu, id_uzytkownika]
+    columns:
+      - name: id_testu
+        description: Klucz testu — slot i przebieg, np. ab1_20270104.
+        data_tests:
+          - not_null
+      - name: id_uzytkownika
+        description: user_pseudo_id z GA4 — identyfikator przeglądarki z cookie _ga.
+        data_tests:
+          - not_null
+      - name: czas_pierwszej_konwersji
+        description: Czas pierwszej konwersji po pierwszej ekspozycji.
+      - name: data_pierwszej_konwersji
+        description: Dzień pierwszej konwersji (strefa usługi GA4).
+      - name: przychod
+        description: Suma przychodu z konwersji po pierwszej ekspozycji, w oknie testu; każde id_transakcji raz.
