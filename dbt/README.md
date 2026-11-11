@@ -158,7 +158,7 @@ flowchart LR
         PARSE["CI · parse<br/>składnia"] --> UNIT["CI · unit-tests<br/>logika na mockach"]
         UNIT -->|tylko push na main| DEPLOY["CD · deploy"]
     end
-    CRON(["cron 10:00 UTC<br/>albo ręcznie"]) --> BUILD
+    CRON(["cron 3:17 czasu polskiego<br/>albo ręcznie"]) --> BUILD
     subgraph F2["dbt-schedule.yml"]
         BUILD["harmonogram · build"]
     end
@@ -175,7 +175,7 @@ Linia ciągła: kolejność i źródło kodu. Przerywana: zapis do BigQuery.
 | `dbt-ci-cd.yml` | `parse` | CI | push / PR w `dbt/` | SQL, Jinja, YAML, bez BigQuery |
 | `dbt-ci-cd.yml` | `unit-tests` | CI | zielony `parse` | `dbt build --empty`, potem unit testy |
 | `dbt-ci-cd.yml` | `deploy` | CD | zielony `unit-tests` + push na `main` | `dbt build --select state:modified+`, bez zmienionego `stg_ga4__zdarzenia` |
-| `dbt-schedule.yml` | `build` | harmonogram | cron 10:00 UTC albo ręcznie (`full_refresh`) | `dbt build` bez unit testów |
+| `dbt-schedule.yml` | `build` | harmonogram | cron 3:17 czasu polskiego albo ręcznie (`full_refresh`) | `dbt build` bez unit testów |
 
 - Czerwone CI: prod zostaje na ostatnim zielonym kodzie, dane są świeże.
 - `deploy` i `build` dzielą `concurrency: dbt-prod`: nigdy naraz, nowszy anuluje oczekujący.

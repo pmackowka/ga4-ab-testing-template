@@ -7,9 +7,12 @@ name: dbt schedule
 
 on:
   schedule:
-    # UTC. Dzienna tabela GA4 pojawia się o różnych porach następnego dnia; spóźniony dzień
-    # nadrobi kolejny przebieg, bo staging nadpisuje 3 dni wstecz. Cron GitHuba bywa opóźniony.
-    - cron: "0 10 * * *"
+    # 3:17 czasu polskiego (timezone = zmiana czasu bez poprawek). Minuta 17, bo pełna godzina
+    # to szczyt obciążenia GitHuba: cron bywa opóźniony o godziny, a przy dużym ruchu pominięty.
+    # Dzienna tabela GA4 pojawia się o różnych porach następnego dnia; spóźniony dzień
+    # nadrobi kolejny przebieg, bo staging nadpisuje 3 dni wstecz.
+    - cron: "17 3 * * *"
+      timezone: "Europe/Warsaw"
   workflow_dispatch:  # ręczne uruchomienie z zakładki Actions
     inputs:
       full_refresh:

@@ -52,7 +52,7 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 ## Stan
 
 - Generator, `sql/01`–`03` i `dbt build` biegły w sandboxie; lista rzeczy do potwierdzenia: `dbt/README.md`, sekcja „Niesprawdzone”.
-- GitHub Actions działa w `ab-test-sandbox` przez Workload Identity Federation (konto `dbt-prod`, bez kluczy): CI/CD buduje `dbt_ci_testy_ab` i `dbt_prod_testy_ab`, harmonogram (10:00 UTC) najpierw generuje wczorajszy dzień. Staging w sandboxie: `vars.sandbox: true`.
+- GitHub Actions działa w `ab-test-sandbox` przez Workload Identity Federation (konto `dbt-prod`, bez kluczy): CI/CD buduje `dbt_ci_testy_ab` i `dbt_prod_testy_ab`, harmonogram (3:17 Europe/Warsaw) najpierw generuje wczorajszy dzień. Staging w sandboxie: `vars.sandbox: true`.
 - Raport Data Studio (do kwietnia 2026 Looker Studio) `https://datastudio.google.com/reporting/c45c9272-2566-4ebf-a257-d2ed7ba516c0`, link w README: rejestr testów i `fct_wyniki_testow_ab` ze źródeł w Arkuszach Google (zrzut z 2026-11-09, nie odświeża się sam), teksty opisujące tabele i kolumny kontroli jakości, linki do kalkulatorów z UTM. Zmiana logiki albo nazw kolumn w dbt = sprawdź teksty w raporcie.
 - Publiczna kopia repo: plan w lokalnym `PROMPT_PUBLICZNA_KOPIA.md` (poza gitem), jeszcze niewykonany.
 - Domyślne okna w `sql/01` i `02` (`window_start = '2026-08-24'`, 2 tygodnie) i tabela `ab-test-sandbox.ga4_syntetyczny.events_*` pasują do danych syntetycznych; przy prawdziwym eksporcie ustaw własne.
