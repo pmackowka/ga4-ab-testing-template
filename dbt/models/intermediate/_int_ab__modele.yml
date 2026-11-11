@@ -13,11 +13,13 @@ models:
             combination_of_columns: [id_testu, id_uzytkownika]
     columns:
       - name: id_testu
+        description: Klucz testu — slot i przebieg, np. ab2_20260907.
         data_tests:
           - not_null
       - name: slot
         description: Slot testu (ab1–ab10).
       - name: id_uzytkownika
+        description: user_pseudo_id z GA4 — identyfikator przeglądarki z cookie _ga.
         data_tests:
           - not_null
       - name: wariant
@@ -45,9 +47,11 @@ models:
             combination_of_columns: [id_testu, id_uzytkownika]
     columns:
       - name: id_testu
+        description: Klucz testu — slot i przebieg, np. ab2_20260907.
         data_tests:
           - not_null
       - name: id_uzytkownika
+        description: user_pseudo_id z GA4 — identyfikator przeglądarki z cookie _ga.
         data_tests:
           - not_null
       - name: czas_pierwszej_konwersji

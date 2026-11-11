@@ -21,10 +21,12 @@ models:
       - name: slot
         description: Slot testu (ab1–ab10).
       - name: wariant
+        description: Wariant z listy warianty w rejestrze testu; wariant bez użytkowników zostaje z zerami.
         data_tests:
           - not_null
           - wariant_w_seedzie
       - name: czy_kontrola
+        description: true dla wariantu kontrolnego (wariant_kontrolny w rejestrze testu).
       - name: pole_kalkulatora
         description: Który wiersz kalkulatora — A (kontrola) albo B (wariant).
       - name: uzytkownicy
