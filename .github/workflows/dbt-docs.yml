@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -15,8 +16,8 @@ jobs:
       run:
         working-directory: dbt
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
       - run: cp profiles.yml.example profiles.yml
       - run: uv run dbt deps

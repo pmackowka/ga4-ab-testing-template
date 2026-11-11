@@ -93,10 +93,9 @@ Wynik ma wiersz na wariant. `users` i `converters` idą do pól Użytkownicy i K
 
 ### 5.1. Repo z szablonu
 
-1. Na stronie tego repo: **Use this template** → Create a new repository → widoczność **Private** ([instrukcja GitHuba](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template)). Repo z szablonu startuje od jednego commita i może być prywatne; fork publicznego repo zawsze jest publiczny.
-2. W repo prywatnym na koncie Free usuń `.github/workflows/dbt-docs.yml` — GitHub Pages działa tam tylko dla repo publicznych.
+Na stronie tego repo: **Use this template** → Create a new repository → widoczność **Private** ([instrukcja GitHuba](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template)). Repo z szablonu startuje od jednego commita i może być prywatne; fork publicznego repo zawsze jest publiczny.
 
-Powinieneś zobaczyć własne repo z plikami szablonu i zakładką Actions z workflow `dbt CI/CD` i `dbt schedule`.
+Powinieneś zobaczyć własne repo z plikami szablonu i zakładką Actions z workflow `dbt CI/CD`, `dbt schedule` i `dbt docs`. W repo prywatnym `dbt docs` się pomija — GitHub Pages na koncie Free działa tylko dla repo publicznych.
 
 ### 5.2. Konfiguracja dbt
 
