@@ -13,7 +13,11 @@ cp profiles.yml.example profiles.yml     # profiles.yml jest w .gitignore
 gcloud auth application-default login    # oauth dla targetu sandbox (domyślny)
 uv run dbt deps
 uv run dbt build --target sandbox --profiles-dir .
+uv run dbt docs generate --target sandbox --profiles-dir .   # dokumentacja: graf, opisy kolumn, SQL
+uv run dbt docs serve --profiles-dir . --port 8080            # http://localhost:8080
 ```
+
+Strona startowa dokumentacji to `models/overview.md` (blok `__overview__`): jak czytać dane, bez kroków wdrożenia.
 
 Przed pierwszym uruchomieniem ustaw w `dbt_project.yml`:
 
@@ -44,7 +48,7 @@ dbt/
 ├── target/                 ⚙ dbt parse/build skompilowany SQL i manifest (poza gitem)
 ├── .gitignore              ✍                co nie trafia do gita
 ├── seeds/                  ✍                rejestr testów rejestr_testow.csv i jego opis
-├── models/                 ✍                modele SQL, ich opisy, testy i unit testy (.yml)
+├── models/                 ✍                modele SQL, ich opisy, testy i unit testy (.yml), overview.md dla dbt docs
 └── tests/                  ✍                testy singularne i generyczny wariant_w_seedzie
 ```
 
