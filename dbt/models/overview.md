@@ -1,7 +1,7 @@
 {% docs __overview__ %}
 # Testy A/B na eksporcie GA4
 
-Projekt liczy wyniki wszystkich testów A/B z rejestru naraz, prosto z eksportu GA4 w BigQuery. Wynik wpisujesz do kalkulatora [Po teście A/B](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/?utm_source=dbt_docs&utm_medium=referral&utm_campaign=ga4-ab-testing), a plan testu liczy [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/?utm_source=dbt_docs&utm_medium=referral&utm_campaign=ga4-ab-testing). Wdrożenie (GTM, eksport GA4, GCP, GitHub Actions) opisuje README w repozytorium — ta strona mówi, jak czytać dane.
+Projekt liczy wyniki wszystkich testów A/B z rejestru naraz, prosto z eksportu GA4 w BigQuery. Wynik wpisujesz do kalkulatora [Po teście A/B](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/?utm_source=dbt_docs&utm_medium=referral), a plan testu liczy [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/?utm_source=dbt_docs&utm_medium=referral). Wdrożenie (GTM, eksport GA4, GCP, GitHub Actions) opisuje README w repozytorium — ta strona mówi, jak czytać dane.
 
 ## Od czego zacząć
 
@@ -41,5 +41,5 @@ Kolumny `ponownie_przydzieleni` i `bez_przydzialu` nie idą do kalkulatora: poka
 
 ---
 
-Autor: Piotr Maćkówka · [pmdata.pl](https://pmdata.pl/?utm_source=dbt_docs&utm_medium=referral&utm_campaign=ga4-ab-testing)
+Autor: Piotr Maćkówka · [pmdata.pl](https://pmdata.pl/?utm_source=dbt_docs&utm_medium=referral)
 {% enddocs %}
