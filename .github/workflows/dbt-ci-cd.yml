@@ -1,0 +1,105 @@
+name: dbt CI/CD
+
+on:
+  pull_request:
+    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt-ci-cd.yml"]
+  push:
+    branches: [main]
+    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt-ci-cd.yml"]
+
+defaults:
+  run:
+    working-directory: dbt
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: cp profiles.yml.example profiles.yml
+      - run: uv run dbt deps
+      - run: uv run dbt parse --profiles-dir .
+
+  unit-tests:
+    needs: parse
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: cp profiles.yml.example profiles.yml
+      - run: uv run dbt deps
+      - run: uv run dbt build --target ci --profiles-dir . --empty --full-refresh --resource-type seed --resource-type model
+      - run: uv run dbt test --target ci --profiles-dir . --select test_type:unit
+
+  deploy:
+    needs: unit-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: dbt-prod
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: cp profiles.yml.example profiles.yml
+      - run: uv run dbt deps
+      - name: manifest ostatniego udanego deployu
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow dbt-ci-cd.yml --branch main \
+            --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+          PREV="$RUNNER_TEMP/prev"
+          if [ -z "$BASE" ]; then
+            echo "::notice::Brak udanego deployu — pierwszy deploy buduje cały projekt."
+          else
+            echo "Baza porównania: $BASE"
+            git worktree add "$PREV" "$BASE"
+            if [ -f "$PREV/dbt/dbt_project.yml" ]; then
+              cd "$PREV/dbt"
+              "$GITHUB_WORKSPACE/dbt/.venv/bin/dbt" deps
+              "$GITHUB_WORKSPACE/dbt/.venv/bin/dbt" parse --target prod_ci --profiles-dir "$GITHUB_WORKSPACE/dbt"
+            else
+              echo "::notice::Baza $BASE nie ma projektu dbt — deploy buduje cały projekt."
+            fi
+          fi
+      - name: dbt build zmienionych modeli
+        run: |
+          STATE="$RUNNER_TEMP/prev/dbt/target"
+          SELECT=""
+          EXCLUDE=""
+          if [ -f "$STATE/manifest.json" ]; then
+            SELECT="--select state:modified+ --state $STATE"
+            if uv run dbt --quiet ls --target prod_ci --profiles-dir . --resource-type model \
+                --select state:modified.body --state "$STATE" --output name | grep -qx stg_ga4__zdarzenia; then
+              echo "::warning::stg_ga4__zdarzenia zmieniony — deploy go pomija. Odpal Actions → dbt schedule → Run workflow z full_refresh."
+              EXCLUDE="--exclude stg_ga4__zdarzenia"
+            fi
+          fi
+          uv run dbt build --target prod_ci --profiles-dir . $SELECT $EXCLUDE --exclude-resource-type unit_test

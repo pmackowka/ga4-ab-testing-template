@@ -1,0 +1,65 @@
+name: dbt schedule
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+      timezone: "Europe/Warsaw"
+  workflow_dispatch:
+    inputs:
+      full_refresh:
+        description: "Pełny rebuild (--full-refresh) — po zmianie stg_ga4__zdarzenia, inaczej ostatnie dni dostaną nową logikę, a starsze zostaną ze starą; czyta GA4 od ga4_data_startu"
+        type: boolean
+        default: false
+
+concurrency:
+  group: dbt-prod
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: dbt
+    env:
+      BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
+    steps:
+      - name: ostatni commit z zielonym CI
+        id: green
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow dbt-ci-cd.yml --branch main \
+            --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+          if [ -z "$SHA" ]; then
+            echo "::error::Na main nie ma commita z zielonym dbt CI/CD — nie ma czego budować."
+            exit 1
+          fi
+          if [ "$SHA" != "$GITHUB_SHA" ]; then
+            echo "::notice::Buduję $SHA (ostatni zielony CI), nie $GITHUB_SHA (głowa main)."
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.green.outputs.sha }}
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: cp profiles.yml.example profiles.yml
+      - run: uv run dbt deps
+      - run: uv run dbt build --target prod_ci --profiles-dir . --exclude-resource-type unit_test ${{ inputs.full_refresh && '--full-refresh' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dbt-run-results
+          path: dbt/target/run_results.json
+          retention-days: 14
