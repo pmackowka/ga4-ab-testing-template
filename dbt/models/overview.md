@@ -5,7 +5,7 @@ Projekt liczy wyniki wszystkich testów A/B z rejestru naraz, prosto z eksportu 
 
 ## Od czego zacząć
 
-Tabela wynikowa to `fct_wyniki_testow_ab`: wiersz = test × wariant. Do kalkulatora bierz tylko wiersze z `czy_koncowy = true` — od końca testu minęły 3 dni i GA4 nie dopisze już danych. `pole_kalkulatora` mówi, czy wiersz idzie w pole A (kontrola), czy B (wariant). Graf zależności otworzysz niebieską ikoną w prawym dolnym rogu.
+Tabela wynikowa to `fct_wyniki_testow_ab`: wiersz = test × wariant. Do kalkulatora bierz tylko wiersze z `czy_koncowy = true` — od końca testu minęły 3 dni i GA4 nie dopisze już danych. `pole_kalkulatora` mówi, czy wiersz idzie w pole A (kontrola), czy B (wariant). Graf zależności otworzysz niebieską ikoną w prawym dolnym rogu. Gotowy widok tej tabeli i rejestru testów z opisem pól kalkulatora: [raport Data Studio](https://datastudio.google.com/reporting/c45c9272-2566-4ebf-a257-d2ed7ba516c0) — skopiuj go i podepnij pod własne tabele.
 
 ## Przepływ danych
 
@@ -38,4 +38,8 @@ Tabela wynikowa to `fct_wyniki_testow_ab`: wiersz = test × wariant. Do kalkulat
 | `wariant_w_seedzie` | wariant spoza rejestru — zły tag albo literówka w GTM |
 
 Kolumny `ponownie_przydzieleni` i `bez_przydzialu` nie idą do kalkulatora: pokazują utratę ciasteczek testu i GA, czyli jak bardzo ufać podziałowi.
+
+---
+
+Autor: Piotr Maćkówka · [pmdata.pl](https://pmdata.pl/?utm_source=dbt_docs&utm_medium=referral&utm_campaign=ga4-ab-testing)
 {% enddocs %}
