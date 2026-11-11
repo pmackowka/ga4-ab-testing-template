@@ -87,7 +87,11 @@ Zapytania liczą test karty produktu: wejście `view_item`, konwersja `purchase`
 
 [`sql/03_po_tescie_warianty.sql`](sql/03_po_tescie_warianty.sql) uruchamiasz najwcześniej 3 dni po końcu testu — GA4 dopisuje dane do 72 h, a `ASSERT` nie wpuści wcześniej. W `DECLARE` ustaw `test_start` (poniedziałek), `test_end` (niedziela), `test_name` (slot), `control_variant`, `variants`, `conversion_event` i `exposure_events`.
 
-Wynik ma wiersz na wariant. `users` i `converters` idą do pól Użytkownicy i Konwertujący A/B, przy metryce przychodu dochodzą `revenue_per_user` i `revenue_sd`. Kolumny `excluded_mixed`, `reassigned` i `no_assignment` nie idą do kalkulatora: pokazują, ile osób widziało dwa warianty, dostało wariant ponownie albo przyszło z wariantem bez `ab_assign`.
+Wynik ma wiersz na wariant. `users` i `converters` idą do pól Użytkownicy i Konwertujący A/B, przy metryce przychodu dochodzą `revenue_per_user` i `revenue_sd`. Kolumny `reassigned`, `excluded_mixed` i `no_assignment` nie idą do kalkulatora:
+
+- `reassigned` (zostają, poza `excluded_mixed`): osoby, którym losowanie wariantu odbyło się drugi raz, bo przeglądarka usunęła ciasteczko z wariantem (np. ręcznie), a identyfikator Google Analytics został. To łączna skala tego problemu. Kto za drugim razem wylosował ten sam wariant, zostaje w wyniku.
+- `excluded_mixed` (wypadają): część osób z `reassigned`, którym za drugim razem wypadł inny wariant, czyli widziały obie wersje strony. Nie wiadomo, która wersja zadziałała, więc nie wliczamy ich do `users` i `converters`.
+- `no_assignment` (zostają): osoby, których wariant znamy z ciasteczka, ale nie mamy zapisu samego losowania. Najczęściej usunęły identyfikator Google Analytics i wróciły jako „nowa” osoba z tym samym wariantem (liczą się wtedy podwójnie) albo zapis losowania zablokował adblock lub zamknięcie strony.
 
 ## 5. Ścieżka automatyczna: dbt i GitHub Actions
 
