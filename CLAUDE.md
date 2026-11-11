@@ -46,7 +46,7 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 - Zmiany zostawiaj niezacommitowane, żeby Piotr przejrzał je w Cursorze; commit i push na `main` (bez PR) dopiero na jego prośbę.
 - Tytuł po polsku z prefiksem: `feat:`, `fix:`, `docs:`, `ci:`. Tylko zmiana techniczna, bez motywacji.
 - Autor `pmackowka@gmail.com`. Bez stopek `Co-Authored-By` / `Claude-Session`.
-- Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. Repo jest prywatne: prawdziwe ID własnego projektu `ab-test-sandbox` i komentarze z przebiegu wolno wpisywać; publiczna kopia powstanie osobno, oczyszczona. ID klientów nigdy.
+- Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. Repo jest prywatne: prawdziwe ID własnego projektu `ab-test-sandbox` i komentarze z przebiegu wolno wpisywać; publiczny jest tylko oczyszczony szablon. ID klientów nigdy.
 - Bez przepisywania historii i force pusha bez zgody.
 
 ## Stan
@@ -54,5 +54,7 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 - Generator, `sql/01`–`03` i `dbt build` biegły w sandboxie; lista rzeczy do potwierdzenia: `dbt/README.md`, sekcja „Niesprawdzone”.
 - GitHub Actions działa w `ab-test-sandbox` przez Workload Identity Federation (konto `dbt-prod`, bez kluczy): CI/CD buduje `dbt_ci_testy_ab` i `dbt_prod_testy_ab`, harmonogram (3:17 Europe/Warsaw) najpierw generuje wczorajszy dzień. Staging w sandboxie: `vars.sandbox: true`.
 - Raport Data Studio (do kwietnia 2026 Looker Studio) `https://datastudio.google.com/reporting/c45c9272-2566-4ebf-a257-d2ed7ba516c0`, link w README: rejestr testów i `fct_wyniki_testow_ab` ze źródeł w Arkuszach Google (zrzut z 2026-11-09, nie odświeża się sam), teksty opisujące tabele i kolumny kontroli jakości, linki do kalkulatorów z UTM. Zmiana logiki albo nazw kolumn w dbt = sprawdź teksty w raporcie.
-- Publiczna kopia repo: plan w lokalnym `PROMPT_PUBLICZNA_KOPIA.md` (poza gitem), jeszcze niewykonany.
+- Publiczna kopia: `pmackowka/ga4-ab-testing-template` (szablon GitHub, MIT, portfolio) — bez komentarzy, bez danych syntetycznych i sandboxa, z opisami kolumn i dbt docs na GitHub Pages (`dbt docs generate --static --empty-catalog --no-compile`, bez poświadczeń GCP). Pracujesz tutaj; szablon nie synchronizuje się sam, zmiany przenosi się ręcznie na prośbę Piotra. `dbt schedule` i `dbt CI/CD` są tam wyłączone (brak sekretów).
+- Opisy z `.yml` trafiają do BigQuery przez `persist_docs`; strona startowa dbt docs to `dbt/models/overview.md` (jak czytać dane, bez kroków wdrożenia — te są w README). Zmiana kolumn = popraw opis w `.yml` i tabelę w overview.
+- Otwarte sprawy i pułapki z uruchomienia: lokalny `NOTATKI_AGENTA.md` (poza gitem).
 - Domyślne okna w `sql/01` i `02` (`window_start = '2026-08-24'`, 2 tygodnie) i tabela `ab-test-sandbox.ga4_syntetyczny.events_*` pasują do danych syntetycznych; przy prawdziwym eksporcie ustaw własne.
