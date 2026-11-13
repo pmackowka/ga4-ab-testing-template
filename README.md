@@ -9,7 +9,7 @@ Scenariusz: e-commerce testuje kartę produktu, wejście do testu to `view_item`
 
 | Folder | Co tam jest |
 |---|---|
-| [`sql/`](sql/README.md) | zapytania `01`–`03`, opis pól obu kalkulatorów, zrzuty z BigQuery i kalkulatorów |
+| [`sql/`](sql/README.md) | zapytania `01`–`03`, opis pól obu kalkulatorów |
 | [`gtm/`](gtm/README.md) | tagi losujące wariant |
 | [`dbt/`](dbt/README.md) | wynik `03` dla wszystkich testów naraz, z testami danych, CI/CD i danymi syntetycznymi |
 

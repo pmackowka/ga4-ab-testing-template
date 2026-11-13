@@ -1,6 +1,6 @@
 # ga4-ab-testing
 
-Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkulatorów na pmdata.pl, skrypty GTM losują wariant. Opis dla ludzi: `README.md` (kroki testu, mapa folderów), `sql/README.md` (zapytania, kalkulatory, zrzuty), `gtm/README.md` (tagi) i `dbt/README.md` (dbt, CI/CD, dane syntetyczne) — przeczytaj je przed zmianą.
+Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkulatorów na pmdata.pl, skrypty GTM losują wariant. Opis dla ludzi: `README.md` (kroki testu, mapa folderów), `sql/README.md` (zapytania, kalkulatory), `gtm/README.md` (tagi) i `dbt/README.md` (dbt, CI/CD, dane syntetyczne) — przeczytaj je przed zmianą.
 
 ## Mapa
 
@@ -14,7 +14,6 @@ Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkula
 | `gtm/` | tagi Custom HTML losujące wariant w slotach `ab1`–`ab10` |
 | `.github/workflows/dbt-ci-cd.yml` | parse → unit testy → deploy zmienionych modeli (push na `main`) |
 | `.github/workflows/dbt-schedule.yml` | codzienny `dbt build` na prod z ostatniego zielonego commita CI |
-| `docs/img/` | zrzuty BigQuery i kalkulatorów do `sql/README.md` |
 
 Nie ma dbt dla `sql/01` i `02`: plan testu to zapytanie jednorazowe z innymi parametrami za każdym razem, a staging trzyma tylko eventy z wariantem testu.
 
@@ -39,7 +38,6 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 - **Prostota:** najprostsze działające rozwiązanie, bez opcji i abstrakcji „na później”. Nowa logika z rozgałęzieniem → test dbt.
 - **Kalkulatory** leżą w innym repo: `~/Documents/dev/personal-page` (`src/pages/kalkulatory/`, `src/utils/ab-stats.ts`). Opis kalkulatora sprawdzaj w tym kodzie, nie z pamięci. Zmiany tam robi agent personal-page, a nie ta sesja.
 - **GTM:** kroki konfiguracji opisują notatki elementów w kontenerze GTM, nie README. Model: tag Custom HTML per slot + zmienne „Własny plik cookie” `abN` + event `ab_assign`; bez sekwencji i Custom JS.
-- **Zrzuty `docs/img/`:** z lokalnego dev servera personal-page (`localhost:4321/kalkulatory/`), Playwright, viewport 1280, `device_scale_factor=2`, wycinek `.abc__panel` ±20 px, dane w hashu URL; ukryte elementy fixed/sticky i pasek Astro.
 
 ## Git
 

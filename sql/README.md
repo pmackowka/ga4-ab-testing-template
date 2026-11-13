@@ -23,24 +23,12 @@ Oba kalkulatory mają przełącznik „Metryka”: wybierasz ją w planie i tę 
 - **Konwersja (CR)** = konwertujący / użytkownicy: czy więcej osób kupuje. Nie widzi koszyka — upsell z CR −2% i koszykiem +10% wyjdzie jako przegrana.
 - **Przychód na użytkownika (RPU)** = przychód wariantu / jego użytkownicy = CR × przychód na kupującego. Łapie obie zmiany, bliżej mu do sprzedaży. Mianownik to wszyscy użytkownicy, także z 0 zł.
 - **RPU potrzebuje więcej użytkowników**, bo przychód ma większy rozrzut niż „kupił / nie kupił”. Kohavi, Tang i Xu (*Trustworthy Online Controlled Experiments*) pokazują na kuponie, że wskaźnik zakupu (0/1) ma mniejszą wariancję niż przychód i szybciej wykrywa efekt; w rozdziale 18 (wariancja i czułość) zalecają przycinanie (capping) wartości skrajnych. Ile więcej, zależy od rozrzutu kwot: przy typowym nawet 2× przy tym samym MDE.
-- **Przykład (test `ab2` na danych syntetycznych):** ta sama strona i MDE +10% to przy CR 49 807 użytkowników na wariant (2 tygodnie), przy RPU 87 600 (3 tygodnie). Wynik `03` po 2 tygodniach, który przy CR daje „Wdrażaj B”, przy RPU daje „Wstrzymaj decyzję”: 64 070 użytkowników to za mało dla planu RPU (zrzuty niżej).
+- **Przykład (test `ab2` na danych syntetycznych):** ta sama strona i MDE +10% to przy CR 49 807 użytkowników na wariant (2 tygodnie), przy RPU 87 600 (3 tygodnie). Wynik `03` po 2 tygodniach, który przy CR daje „Wdrażaj B”, przy RPU daje „Wstrzymaj decyzję”: 64 070 użytkowników to za mało dla planu RPU.
 - **Jedno duże zamówienie** potrafi przesądzić średnią, więc `01`, `03` i dbt przycinają przychód osoby do 99,9 percentyla kupujących, a zamówienie liczą raz na `transaction_id`. Metrykę ustalasz przed startem: wybór po wyniku tej, która wyszła istotna, to dwa testy zamiast jednego i większa szansa na fałszywego zwycięzcę.
 
 ## Kalkulator Przed testem
 
 [pmdata.pl/kalkulatory/wielkosc-proby-test-ab](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/) — ilu użytkowników potrzebuje test i ile tygodni potrwa przy Twoim ruchu.
-
-Zrzuty w tej i następnej sekcji: test `ab2` (2026-09-07 – 2026-09-20) z danych syntetycznych, liczby z `01`, `02` i `03`.
-
-Wyniki z BigQuery, z których pochodzą liczby w kalkulatorze niżej — [`01`](01_przed_testem.sql) (wiersz `weeks = 2`) i [`02`](02_przychod_tygodniowy.sql):
-
-![Wynik zapytania 01 w BigQuery dla testu ab2: okna 1 i 2 tygodnie, 64 287 użytkowników i 2 056 konwertujących w tygodniu przy 2 tygodniach](../docs/img/bigquery-01-przed-testem.png)
-
-![Wynik zapytania 02 w BigQuery dla testu ab2: tygodniowy przychód 572 968 zł, średnia i mediana](../docs/img/bigquery-02-przychod-tygodniowy.png)
-
-![Kalkulator Przed testem dla testu ab2 w trybie konwersji: 49 807 użytkowników na wariant, test potrwa 2 tygodnie](../docs/img/przed-testem.png)
-
-![Kalkulator Przed testem dla testu ab2 w trybie przychodu na użytkownika: 87 600 użytkowników na wariant, test potrwa 3 tygodnie](../docs/img/przed-testem-przychod.png)
 
 - **MDE** — próg biznesowy, nie prognoza: najmniejszy wzrost wart czasu testu. Względny: +15% przy CR 2% to +0,30 pp. Optymizm skraca test, który przeoczy realny, mniejszy wzrost.
 - **Poziom ufności i moc** — ufność chroni przed fałszywym alarmem (α = 1 − ufność: przy 95% co 20. test bez efektu pokaże różnicę), moc przed przeoczeniem (przy 80% wzrost równy MDE wykryjesz w 4 testach na 5). Wyższe = dłuższy test.
@@ -53,14 +41,6 @@ Wyniki z BigQuery, z których pochodzą liczby w kalkulatorze niżej — [`01`](
 ## Kalkulator Po teście
 
 [pmdata.pl/kalkulatory/istotnosc-testu-ab](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/) — co zrobić z wariantem B. Na górze decyzja i skutek w złotówkach, w „Szczegóły obliczeń” liczby.
-
-Wynik z BigQuery, z którego pochodzą liczby w kalkulatorze niżej — [`03`](03_po_tescie_warianty.sql):
-
-![Wynik zapytania 03 w BigQuery dla testu ab2: kontrola 64 266 użytkowników i 2 038 konwertujących, wariant v1 64 070 i 2 313](../docs/img/bigquery-03-po-tescie.png)
-
-![Kalkulator Po teście dla testu ab2 w trybie konwersji: Wdrażaj B, wzrost +13,84%](../docs/img/po-tescie.png)
-
-![Kalkulator Po teście dla testu ab2 w trybie przychodu na użytkownika: wzrost istotny, ale decyzja wstrzymana, bo 2 tygodnie dały mniej użytkowników niż plan RPU](../docs/img/po-tescie-przychod.png)
 
 - **Dane z planu (opcjonalne)** — wymagani użytkownicy na jeden wariant (nie tygodniowy ruch ani suma) i MDE z „Przed testem”. Bez nich werdykt zależy tylko od p-value, łatwego do oszukania zaglądaniem w trakcie; z nimi kalkulator wstrzymuje decyzję, gdy test zatrzymano przed 95% planu albo przedłużono ponad 125%, a ręcznie wpisane liczby sprawdza z MDE przy mocy 80% (rozjazd > 25% = ostrzeżenie).
 - **p-value** — prawdopodobieństwo wyniku co najmniej tak skrajnego, gdyby wzrostu nie było, a nie tego, że B jest lepsze. Kalkulator pokazuje dwu- i jednostronne, werdykt bierze rodzaj testu z planu.
