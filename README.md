@@ -232,8 +232,6 @@ flowchart LR
 
 ### Kalkulator Przed testem
 
-![Kalkulator Przed testem w trybie konwersji: liczba użytkowników na wariant i czas testu (dane przykładowe)](docs/img/przed-testem.png)
-
 - **Metryka** — konwersja (CR) mówi, czy więcej osób kupuje; przychód na użytkownika (RPU) łapie też zmianę koszyka, ale potrzebuje więcej użytkowników. Wybierasz przed startem i tę samą bierzesz do oceny.
 - **MDE** — najmniejszy wzrost wart czasu testu, względny: +15% przy CR 2% to +0,30 pp.
 - **Poziom ufności i moc** — ufność chroni przed fałszywym alarmem, moc przed przeoczeniem efektu. Wyższe = dłuższy test.
@@ -242,8 +240,6 @@ flowchart LR
 - **Limit tygodni** — najwyżej 8 pełnych tygodni: dłużej kasowanie cookies miesza warianty.
 
 ### Kalkulator Po teście
-
-![Kalkulator Po teście w trybie konwersji: werdykt, zakres wzrostu i wpływ na przychód (dane przykładowe)](docs/img/po-tescie.png)
 
 - **Użytkownicy i Konwertujący A/B** — `users` i `converters` z `sql/03` albo `uzytkownicy` i `konwertujacy` z dbt. Przy RPU przychód i odchylenie na wariant.
 - **Dane z planu (opcjonalne)** — wymagani użytkownicy na jeden wariant i MDE. Z nimi kalkulator wstrzyma decyzję, gdy test zatrzymano przed 95% planu albo przedłużono ponad 125%.
