@@ -24,6 +24,7 @@ jobs:
 
   unit-tests:
     needs: parse
+    if: github.repository != 'pmackowka/ga4-ab-testing-template'
     runs-on: ubuntu-latest
     permissions:
       contents: read
