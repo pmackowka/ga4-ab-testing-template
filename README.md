@@ -9,6 +9,8 @@ Testy A/B na eksporcie GA4 w BigQuery: tagi GTM losują wariant, SQL i dbt licz�
 
 Obie ścieżki liczą tak samo: użytkownik wchodzi do testu przy pierwszej ekspozycji, konwersja liczy się dopiero po niej, zamówienie raz na `transaction_id`, przychód osoby jest przycięty do 99,9 percentyla, a `(not set)` i pusty tekst to NULL.
 
+Diagram sekwencji UML całego przepływu: [`uml-diagram.md`](uml-diagram.md).
+
 ## Wymagania
 
 - Projekt GCP z włączonym billingiem. BigQuery bez billingu nie wystarczy ścieżce automatycznej: staging nadpisuje partycje (`insert_overwrite`), a bez billingu BigQuery nie ma DML ([ograniczenia](https://docs.cloud.google.com/bigquery/docs/sandbox#limitations)).
