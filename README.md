@@ -1,5 +1,7 @@
 # ga4-ab-testing-template
 
+[![License: MIT](https://img.shields.io/github/license/pmackowka/ga4-ab-testing-template)](LICENSE)
+
 Testy A/B na eksporcie GA4 w BigQuery: tagi GTM losują wariant, SQL i dbt liczą liczby do kalkulatorów [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/?utm_source=github&utm_medium=referral) i [Po teście](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/?utm_source=github&utm_medium=referral).
 
 | Ścieżka | Co robisz | Dla kogo |
