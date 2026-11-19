@@ -26,6 +26,8 @@ Obie zaczynają się tak samo: [`01`](sql/01_przed_testem.sql) i [`02`](sql/02_p
 
 Wynik ścieżki automatycznej w [Data Studio](https://datastudio.google.com/reporting/c45c9272-2566-4ebf-a257-d2ed7ba516c0) (do kwietnia 2026 Looker Studio): rejestr testów i `fct_wyniki_testow_ab` z opisem, co wpisać do kalkulatora. Liczby z danych syntetycznych; raport skopiujesz i podepniesz pod własne tabele.
 
+Diagram sekwencji UML całego przepływu: [`uml-diagram.md`](uml-diagram.md).
+
 ## Kroki
 
 ```mermaid
