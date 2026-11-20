@@ -30,18 +30,6 @@ Diagram sekwencji UML całego przepływu: [`uml-diagram.md`](uml-diagram.md).
 
 ## Kroki
 
-```mermaid
-flowchart LR
-    S1["1 · SQL 01<br/>ruch i konwersje<br/>w oknach 1–8 tyg."] --> S2["2 · SQL 02<br/>przychód tygodniowy<br/>(opcjonalnie)"]
-    S2 --> S3["3 · Kalkulator Przed testem<br/>ilu użytkowników<br/>i ile tygodni"]
-    S3 --> S4["4 · GTM<br/>start testu:<br/>losowanie wariantu"]
-    S4 --> S5["5 · W trakcie<br/>nie zaglądasz<br/>do wyniku"]
-    S5 --> S6["6 · SQL 03 albo dbt<br/>użytkownicy<br/>i konwertujący A/B"]
-    S6 --> S7["7 · Kalkulator Po teście<br/>czy wdrażać B"]
-    S2 -.->|pole „Tygodniowy przychód<br/>ze strony testowej”| S7
-    S3 -.->|blok „Dane z planu testu”:<br/>wymagani użytkownicy i MDE| S7
-```
-
 1. **Przed testem** · [`01`](sql/01_przed_testem.sql) — wiersz z planowaną liczbą tygodni: Użytkownicy i Konwertujący w tygodniu.
 2. **Przed testem** · [`02`](sql/02_przychod_tygodniowy.sql) — średnia albo mediana (przy piku sezonowym): Tygodniowy przychód ze strony testowej (opcjonalnie).
 3. **Przed testem** · kalkulator — pozostałe pola ([opis](sql/README.md#kalkulator-przed-testem)); inny czas testu → wiersz `01` z tym czasem.
