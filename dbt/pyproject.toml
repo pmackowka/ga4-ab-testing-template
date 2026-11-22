@@ -1,19 +1,11 @@
-# Środowisko Pythona dla dbt — jedyne miejsce, gdzie ręcznie wpisuje się zależności.
-# pyproject.toml = co wybieram świadomie, uv.lock = całe drzewo z hashami (generowany),
-# .python-version = wersja interpretera (uv sync pobierze go sam).
-#   uv sync                  — .venv dokładnie według uv.lock
-#   uv run dbt build ...     — dbt w .venv bez ręcznej aktywacji
-#   uv sync --locked         — dla CI: pada, gdy uv.lock nie zgadza się z tym plikiem
 [project]
 name = "ab-testing"
 version = "1.0.0"
 description = "dbt Core na BigQuery — wyniki testów A/B z eksportu GA4"
 requires-python = ">=3.11"
 dependencies = [
-    # Tylko adapter — reszta stosu przypięta w uv.lock. ==, bo podbicie ma być świadomą zmianą.
     "dbt-bigquery==1.12.0",
 ]
 
 [tool.uv]
-# Środowisko do uruchamiania dbt, nie paczka do publikacji.
 package = false

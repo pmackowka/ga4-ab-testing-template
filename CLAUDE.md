@@ -30,8 +30,8 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 
 ## Konwencje
 
-- **Komentarze w SQL i dbt:** tylko nagłówek pliku (cel, kluczowe reguły) i przykładowa tabela wyniku na końcu. Zero komentarzy wewnątrz kodu. Wyjątek: w `sql/` blok `DECLARE` do uzupełnienia ma baner „DO UZUPEŁNIENIA” i jednozdaniowy komentarz przy każdej zmiennej; parametry nie powtarzają się w nagłówku. W dbt nagłówek i przykład w `{# #}`, pierwsza linia testu to `-- GENERIC` / `-- SINGULAR`.
-- **Nazwy:** `sql/` po angielsku (`user_pseudo_id`, `revenue_per_user`), dbt po polsku (`id_uzytkownika`, `przychod_na_uzytkownika`). Komentarze i dokumentacja po polsku.
+- **Komentarze w kodzie:** zero, w każdym pliku (SQL, Jinja, YAML, workflow, GTM, TOML, `.gitignore`) — decyzja Piotra z 2026-11-22. Opis, instrukcja i przykłady wyników tylko w README (`README.md`, `sql/`, `gtm/`, `dbt/`) i `uml-diagram.md`; opisy modeli i kolumn w polach `description:` plików `.yml` to dokumentacja dbt, nie komentarze.
+- **Nazwy:** `sql/` po angielsku (`user_pseudo_id`, `revenue_per_user`), dbt po polsku (`id_uzytkownika`, `przychod_na_uzytkownika`). Dokumentacja po polsku.
 - **Ta sama logika w trzech miejscach:** `sql/03`, model dbt i kalkulator muszą liczyć tak samo (pierwsza ekspozycja, konwersja po niej, zamówienie raz na `transaction_id`, przychód osoby przycięty do 99,9 percentyla, `(not set)`/'' jako NULL). Zmiana w jednym = sprawdź pozostałe.
 - **Poprawka = grep całego repo:** wartość, nazwa pliku albo parametr zwykle siedzi też w README, przykładach wyników, workflow i GTM. Każde trafienie popraw albo uzasadnij, czemu zostaje.
 - **Symetria:** powiązane tabele i listy w dokumentach trzymają tę samą kolejność kategorii.
@@ -44,7 +44,7 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 - Zmiany zostawiaj niezacommitowane, żeby Piotr przejrzał je w Cursorze; commit i push na `main` (bez PR) dopiero na jego prośbę.
 - Tytuł po polsku z prefiksem: `feat:`, `fix:`, `docs:`, `ci:`. Tylko zmiana techniczna, bez motywacji.
 - Autor `pmackowka@gmail.com`. Bez stopek `Co-Authored-By` / `Claude-Session`.
-- Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. Repo jest publiczne (szablon GitHub, MIT): ID własnego projektu `ab-test-sandbox` i komentarze z przebiegu wolno wpisywać, ID klientów i dane klientów nigdy.
+- Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. Repo jest publiczne (szablon GitHub, MIT): ID własnego projektu `ab-test-sandbox` wolno wpisywać, ID klientów i dane klientów nigdy.
 - Bez przepisywania historii i force pusha bez zgody.
 
 ## Stan

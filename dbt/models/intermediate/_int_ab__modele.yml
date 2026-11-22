@@ -1,7 +1,3 @@
-# GENERIC
-
-# data_tests: = użycie testów generic, które sprawdzają, czy DANE są poprawne. Definicje: not_null
-# i unique wbudowane w dbt, dbt_utils.* z pakietu (dbt deps), wariant_w_seedzie w tests/generic/.
 version: 2
 
 models:

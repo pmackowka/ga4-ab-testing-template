@@ -1,6 +1,3 @@
--- SINGULAR
-
-{# Wiersz = błąd konfiguracji w seedzie; reguły jak ASSERT-y w sql/03. #}
 WITH testy AS (
 	SELECT
 		*,
@@ -32,9 +29,3 @@ FROM testy,
 			'slot wraca przed wygaśnięciem ciasteczek poprzedniego testu: start musi być > 60 dni po jego końcu', NULL)
 	]) AS powod
 WHERE powod IS NOT NULL
-
-{#
-	Przykładowy wynik (błąd):
-	id_testu     | powod
-	ab3_20261006 | start_testu musi być poniedziałkiem
-#}

@@ -1,13 +1,3 @@
-# Szablon połączenia z BigQuery. Skopiuj do profiles.yml (jest w .gitignore) albo ~/.dbt/profiles.yml.
-# Wszystkie targety logują się przez oauth, bez plików kluczy kont serwisowych.
-#
-# sandbox (domyślny) — lokalnie, BigQuery sandbox bez billingu w projekcie ab-test-sandbox (EU):
-#   gcloud auth application-default login
-#
-# ci, prod_ci — tylko GitHub Actions: token konta serwisowego dbt-prod z Workload Identity Federation,
-# projekt z sekretu BIGQUERY_PROD_PROJECT (dbt/README.md, sekcja „Konfiguracja GCP”).
-# Konto serwisowe potrzebuje: BigQuery Data Viewer na datasecie GA4, BigQuery Data Editor
-# na datasecie docelowym, BigQuery Job User w projekcie.
 testy_ab:
   target: sandbox
   outputs:

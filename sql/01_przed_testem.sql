@@ -1,21 +1,6 @@
-/*
- 01 · PRZED TESTEM → kalkulator „Przed testem A/B”
- https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
- Test karty produktu: wejście = view_item, konwersja = purchase.
- Tabela w obu miejscach: `ab-test-sandbox.ga4_syntetyczny.events_*` (dane syntetyczne); własny eksport GA4: `twoj-projekt.analytics_123456789.events_*`.
-
- Każdy wiersz to okno k tygodni: osoba liczy się raz, od pierwszego view_item,
- z zakupami do końca okna — tak jak w wyniku testu. Zamówienie raz na
- transaction_id. Przychód osoby przycięty do 99,9 percentyla kupujących.
- Jak użyć: wpisz wiersz z planowaną liczbą tygodni. Kalkulator policzył inny
- czas? Weź wiersz z tym czasem i przelicz, aż czas zgodzi się z wierszem.
-*/
-
--- ===== DO UZUPEŁNIENIA: tylko te zmienne edytujesz, niżej nic nie zmieniaj =====
-DECLARE window_start DATE DEFAULT DATE '2026-08-24';  -- liczysz z rejestru: `start_testu` planowanego testu minus 7 × max_weeks dni, poniedziałek, od którego liczysz ruch przed testem
-DECLARE max_weeks INT64 DEFAULT 2;  -- Twoja decyzja, nie kolumna rejestru: ile tygodni okna policzyć (1–8, tyle co limit w kalkulatorze); wynik ma wiersz dla 1…max_weeks
-DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- = `start_testu` z rejestr_testow.csv: poniedziałek, w którym ruszy test (domyślnie ab2); okno musi się skończyć przed nim
--- ===== KONIEC =====
+DECLARE window_start DATE DEFAULT DATE '2026-08-24';
+DECLARE max_weeks INT64 DEFAULT 2;
+DECLARE test_start DATE DEFAULT DATE '2026-09-07';
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_start) = 2
   AS 'window_start musi być poniedziałkiem';
@@ -114,15 +99,3 @@ SELECT
   ROUND(revenue_sd, 2) AS revenue_sd
 FROM windows
 ORDER BY weeks;
-
-/*
- Wynik dla testu ab2 (dane syntetyczne, okno 2026-08-24 – 2026-09-06, domyślne parametry):
- weeks | users_per_week | converters_per_week | revenue_per_user | revenue_sd
- ------+----------------+---------------------+------------------+-----------
-     1 |         67 182 |               2 098 |             8.56 |      64.24
-     2 |         64 287 |               2 056 |             8.89 |      66.41
-
- Kalkulator: users_per_week → Użytkownicy w tygodniu, converters_per_week →
- Konwertujący w tygodniu; w trybie przychodu revenue_per_user i revenue_sd
- (dotyczą całego okna, nie tygodnia).
-*/

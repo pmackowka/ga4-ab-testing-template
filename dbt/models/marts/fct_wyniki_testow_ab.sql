@@ -1,8 +1,3 @@
-{#
-	Wynik do kalkulatora „Po teście A/B”, wiersz = test × wariant (odpowiednik sql/03).
-	Warianty z seeda: wariant bez użytkowników zostaje z zerami; wariant spoza seeda zatrzymuje build
-	(test wariant_w_seedzie). Przychód osoby przycięty do 99,9 percentyla konwertujących w teście.
-#}
 WITH testy AS (
 	SELECT * FROM {{ ref('stg_seeds__rejestr_testow') }}
 ),
@@ -69,13 +64,3 @@ FULL JOIN zaobserwowane AS o
 	USING (id_testu, wariant)
 JOIN testy AS t
 	USING (id_testu)
-
-{#
-	Przykładowy wynik (dane syntetyczne); do kalkulatora tylko wiersze z czy_koncowy = true:
-	id_testu     | slot | wariant | czy_kontrola | pole_kalkulatora | uzytkownicy | konwertujacy | przychod   | przychod_na_uzytkownika | odchylenie_przychodu | wykluczeni_mieszani | ponownie_przydzieleni | bez_przydzialu | czy_koncowy
-	ab2_20260907 | ab2  | v0      | true         | A (kontrola)     | 10234       | 412          | 98880.00   | 9.66                    | 62.40                | 37                  | 76                    | 118            | true
-	ab2_20260907 | ab2  | v1      | false        | B (wariant v1)   | 10198       | 455          | 109200.00  | 10.71                   | 65.90                | 41                  | 80                    | 109            | true
-	ab3_20261005 | ab3  | v0      | true         | A (kontrola)     | 9870        | 380          | 91200.00   | 9.24                    | 61.10                | 22                  | 47                    | 96             | false
-	ab3_20261005 | ab3  | v1      | false        | B (wariant v1)   | 9912        | 401          | 96240.00   | 9.71                    | 62.80                | 25                  | 51                    | 101            | false
-	ab3_20261005 | ab3  | v2      | false        | B (wariant v2)   | 9801        | 366          | 87840.00   | 8.96                    | 60.20                | 19                  | 40                    | 93             | false
-#}

@@ -126,7 +126,7 @@ Ziarno raportu z API = data + wszystkie wymiary zapytania. Kontrola po ładowani
 
 ## Testy
 
-Typ testu oznacza pierwsza linia pliku, co sprawdza — nagłówek. Generic ma definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać), więc wbudowane i z `dbt_utils` widać tylko w `models/`. Unit testy leżą w `<model>__unit_test.yml` obok modelu.
+Typ testu wynika z miejsca pliku: `tests/generic/` = generic, pozostałe `tests/*.sql` = singular, `*__unit_test.yml` = unit. Generic ma definicję (makro, jak sprawdzać) i użycie w YAML modelu (`data_tests:`, co sprawdzać), więc wbudowane i z `dbt_utils` widać tylko w `models/`. Unit testy leżą w `<model>__unit_test.yml` obok modelu.
 
 ```
 generic — sprawdza dane
@@ -145,6 +145,25 @@ unit — sprawdza logikę na mockach
     ├── intermediate/int_ab__konwersje__unit_test.yml  konwersje_* (2) — pierwszy najprostszy, wzór do nauki
     └── marts/fct_wyniki_testow_ab__unit_test.yml      wyniki_* (1)
 ```
+
+Każdy test danych zwraca wiersze z błędami; zero wierszy = zielony.
+
+| Test | Wiersz wyniku | Przykład |
+|---|---|---|
+| `wariant_w_seedzie` (generic, przy kolumnie z `id_testu`) | wariant spoza `warianty` w seedzie: zły tag albo literówka w GTM | `ab2_20260907`, `V1` |
+| `sprawdz_komplet_dni_ga4` | brakująca dzienna tabela eksportu w dniach testu (do dziś minus 3); czyta tylko `_TABLE_SUFFIX`, więc kosztuje minimum | `ab2_20260907`, `2026-09-15` |
+| `sprawdz_konfiguracje_testow` | błąd konfiguracji w seedzie, reguły jak `ASSERT` w `sql/03` | `ab3_20261006`, `start_testu musi być poniedziałkiem` |
+| `sprawdz_srm` (warn) | podział kontrola–wariant odbiega od 50/50 bardziej niż przypadek: χ² = (a − b)² / (a + b) > 10,828 (p < 0,001), ta sama reguła co w kalkulatorze | `ab2_20260907`, v1, 10 850 vs 10 198, χ² 20,2 |
+
+### Jak czytać unit test
+
+Wzór to `int_ab__konwersje__unit_test.yml`, pierwszy test: dwóch użytkowników, jeden test A/B, jedna reguła — zakup liczy się jako konwersja tylko po pierwszej ekspozycji. Osoba, która kupiła, zanim zobaczyła test, nie kupiła „dzięki” wariantowi; doliczona zawyżyłaby CR swojego wariantu.
+
+- `model` — który model sprawdzamy.
+- `given` — sztuczne wejścia, po jednym bloku na każdy `ref()` w SQL modelu (brak któregoś = błąd kompilacji). W `rows` wystarczą kolumny, których model używa. Tu: rejestr testów (zdarzenie konwersji i koniec testu), ekspozycje (obaj użytkownicy zobaczyli test 10 września o 12:00) i zdarzenia GA4 (u1 kupił o 11:00, u2 o 13:00).
+- `expect` — wiersze, które model musi zwrócić. Tu tylko u2; gdyby model liczył zakupy sprzed ekspozycji, pojawiłby się u1 i test by padł.
+
+Kolejne testy w pliku mają tę samą budowę: zakup po `koniec_testu` się nie liczy, a przychód liczy każde zamówienie (`id_transakcji`) raz. Unit testy biegną w BigQuery, ale nie czytają GA4 — dbt wstawia wiersze z `given` jako CTE. W GitHub Actions biegną tylko w CI (job `unit-tests`); deploy i harmonogram je pomijają.
 
 Przy warn decyduje człowiek; parę wskaże `dbt test --select sprawdz_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc najpierw zbuduj je puste, z seedem (`dbt run` go nie ładuje) i `--full-refresh` (inaczej staging zostaje pusty):
 
@@ -255,7 +274,33 @@ Działa w darmowym [sandboxie BigQuery](https://docs.cloud.google.com/bigquery/d
 3. Przyrost: przed każdą sesją skrypt bez zmian (nadrobi dni do wczoraj, także po przerwie) i `dbt build --target sandbox`, bez `--full-refresh`. Bez tego `sprawdz_komplet_dni_ga4` zgłosi brakujące dni.
 4. Ponowne przetworzenie dnia przez GA4: `data_od` = dziś minus 3, inne `ziarno`, potem `dbt build --target sandbox` — zmieniają się tylko te dni.
 
+Skrypt tworzy tylko kolumny czytane przez `stg_ga4__zdarzenia`. Wizyta to `view_item` → `begin_checkout` → `purchase`, a losowość z `FARM_FINGERPRINT` sprawia, że ten sam dzień generuje się zawsze tak samo. Parametry w `DECLARE` na początku skryptu:
+
+| Parametr | Znaczenie |
+|---|---|
+| `projekt_docelowy`, `zbior_docelowy`, `data_startu` | to samo co `ga4_projekt`, `ga4_zbior_danych` i `ga4_data_startu` w `vars` dbt |
+| `data_od` | `NULL` = dzień po ostatniej tabeli `events_` w zbiorze; podana data podmienia dni od niej |
+| `data_do` | ostatni generowany dzień, domyślnie wczoraj |
+| `wizyty_dziennie` | liczba wizyt na dzień |
+| `udzial_powracajacych` | udział wizyt osób z poprzednich 28 dni, poniżej 0,8 |
+| `cr_koszyka`, `cr_zakupu` | przejścia `view_item` → `begin_checkout` i `begin_checkout` → `purchase` |
+| `koszyk_mediana`, `koszyk_sigma` | wartość zamówienia w zł, rozkład logarytmiczno-normalny |
+| `ziarno` | inne zachowanie tych samych użytkowników |
+| `testy` | kopia seeda z efektem wariantu (względna zmiana CR); kontrola pierwsza z efektem 0, ab1 = A/A; etap `karta` zmienia przejście do checkoutu, `checkout` przejście do zakupu |
+
+Wyniki testu ab2 z tych danych (`sql/01`–`03`, domyślne parametry) są danymi przykładowymi kalkulatorów na pmdata.pl. Zmiana generatora, seeda albo SQL rozjedzie je z kalkulatorami.
+
 Prawda w `fct_wyniki_testow_ab`: CR wariantu / CR kontroli ≈ 1 + efekt z `DECLARE testy` (ab1 v1 0% — A/A, ab2 v1 +10%, ab3 v1 0%, ab3 v2 +12%, ab4 v1 −5%, ab5 v1 +10%), rozrzut ok. ±5 pp w ab2 i ab3 przy 10 000 wizyt dziennie; ab4 i ab5 dopiero ruszyły. `przychod_na_uzytkownika` idzie za CR (zamówienie logarytmiczno-normalne, mediana 200 zł, niezależne od wariantu), z ok. 1,9× większym względnym rozrzutem. Kolumny jakości to ok. 0,5–1% użytkowników testu, w ab4 i ab5 jeszcze 0 (utrata ciasteczek zaczyna się 7 dni po przydziale). Zerujesz je: oba udziały na 0, skrypt z `data_od = '2026-08-24'` i `dbt build --full-refresh`.
+
+Oczekiwany `fct_wyniki_testow_ab` (ab2 z przebiegu w BigQuery 2026-11-08, ab3 z symulacji tej samej logiki — `FARM_FINGERPRINT` da liczby inne, ale bliskie):
+
+| id_testu | wariant | uzytkownicy | konwertujacy | CR | prawda | przychod_na_uzytkownika | odchylenie_przychodu | wykluczeni_mieszani | ponownie_przydzieleni | bez_przydzialu |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ab2_20260907 | v0 | 64266 | 2038 | 3,17% | kontrola | 8,78 | 67,30 | 68 | 143 | 148 |
+| ab2_20260907 | v1 | 64070 | 2313 | 3,61% | +10% | 9,97 | 70,79 | 85 | 161 | 143 |
+| ab3_20261005 | v0 | 78115 | 2770 | 3,55% | kontrola | 9,88 | 72,06 | 467 | 720 | 655 |
+| ab3_20261005 | v1 | 78718 | 2769 | 3,52% | 0% | 9,56 | 67,69 | 503 | 757 | 667 |
+| ab3_20261005 | v2 | 78925 | 3018 | 3,82% | +12% | 10,73 | 74,30 | 471 | 704 | 691 |
 
 | Parametr w skrypcie | Co psuje w danych | Co to pokazuje |
 |---|---|---|

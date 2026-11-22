@@ -1,11 +1,3 @@
-{#
-	Staging: eventy GA4 z wariantem dowolnego testu (parametr slotu ab1…ab10 albo ab_assign)
-	i eventy konwersji z seeda. Wiersz = event × slot.
-	Przyrost: nadpisuje ostatnie dni_wstecz dni od najnowszej partycji (_dbt_max_partition), nie od
-	CURRENT_DATE(), żeby przerwa w harmonogramie nie zostawiła dziury. Zmiana logiki = --full-refresh.
-	vars.sandbox = true (BigQuery sandbox, każdy target): zwykła tabela bez partycji, odtwarzana w całości —
-	sandbox nie ma MERGE i od razu usuwa partycje starsze niż 60 dni.
-#}
 {%- set dni_wstecz = 3 -%}
 
 {%- set sandbox = var('sandbox') -%}
@@ -80,13 +72,3 @@ FROM testy_zdarzen AS e
 LEFT JOIN UNNEST(e.testy) AS t
 WHERE t.wariant IS NOT NULL
 	OR e.nazwa_zdarzenia IN (SELECT zdarzenie_konwersji FROM {{ ref('stg_seeds__rejestr_testow') }})
-
-{#
-	Przykładowy wynik (dane syntetyczne); dwa ostatnie wiersze to jeden event z dwoma slotami:
-	data_zdarzenia | czas_zdarzenia      | id_uzytkownika | nazwa_zdarzenia | przychod | id_transakcji | slot | wariant
-	2026-09-08     | 2026-09-08 10:00:00 | 1234.5678      | ab_assign       | NULL     | NULL          | ab2  | v1
-	2026-09-08     | 2026-09-08 10:02:13 | 1234.5678      | view_item       | NULL     | NULL          | ab2  | v1
-	2026-09-12     | 2026-09-12 18:30:00 | 9999.0009      | purchase        | 249.90   | T-100231      | NULL | NULL
-	2026-11-03     | 2026-11-03 09:15:40 | 4444.0003      | view_item       | NULL     | NULL          | ab4  | v0
-	2026-11-03     | 2026-11-03 09:15:40 | 4444.0003      | view_item       | NULL     | NULL          | ab5  | v1
-#}

@@ -11,10 +11,55 @@ Trzy zapytania BigQuery na eksporcie GA4 do kalkulatorów na pmdata.pl. Kolejno�
 ## Szybki start
 
 1. Podmień `ab-test-sandbox.ga4_syntetyczny.events_*` (dane syntetyczne) na swój eksport GA4, np. `twoj-projekt.analytics_123456789.events_*` — w każdym pliku w dwóch miejscach.
-2. Ustaw zmienne w bloku „DO UZUPEŁNIENIA” (opis przy każdej zmiennej); `ASSERT` zatrzyma zapytanie przy złej wartości albo brakujących dniach eksportu.
-3. Uruchom i przepisz liczby do kalkulatora; przykładowy wynik jest na końcu każdego pliku.
+2. Ustaw zmienne `DECLARE` na początku pliku (opis w tabeli niżej); `ASSERT` zatrzyma zapytanie przy złej wartości albo brakujących dniach eksportu.
+3. Uruchom i przepisz liczby do kalkulatora; przykładowe wyniki są w sekcji „Przykładowe wyniki” niżej.
 
 Dlaczego okna, a nie tydzień: ludzie wracają, a każdy liczy się w oknie raz. Unikalnych „na tydzień” ubywa z długością okna, a CR rośnie, bo jest więcej czasu na zakup. Efekty się znoszą częściowo, więc liczysz je na danych, w oknie długości testu.
+
+## Zmienne `DECLARE`
+
+Domyślne wartości liczą test `ab2` na danych syntetycznych. Kolumny rejestru to `dbt/seeds/rejestr_testow.csv`.
+
+| Plik | Zmienna | Co wpisać |
+|---|---|---|
+| `01` | `window_start` | poniedziałek, od którego liczysz ruch: `start_testu` planowanego testu minus 7 × `max_weeks` dni |
+| `01` | `max_weeks` | ile tygodni okna policzyć (1–8, tyle co limit w kalkulatorze); wynik ma wiersz dla 1…`max_weeks` |
+| `01` | `test_start` | `start_testu`: poniedziałek, w którym ruszy test; okno musi się skończyć przed nim |
+| `02` | `window_end` | niedziela tuż przed startem testu (`start_testu` minus 1 dzień), ostatni dzień okna |
+| `02` | `window_weeks` | ile pełnych tygodni wstecz od `window_end`, tyle samo co `max_weeks` w `01` |
+| `03` | `test_start` | `start_testu`: poniedziałek, w który opublikowano tag testu |
+| `03` | `test_end` | `koniec_testu`: niedziela, ostatni dzień testu, co najmniej 3 dni temu |
+| `03` | `test_name` | `slot`: `ab1`…`ab10`, `TEST` w tagu i nazwa parametru eventu |
+| `03` | `control_variant` | `wariant_kontrolny`, jeden z `variants` |
+| `03` | `variants` | `warianty`: wszystkie warianty jak `VARIANTS` w tagu; inny wariant w danych przerywa zapytanie |
+| `03` | `conversion_event` | `zdarzenie_konwersji` |
+| `03` | `exposure_events` | `zdarzenia_ekspozycji`: zdarzenia, na których użytkownik wchodzi do testu (pierwsze z wariantem) |
+
+`01` liczy każdą osobę raz w oknie k tygodni, od pierwszego `view_item`, z zakupami do końca okna — tak jak wynik testu. `03` wymaga w GTM eventu `ab_assign` z `ab_test` i `ab_variant` oraz parametru slotu na wszystkich eventach. Pierwszy test to A/A w `ab1`: wynik ma być nieistotny i bez SRM, inaczej konfiguracja jest zła.
+
+## Przykładowe wyniki
+
+Test `ab2` na danych syntetycznych, domyślne parametry; prawdziwy efekt v1 to +10%. To te same liczby co przykłady w kalkulatorach na pmdata.pl.
+
+`01`, okno 2026-08-24 – 2026-09-06:
+
+| weeks | users_per_week | converters_per_week | revenue_per_user | revenue_sd |
+|---|---|---|---|---|
+| 1 | 67 182 | 2 098 | 8.56 | 64.24 |
+| 2 | 64 287 | 2 056 | 8.89 | 66.41 |
+
+`revenue_per_user` i `revenue_sd` dotyczą całego okna, nie tygodnia.
+
+`02`, to samo okno: `weekly_revenue` 572 968, `weekly_revenue_median` 572 968. Przy 2 tygodniach mediana równa się średniej; pik (np. 4 tygodnie po 100 000 i Black Friday 225 000 → 125 000 vs 100 000) widać dopiero od 3 tygodni okna.
+
+`03`, test 2026-09-07 – 2026-09-20:
+
+| calculator_field | users | converters | revenue | revenue_per_user | revenue_sd | excluded_mixed | reassigned | no_assignment |
+|---|---|---|---|---|---|---|---|---|
+| A (kontrola) | 64 266 | 2 038 | 564 521.87 | 8.78 | 67.30 | 68 | 143 | 148 |
+| B (wariant v1) | 64 070 | 2 313 | 638 626.47 | 9.97 | 70.79 | 85 | 161 | 143 |
+
+Kontrola jakości nie idzie do kalkulatora. `excluded_mixed` to osoby z 2+ wariantami, wyjęte z `users`; różnica między wierszami większa niż 2 × √(suma obu) jest podejrzana (tu 17 < 25, w normie). `reassigned` to 2+ `ab_assign` (ciasteczko testu zniknęło, tag losował ponownie), `no_assignment` to wariant bez `ab_assign` (nowe `_ga` albo zgubiony hit).
 
 ## Konwersja czy przychód na użytkownika
 

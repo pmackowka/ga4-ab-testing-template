@@ -1,5 +1,3 @@
-# dbt deps instaluje do dbt_packages/ i zapisuje dokładne wersje w package-lock.yml.
-# dbt_utils: test unique_combination_of_columns na kluczach złożonych.
 packages:
   - package: dbt-labs/dbt_utils
     version: 1.4.1

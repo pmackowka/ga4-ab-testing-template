@@ -1,29 +1,3 @@
-/*
- GENERATOR · syntetyczny eksport GA4 dla projektu dbt
- Tworzy tabele dzienne events_RRRRMMDD (tylko kolumny czytane przez stg_ga4__zdarzenia)
- ze scenariuszem testów z dbt/seeds/rejestr_testow.csv. Wizyta = view_item → begin_checkout
- → purchase. Losowość z FARM_FINGERPRINT: ten sam dzień generuje się zawsze tak samo.
- Uruchom z lokalizacją danych EU (Ustawienia zapytania). Bez zmian nadrabia dni od ostatniej
- tabeli do wczoraj; podane data_od podmienia dni od niego.
-
- Parametry:
- - zbior_docelowy = vars.ga4_zbior_danych, data_startu = vars.ga4_data_startu w dbt
- - data_od: NULL = dzień po ostatniej tabeli events_ w zbiorze
- - udzial_powracajacych < 0,8: wizyty osób z poprzednich 28 dni
- - cr_koszyka: view_item → begin_checkout, cr_zakupu: begin_checkout → purchase
- - koszyk_mediana, koszyk_sigma: wartość zamówienia (zł), rozkład logarytmiczno-normalny
- - udzial_utraty_ciasteczka_testu: tag losuje ponownie 7 dni po przydziale
- - udzial_utraty_ga: nowy user_pseudo_id 7 dni po pierwszej wizycie, ciasteczko testu zostaje
- - ziarno: inne zachowanie tych samych użytkowników
- - testy: kopia seeda + efekt wariantu (względna zmiana CR); kontrola pierwsza, efekt 0; ab1 = A/A;
-   etap 'karta' zmienia przejście do checkoutu, 'checkout' przejście do zakupu
- - usterka_srm_slot → sprawdz_srm (warn); usterka_brak_dnia → sprawdz_komplet_dni_ga4 (error)
-
- Wyniki testu ab2 z tych danych (sql/01–03, domyślne parametry) są danymi przykładowymi
- kalkulatorów na pmdata.pl (repo personal-page). Zmiana generatora, seeda albo SQL rozjedzie
- je z kalkulatorami.
-*/
-
 DECLARE projekt_docelowy STRING DEFAULT 'ab-test-sandbox';
 DECLARE zbior_docelowy STRING DEFAULT 'ga4_syntetyczny';
 DECLARE data_startu DATE DEFAULT DATE '2026-08-24';
@@ -287,27 +261,3 @@ WHILE dzien <= data_do DO
   END IF;
   SET dzien = DATE_ADD(dzien, INTERVAL 1 DAY);
 END WHILE;
-
-/*
- Przykład: events_20260908 (pierwszy wiersz to nowy użytkownik, drugi powracający z 2026-09-01)
- event_date | event_timestamp  | event_name     | event_params                                    | user_pseudo_id
- 20260908   | 1788861600000000 | ab_assign      | [ab_test: ab2, ab_variant: v1]                  | 1482736401.1788825600
- 20260908   | 1788861605000000 | view_item      | [ab2: v1]                                       | 1482736401.1788825600
- 20260908   | 1788864012000000 | view_item      | [ab2: v0]                                       | 1730021954.1788220800
- 20260908   | 1788864127000000 | begin_checkout | [ab2: v0]                                       | 1730021954.1788220800
- 20260908   | 1788864307000000 | purchase       | [ab2: v0]                                       | 1730021954.1788220800
-
- Oczekiwany fct_wyniki_testow_ab po dbt build na danych 2026-08-24 – 2026-11-04 (domyślne
- parametry, bez usterek; liczby z symulacji tej samej logiki — FARM_FINGERPRINT da inne, ale
- bliskie; wiersze ab2 z przebiegu w BigQuery 2026-11-08, test 2 tygodnie): CR wariantu / CR kontroli ≈ 1 + efekt, rozrzut ok. ±5 pp w ab2 i ab3, większy w ab4 i ab5,
- które dopiero ruszyły. ab1 (A/A): CR v1 ≈ CR v0, wynik nieistotny. Kolumny jakości to ok. 0,5–1%
- użytkowników testu; ab4 i ab5 mają w nich 0, bo utrata ciasteczek zaczyna się 7 dni po przydziale.
- Przychód na użytkownika zmienia się jak CR (koszyk nie zależy od wariantu), ale jego względny
- rozrzut jest ok. 1,9× większy (1 + CV² koszyka), więc ten sam test daje szerszy zakres.
- id_testu     | wariant | uzytkownicy | konwertujacy | CR     | prawda   | przychod_na_uzytkownika | odchylenie_przychodu | wykluczeni_mieszani | ponownie_przydzieleni | bez_przydzialu
- ab2_20260907 | v0      | 64266       | 2038         | 3,17%  | kontrola | 8,78                    | 67,30                | 68                  | 143                   | 148
- ab2_20260907 | v1      | 64070       | 2313         | 3,61%  | +10%     | 9,97                    | 70,79                | 85                  | 161                   | 143
- ab3_20261005 | v0      | 78115       | 2770         | 3,55%  | kontrola | 9,88                    | 72,06                | 467                 | 720                   | 655
- ab3_20261005 | v1      | 78718       | 2769         | 3,52%  | 0%       | 9,56                    | 67,69                | 503                 | 757                   | 667
- ab3_20261005 | v2      | 78925       | 3018         | 3,82%  | +12%     | 10,73                   | 74,30                | 471                 | 704                   | 691
-*/

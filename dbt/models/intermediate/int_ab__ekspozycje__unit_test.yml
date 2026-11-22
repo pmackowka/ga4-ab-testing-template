@@ -1,12 +1,3 @@
-# UNIT · testuje models/intermediate/int_ab__ekspozycje.sql
-
-# Unit testy: sprawdzają, czy LOGIKA modelu jest poprawna — wiersze z given zamiast ref(),
-# wynik porównany z expect. Plik YAML. Biegną tylko w CI (job unit-testy), przed modelem;
-# deploy i harmonogram je pomijają. Tu: logika przypisania do testu i wariantu.
-# Uruchamiają się w BigQuery, ale nie czytają GA4: dbt wstawia wiersze z given jako CTE.
-# Przed pierwszym uruchomieniem modele nadrzędne muszą istnieć (dbt bierze z nich typy kolumn):
-#   uv run dbt build --select +fct_wyniki_testow_ab --empty --full-refresh --resource-type seed --resource-type model
-#   uv run dbt test --select test_type:unit
 version: 2
 
 unit_tests:

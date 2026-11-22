@@ -11,6 +11,15 @@ Tag publikujesz w poniedziałek, bo `03` liczy pełne tygodnie. Kolejność krok
 | [`03_dwa_warianty_50_procent`](03_dwa_warianty_50_procent.html) | `ab4` | 50% ruchu w teście, reszta `out` |
 | [`04_rozszerzenie_do_100_procent`](04_rozszerzenie_do_100_procent.html) | `ab4` | zamiast `03`: przydziały zostają, `out` dostaje wariant |
 
+## Zasady tagów
+
+- Tag odpala się na stronie testowej dopiero po zgodzie na ciasteczka. Losuje raz i zapisuje sam wariant (albo `out`) w ciasteczku; wartość spoza listy (ręczna edycja) = brak przydziału i nowe losowanie.
+- `TEST` to slot `ab1`–`ab10`: nazwa ciasteczka, nazwa parametru GA4, `test_name` w `sql/03` i `slot` w seedzie. Slot wraca do użycia dopiero po wygaśnięciu ciasteczek poprzedniego testu — pilnuje tego `sprawdz_konfiguracje_testow`.
+- Jeden tag na slot. Kolejny test na tej samej stronie to kopia tagu z nowym `TEST`. Nie przełączaj `v1` w tagu A/A (`ab1`): ciasteczka `ab1` (60 dni) przeniosłyby podział z A/A, a nowy test nie dostałby ekspozycji.
+- `DAYS = 60`: dłużej niż najdłuższy test (8 tygodni) i tyle, ile minimalna przerwa slotu w dbt.
+- `03`: połowa ruchu w teście (v0/v1 po 25% całego ruchu), reszta dostaje `out`, widzi obecną stronę i nie wchodzi do analizy. Mniejsze ryzyko, gdy wariant może szkodzić, kosztem ok. 2× dłuższego testu.
+- `04` podmienia kod tagu `03` (ten sam tag, ten sam wyzwalacz) i musi mieć ten sam `TEST`, inaczej przydziały się zgubią. Osoby z v0/v1 zostają w wariancie, nowi dostają wariant 50/50. `INCLUDE_OUT = true`: dawni `out` też dostają wariant i wchodzą do analizy od dnia rozszerzenia, choć wcześniej widzieli starą stronę; `false`: zostają poza testem. To nie jest wdrożenie zwycięzcy — test trwa dalej na całym ruchu.
+
 ## Ograniczenia
 
 - Najwyżej 10 testów naraz (sloty `ab1`–`ab10`, limit 25 parametrów na event w GA4). Równoległe testy losują niezależnie; problem to tylko silna interakcja, np. dwa testy zmieniają ten sam element.

@@ -1,62 +1,31 @@
-# UNIT · testuje models/intermediate/int_ab__konwersje.sql
-# Najprostszy unit test w projekcie — zacznij od niego, komentarz przy każdym kroku.
-
-# Unit testy: sprawdzają, czy LOGIKA modelu jest poprawna — wiersze z given zamiast ref(),
-# wynik porównany z expect. Plik YAML. Biegną tylko w CI (job unit-testy), przed modelem;
-# deploy i harmonogram je pomijają. Tu: logika liczenia konwersji.
-# Uruchamiają się w BigQuery, ale nie czytają GA4: dbt wstawia wiersze z given jako CTE.
-# Przed pierwszym uruchomieniem modele nadrzędne muszą istnieć (dbt bierze z nich typy kolumn):
-#   uv run dbt build --select +fct_wyniki_testow_ab --empty --full-refresh --resource-type seed --resource-type model
-#   uv run dbt test --select test_type:unit
 version: 2
 
 unit_tests:
-  # Najprostszy możliwy unit test — wzór do czytania. Dwóch użytkowników, jeden test A/B, jedna reguła:
-  # zakup liczy się jako konwersja tylko wtedy, gdy był PO pierwszej ekspozycji na test.
-  # Dlaczego ta reguła: wynik testu A/B to liczba osób, które kupiły. Osoba, która kupiła, zanim
-  # zobaczyła test, nie kupiła „dzięki” wariantowi — doliczona zawyżyłaby CR swojego wariantu.
-  # Budowa każdego unit testu jest zawsze ta sama:
-  #   model  — który model sprawdzamy (tu int_ab__konwersje),
-  #   given  — sztuczne dane wejściowe: po jednym bloku na każdy ref() z SQL modelu,
-  #   expect — wiersze, które model MUSI zwrócić z tych danych. Inny wynik = test czerwony.
   - name: konwersje_tylko_po_ekspozycji
     description: >
       Obaj użytkownicy zobaczyli test o 12:00. u1 kupił o 11:00 (przed ekspozycją — nie jest
       konwertującym), u2 o 13:00 (po ekspozycji — jest). Wynik: jeden wiersz, tylko u2.
     model: int_ab__konwersje
     given:
-      # SQL modelu robi trzy ref(), więc są trzy wejścia. Brak któregoś = błąd kompilacji.
-      # W rows wystarczą kolumny, których model używa; resztę kolumn dbt wypełnia sam.
 
-      # 1) Rejestr testów (seed). Model bierze z niego: jakie zdarzenie jest konwersją
-      #    i kiedy test się kończy (zakup po końcu testu nie liczyłby się).
       - input: ref('stg_seeds__rejestr_testow')
         rows:
           - {id_testu: ab2_20260907, zdarzenie_konwersji: purchase, koniec_testu: 2026-10-04}
 
-      # 2) Ekspozycje — wynik poprzedniego modelu: kto i kiedy pierwszy raz zobaczył test.
-      #    Obaj użytkownicy zobaczyli go 10 września o 12:00.
       - input: ref('int_ab__ekspozycje')
         rows:
           - {id_testu: ab2_20260907, id_uzytkownika: u1, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
           - {id_testu: ab2_20260907, id_uzytkownika: u2, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
 
-      # 3) Zdarzenia z GA4 (staging). Każdy użytkownik kupił raz:
-      #    u1 o 11:00 — godzinę PRZED ekspozycją, więc model ma go pominąć,
-      #    u2 o 13:00 — godzinę PO ekspozycji, więc to konwersja.
       - input: ref('stg_ga4__zdarzenia')
         rows:
           - {id_uzytkownika: u1, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-09-10 11:00:00', data_zdarzenia: 2026-09-10}
           - {id_uzytkownika: u2, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-09-10 13:00:00', data_zdarzenia: 2026-09-10}
 
-    # Oczekiwany wynik: tylko u2. Gdyby model liczył też zakupy sprzed ekspozycji, pojawiłby się
-    # drugi wiersz (u1) — o jedną konwertującą osobę za dużo — i test by padł.
     expect:
       rows:
         - {id_testu: ab2_20260907, id_uzytkownika: u2, czas_pierwszej_konwersji: '2026-09-10 13:00:00', data_pierwszej_konwersji: 2026-09-10}
 
-  # Drugi test tej samej logiki, z tą samą budową. Reguła: zakup po koniec_testu się nie liczy —
-  # użytkownik kupił już poza testem, więc wariant nie może dostać za to zasługi.
   - name: konwersje_tylko_w_oknie_testu
     description: >
       Obaj użytkownicy zobaczyli test w jego ostatnim dniu (2026-10-04). u1 kupił następnego dnia,
@@ -74,12 +43,10 @@ unit_tests:
         rows:
           - {id_uzytkownika: u1, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-10-05 09:00:00', data_zdarzenia: 2026-10-05}
           - {id_uzytkownika: u2, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-10-04 13:00:00', data_zdarzenia: 2026-10-04}
-    # bez filtra na koniec_testu pojawiłby się też u1
     expect:
       rows:
         - {id_testu: ab2_20260907, id_uzytkownika: u2, czas_pierwszej_konwersji: '2026-10-04 13:00:00', data_pierwszej_konwersji: 2026-10-04}
 
-  # Trzecia reguła, ta sama budowa: przychód osoby liczy każde zamówienie (id_transakcji) raz.
   - name: konwersje_przychod_raz_na_transakcje
     description: >
       u1 ma zakup T1 w stagingu dwa razy, bo event niósł parametry dwóch slotów, i jeszcze raz

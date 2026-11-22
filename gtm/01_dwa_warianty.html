@@ -1,17 +1,8 @@
 <script>
-/*
- 01 · DWA WARIANTY, 50/50, cały ruch strony testowej
- GTM → Tag → Custom HTML. Wyzwalacz: strona testowa (np. karta produktu),
- dopiero po zgodzie na ciasteczka. Losuje raz, zapisuje wariant w first-party
- cookie i wysyła ab_assign do dataLayer — z niego liczy sql/03.
- Jeden tag na slot: test A/A to TEST = 'ab1', kolejny test na tej stronie to kopia
- tagu z TEST = 'ab2' — nie przełączaj v1 w tagu A/A, bo ciasteczka ab1 (60 dni)
- przeniosłyby podział z A/A, a ab2 nie dostałby ekspozycji.
-*/
 (function () {
-  var TEST = 'ab1';             // slot ab1–ab10 = nazwa ciasteczka i parametru GA4 = test_name w sql/03 i slot w seedzie
-  var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa (kontrola), v1 = wariant testowy
-  var DAYS = 60;                // > najdłuższy test (8 tyg.) i = minimalna przerwa slotu w dbt; Safari i tak skraca ciasteczko z JS do 7 dni (ITP)
+  var TEST = 'ab1';
+  var VARIANTS = ['v0', 'v1'];
+  var DAYS = 60;
 
   function getCookie(name) {
     var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
@@ -25,19 +16,13 @@
       (location.protocol === 'https:' ? '; Secure' : '');
   }
 
-  // ciasteczko = sam wariant (albo 'out'); slot wraca do użycia dopiero po wygaśnięciu
-  // ciasteczek poprzedniego testu — pilnuje tego sprawdz_konfiguracje_testow w dbt
-  // wartość spoza listy (śmieć, ręczna edycja) = brak przydziału, user losuje od nowa
   function getAssignment() {
     var v = getCookie(TEST);
     return VARIANTS.indexOf(v) > -1 ? v : null;
   }
 
-  // user ma już wariant — nie losuj ponownie, bo przeskoczyłby do innej grupy
   if (getAssignment()) return;
 
-  // Math.random() daje liczbę z [0, 1); × liczba wariantów i zaokrąglenie
-  // w dół daje indeks 0 albo 1 z równym prawdopodobieństwem
   var variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
   setCookie(TEST, variant, DAYS);
 

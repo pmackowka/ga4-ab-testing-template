@@ -1,9 +1,3 @@
--- SINGULAR
-
-{#
-	Wiersz = brakująca dzienna tabela eksportu w dniach testu (do dziś minus 3 dni).
-	Czyta tylko _TABLE_SUFFIX, więc kosztuje minimum.
-#}
 WITH testy AS (
 	SELECT
 		id_testu,
@@ -30,9 +24,3 @@ CROSS JOIN UNNEST(GENERATE_DATE_ARRAY(t.start_testu, t.koniec_sprawdzania)) AS d
 LEFT JOIN dni_eksportu AS d
 	ON d.dzien_eksportu = dzien
 WHERE d.dzien_eksportu IS NULL
-
-{#
-	Przykładowy wynik (błąd):
-	id_testu     | brakujacy_dzien
-	ab2_20260907 | 2026-09-15
-#}

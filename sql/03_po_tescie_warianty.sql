@@ -1,27 +1,10 @@
-/*
- 03 · PO TEŚCIE → kalkulator „Po teście A/B”
- https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
- Domyślnie test ab2 z gtm/01_dwa_warianty.html (v0/v1 po 50%). Pierwszy test
- to A/A w ab1: wynik ma być nieistotny i bez SRM, inaczej konfiguracja jest zła.
- Tabela w obu miejscach: `ab-test-sandbox.ga4_syntetyczny.events_*` (dane syntetyczne); własny eksport GA4: `twoj-projekt.analytics_123456789.events_*`.
-
- Uruchom najwcześniej 3 dni po test_end: GA4 jeszcze dopisuje dane.
-
- Wymaga w GTM: eventu ab_assign z ab_test i ab_variant oraz parametru slotu
- (zmienna cookie) na wszystkich eventach.
- Konwersja i przychód liczą się tylko po pierwszej ekspozycji. Zamówienie
- raz na transaction_id, przychód osoby przycięty do 99,9 percentyla.
-*/
-
--- ===== DO UZUPEŁNIENIA: tylko te zmienne edytujesz, niżej nic nie zmieniaj =====
-DECLARE test_start DATE DEFAULT DATE '2026-09-07';  -- = `start_testu` z rejestr_testow.csv: poniedziałek, w który opublikowano tag testu (pierwszy dzień okna)
-DECLARE test_end DATE DEFAULT DATE '2026-09-20';  -- = `koniec_testu`: niedziela, ostatni dzień testu, co najmniej 3 dni temu
-DECLARE test_name STRING DEFAULT 'ab2';  -- = `slot`: slot testu (ab1…ab10), TEST w tagu i nazwa parametru eventu
-DECLARE control_variant STRING DEFAULT 'v0';  -- = `wariant_kontrolny`: wariant kontrolny, jeden z variants
-DECLARE variants ARRAY<STRING> DEFAULT ['v0', 'v1'];  -- = `warianty` (w CSV rozdzielone `|`): wszystkie warianty, jak VARIANTS w tagu; inny wariant w danych przerywa zapytanie
-DECLARE conversion_event STRING DEFAULT 'purchase';  -- = `zdarzenie_konwersji`: zdarzenie liczone jako konwersja
-DECLARE exposure_events ARRAY<STRING> DEFAULT ['ab_assign', 'view_item'];  -- = `zdarzenia_ekspozycji` (w CSV rozdzielone `|`): zdarzenia, na których user wchodzi do testu (pierwsze z wariantem)
--- ===== KONIEC =====
+DECLARE test_start DATE DEFAULT DATE '2026-09-07';
+DECLARE test_end DATE DEFAULT DATE '2026-09-20';
+DECLARE test_name STRING DEFAULT 'ab2';
+DECLARE control_variant STRING DEFAULT 'v0';
+DECLARE variants ARRAY<STRING> DEFAULT ['v0', 'v1'];
+DECLARE conversion_event STRING DEFAULT 'purchase';
+DECLARE exposure_events ARRAY<STRING> DEFAULT ['ab_assign', 'view_item'];
 
 ASSERT EXTRACT(DAYOFWEEK FROM test_start) = 2
   AS 'test_start musi być poniedziałkiem';
@@ -141,18 +124,3 @@ SELECT
 FROM users_final AS u
 GROUP BY u.variant
 ORDER BY u.variant = control_variant DESC, u.variant;
-
-/*
- Wynik dla testu ab2 (dane syntetyczne, 2026-09-07 – 2026-09-20, domyślne parametry; prawdziwy efekt v1 +10%):
- calculator_field | users  | converters | revenue    | revenue_per_user | revenue_sd | excluded_mixed | reassigned | no_assignment
- -----------------+--------+------------+------------+------------------+------------+----------------+------------+--------------
- A (kontrola)     | 64 266 |      2 038 | 564 521.87 |             8.78 |      67.30 |             68 |        143 |           148
- B (wariant v1)   | 64 070 |      2 313 | 638 626.47 |             9.97 |      70.79 |             85 |        161 |           143
-
- Kalkulator: users, converters; w trybie przychodu revenue_per_user i revenue_sd.
- Kontrola jakości, do kalkulatora nie idzie:
- - excluded_mixed: 2+ warianty, wyjęci z users; różnica między wierszami
-   większa niż 2 × √(suma obu) jest podejrzana (tu 17 < 25, w normie)
- - reassigned: 2+ ab_assign, ciasteczko testu zniknęło i tag losował ponownie
- - no_assignment: wariant bez ab_assign, nowe _ga albo zgubiony hit
-*/

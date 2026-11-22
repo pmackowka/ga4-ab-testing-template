@@ -1,20 +1,9 @@
 <script>
-/*
- 04 · ROZSZERZENIE testu z 03 do 100% ruchu
- GTM → podmień kod tagu z 03 na ten (ten sam tag, ten sam wyzwalacz) i opublikuj.
- - userzy z v0/v1 zostają w swoim wariancie — przydział się nie zmienia,
- - userzy z 'out' i nowi dostają wariant 50/50 i ab_assign.
- sql/03 liczy każdego od pierwszej ekspozycji z wariantem, więc dawni 'out'
- wchodzą do analizy od dnia rozszerzenia. Zastrzeżenie: wcześniej widzieli
- obecną wersję strony, więc w v1 część z nich porównuje nowość ze starym —
- jeśli to ważne, ustaw INCLUDE_OUT = false: wtedy wchodzą tylko nowi userzy.
- To nie jest wdrożenie zwycięzcy — test trwa dalej, tylko na całym ruchu.
-*/
 (function () {
-  var TEST = 'ab4';             // ten sam klucz co w 03 — inaczej przydziały by się zgubiły
-  var VARIANTS = ['v0', 'v1'];  // v0 = wersja dotychczasowa, v1 = wariant testowy
+  var TEST = 'ab4';
+  var VARIANTS = ['v0', 'v1'];
   var OUT = 'out';
-  var INCLUDE_OUT = true;       // false = dawni 'out' zostają poza testem
+  var INCLUDE_OUT = true;
   var DAYS = 60;
 
   function getCookie(name) {
@@ -29,9 +18,6 @@
       (location.protocol === 'https:' ? '; Secure' : '');
   }
 
-  // ciasteczko = sam wariant (albo 'out'); slot wraca do użycia dopiero po wygaśnięciu
-  // ciasteczek poprzedniego testu — pilnuje tego sprawdz_konfiguracje_testow w dbt
-  // wartość spoza listy (śmieć, ręczna edycja) = brak przydziału, user losuje od nowa
   function getAssignment() {
     var v = getCookie(TEST);
     return VARIANTS.indexOf(v) > -1 || v === OUT ? v : null;
@@ -39,10 +25,8 @@
 
   var current = getAssignment();
 
-  // ma wariant — zostaje; 'out' zostaje tylko przy INCLUDE_OUT = false
   if (current && (current !== OUT || !INCLUDE_OUT)) return;
 
-  // nowy user albo dawny 'out': cały ruch wchodzi do testu, 50/50
   var variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
   setCookie(TEST, variant, DAYS);
 

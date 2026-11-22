@@ -1,4 +1,3 @@
-# Projekt dbt: wyniki testów A/B z eksportu GA4 (odpowiednik sql/03).
 name: 'testy_ab'
 version: '1.0.0'
 config-version: 2
@@ -12,14 +11,11 @@ target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
 vars:
-  # dane syntetyczne z dane_syntetyczne/generuj_eksport_ga4.sql w sandboxie; prawdziwy eksport GA4 → nadpisz przez --vars
   ga4_projekt: 'ab-test-sandbox'
   ga4_zbior_danych: 'ga4_syntetyczny'
   ga4_data_startu: '2026-08-24'
-  # true = projekt BigQuery sandbox (bez DML): staging jako zwykła tabela; płatny projekt → false
   sandbox: true
 
-# persist_docs: opisy modeli i kolumn z plików .yml trafiają do BigQuery (zakładka Schemat → Opis)
 models:
   testy_ab:
     +persist_docs:

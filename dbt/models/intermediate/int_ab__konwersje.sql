@@ -1,7 +1,3 @@
-{#
-	Wiersz = test × użytkownik z konwersją po pierwszej ekspozycji, w oknie testu.
-	przychod = suma zamówień osoby, każde id_transakcji raz (bez niego: raz na event).
-#}
 WITH zakupy AS (
 	SELECT
 		x.id_testu,
@@ -33,13 +29,3 @@ SELECT
 
 FROM zakupy
 GROUP BY id_testu, id_uzytkownika
-
-{#
-	Przykładowy wynik (dane syntetyczne):
-	id_testu     | id_uzytkownika | czas_pierwszej_konwersji | data_pierwszej_konwersji | przychod
-	ab2_20260907 | 1234.5678      | 2026-09-12 18:30:00      | 2026-09-12               | 249.90
-	ab2_20260907 | 3333.0002      | 2026-09-11 07:05:00      | 2026-09-11               | 118.00
-	ab2_20260907 | 4444.0003      | 2026-09-16 21:47:00      | 2026-09-16               | 534.40
-	ab2_20260907 | 5555.0004      | 2026-09-30 13:12:00      | 2026-09-30               | 89.99
-	ab3_20261005 | 6666.0005      | 2026-10-07 10:20:00      | 2026-10-07               | 1210.00
-#}

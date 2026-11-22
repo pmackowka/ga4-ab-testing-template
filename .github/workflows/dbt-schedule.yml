@@ -1,27 +1,16 @@
-# Codzienny dbt build na prod — z ostatniego commita na main, dla którego dbt CI/CD (dbt-ci-cd.yml)
-# skończył się na zielono, a nie z głowy main: kod odrzucony przez CI nie trafia na prod
-# także harmonogramem. GitHub loguje się do GCP przez Workload Identity Federation:
-# dostaje krótkotrwały token dla konta serwisowego, bez pliku klucza w sekretach.
-# Jednorazowa konfiguracja GCP i sekretów: dbt/README.md, sekcja „Konfiguracja GCP”.
 name: dbt schedule
 
 on:
   schedule:
-    # 3:17 czasu polskiego (timezone = zmiana czasu bez poprawek). Minuta 17, bo pełna godzina
-    # to szczyt obciążenia GitHuba: cron bywa opóźniony o godziny, a przy dużym ruchu pominięty.
-    # Dzienna tabela GA4 pojawia się o różnych porach następnego dnia; spóźniony dzień
-    # nadrobi kolejny przebieg, bo staging nadpisuje 3 dni wstecz.
     - cron: "17 3 * * *"
       timezone: "Europe/Warsaw"
-  workflow_dispatch:  # ręczne uruchomienie z zakładki Actions
+  workflow_dispatch:
     inputs:
       full_refresh:
         description: "Pełny rebuild (--full-refresh) — po zmianie stg_ga4__zdarzenia, inaczej ostatnie dni dostaną nową logikę, a starsze zostaną ze starą; czyta GA4 od ga4_data_startu"
         type: boolean
         default: false
 
-# Dwa przebiegi naraz nadpisywałyby te same partycje. Grupa nie kolejkuje: czeka najwyżej jeden
-# przebieg, nowszy (np. deploy) anuluje oczekujący cron — dzień nadrobi następny przebieg.
 concurrency:
   group: dbt-prod
   cancel-in-progress: false
@@ -32,16 +21,14 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      actions: read    # gh run list — historia przebiegów dbt CI/CD
-      id-token: write  # token OIDC dla Workload Identity Federation
+      actions: read
+      id-token: write
     defaults:
       run:
         working-directory: dbt
     env:
       BIGQUERY_PROD_PROJECT: ${{ secrets.BIGQUERY_PROD_PROJECT }}
     steps:
-      # Zielony = cały przebieg dbt CI/CD (parse, unit-tests i deploy). Commity bez zmian w dbt/
-      # albo tylko w *.md nie odpalają CI, ale nie zmieniają modeli, więc ostatni zielony ma ten sam kod.
       - name: ostatni commit z zielonym CI
         id: green
         working-directory: .
@@ -69,9 +56,6 @@ jobs:
       - run: uv sync --locked
       - run: cp profiles.yml.example profiles.yml
       - run: uv run dbt deps
-      # Tylko dane syntetyczne: generator dopisuje dni od ostatniej tabeli events_ do wczoraj (zamiast
-      # eksportu GA4, który robi to sam). Klient BigQuery z dbt-bigquery, logowanie z kroku auth.
-      # Prawdziwy eksport GA4 → usuń ten krok.
       - name: generator danych syntetycznych
         run: |
           uv run python -c "
@@ -79,9 +63,7 @@ jobs:
           sql = open('../dane_syntetyczne/generuj_eksport_ga4.sql').read()
           bigquery.Client(project='$BIGQUERY_PROD_PROJECT').query(sql, location='EU').result()
           "
-      # unit testy sprawdzają logikę, nie dane — biegną przy zmianie kodu, nie co dzień na prod
       - run: uv run dbt build --target prod_ci --profiles-dir . --exclude-resource-type unit_test ${{ inputs.full_refresh && '--full-refresh' || '' }}
-      # run_results.json pokazuje, który model albo test padł; artefakt żyje 14 dni
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,8 +1,3 @@
-# UNIT · testuje models/marts/fct_wyniki_testow_ab.sql
-
-# Unit testy: sprawdzają, czy LOGIKA modelu jest poprawna — wiersze z given zamiast ref(),
-# wynik porównany z expect. Plik YAML. Biegną tylko w CI (job unit-testy), przed modelem;
-# deploy i harmonogram je pomijają.
 version: 2
 
 unit_tests:

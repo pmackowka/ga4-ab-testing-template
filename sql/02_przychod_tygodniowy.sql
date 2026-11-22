@@ -1,19 +1,5 @@
-/*
- 02 · PRZYCHÓD TYGODNIOWY → pole przychodu w obu kalkulatorach
- https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/
- https://pmdata.pl/kalkulatory/istotnosc-testu-ab/
- Test karty produktu: wejście = view_item, przychód z purchase.
- Tabela w obu miejscach: `ab-test-sandbox.ga4_syntetyczny.events_*` (dane syntetyczne); własny eksport GA4: `twoj-projekt.analytics_123456789.events_*`.
-
- Przychód z zakupów po pierwszym view_item, zamówienie raz na transaction_id.
- Mediana wyraźnie niższa od średniej = w oknie był pik (Black Friday):
- do kalkulatora bierz medianę.
-*/
-
--- ===== DO UZUPEŁNIENIA: tylko te zmienne edytujesz, niżej nic nie zmieniaj =====
-DECLARE window_end DATE DEFAULT DATE '2026-09-06';  -- liczysz z rejestru: `start_testu` planowanego testu minus 1 dzień, niedziela tuż przed startem testu (domyślnie ab2: 2026-09-06), ostatni dzień okna
-DECLARE window_weeks INT64 DEFAULT 2;  -- Twoja decyzja, nie kolumna rejestru: ile pełnych tygodni wstecz od window_end liczyć, tyle samo co max_weeks w 01
--- ===== KONIEC =====
+DECLARE window_end DATE DEFAULT DATE '2026-09-06';
+DECLARE window_weeks INT64 DEFAULT 2;
 
 ASSERT EXTRACT(DAYOFWEEK FROM window_end) = 1
   AS 'window_end musi być niedzielą: okno z pełnych tygodni przed poniedziałkowym startem';
@@ -97,14 +83,3 @@ FROM (
     PERCENTILE_CONT(revenue, 0.5) OVER () AS median_revenue
   FROM weekly
 );
-
-/*
- Wynik dla testu ab2 (dane syntetyczne, okno 2026-08-24 – 2026-09-06, domyślne parametry):
- weekly_revenue | weekly_revenue_median
- ---------------+----------------------
-        572 968 |               572 968
- Przy 2 tygodniach mediana równa się średniej; pik (np. 4 tygodnie po 100 000
- i Black Friday 225 000 → 125 000 vs 100 000) widać od 3 tygodni okna.
-
- Kalkulator: Tygodniowy przychód ze strony testowej.
-*/
