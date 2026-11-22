@@ -195,7 +195,7 @@ Jednorazowo: GitHub Actions (CI, deploy, harmonogram) loguje się do BigQuery pr
    ```bash
    PROJECT=ab-test-sandbox
    PROJECT_NUMBER=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
-   REPO=pmackowka/ga4-ab-testing
+   REPO=pmackowka/ga4-ab-testing-template
    SA=dbt-prod@$PROJECT.iam.gserviceaccount.com
    ```
 2. **API** — IAM, Security Token Service i IAM Service Account Credentials (w konsoli: „Identity and Access Management (IAM) API”, „Security Token Service API”, „IAM Service Account Credentials API”):
