@@ -41,5 +41,5 @@ Kolumny `ponownie_przydzieleni` i `bez_przydzialu` nie idą do kalkulatora: poka
 
 ---
 
-Autor: Piotr Maćkówka · [pmdata.pl](https://pmdata.pl/?utm_source=dbt_docs&utm_medium=referral)
+Autor: Piotr Maćkówka · [pmdata.pl](https://pmdata.pl/?utm_source=dbt_docs&utm_medium=referral) · [licencja MIT](https://github.com/pmackowka/ga4-ab-testing-template/blob/main/LICENSE)
 {% enddocs %}

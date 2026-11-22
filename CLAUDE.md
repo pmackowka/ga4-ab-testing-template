@@ -1,4 +1,4 @@
-# ga4-ab-testing
+# ga4-ab-testing-template
 
 Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkulatorów na pmdata.pl, skrypty GTM losują wariant. Opis dla ludzi: `README.md` (kroki testu, mapa folderów), `sql/README.md` (zapytania, kalkulatory), `gtm/README.md` (tagi) i `dbt/README.md` (dbt, CI/CD, dane syntetyczne) — przeczytaj je przed zmianą.
 
@@ -44,7 +44,7 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 - Zmiany zostawiaj niezacommitowane, żeby Piotr przejrzał je w Cursorze; commit i push na `main` (bez PR) dopiero na jego prośbę.
 - Tytuł po polsku z prefiksem: `feat:`, `fix:`, `docs:`, `ci:`. Tylko zmiana techniczna, bez motywacji.
 - Autor `pmackowka@gmail.com`. Bez stopek `Co-Authored-By` / `Claude-Session`.
-- Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. Repo jest prywatne: prawdziwe ID własnego projektu `ab-test-sandbox` i komentarze z przebiegu wolno wpisywać; publiczny jest tylko oczyszczony szablon. ID klientów nigdy.
+- Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. Repo jest publiczne (szablon GitHub, MIT): ID własnego projektu `ab-test-sandbox` i komentarze z przebiegu wolno wpisywać, ID klientów i dane klientów nigdy.
 - Bez przepisywania historii i force pusha bez zgody.
 
 ## Stan
@@ -52,7 +52,10 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 - Generator, `sql/01`–`03` i `dbt build` biegły w sandboxie; lista rzeczy do potwierdzenia: `dbt/README.md`, sekcja „Niesprawdzone”.
 - GitHub Actions działa w `ab-test-sandbox` przez Workload Identity Federation (konto `dbt-prod`, bez kluczy): CI/CD buduje `dbt_ci_testy_ab` i `dbt_prod_testy_ab`, harmonogram (3:17 Europe/Warsaw) najpierw generuje wczorajszy dzień. Staging w sandboxie: `vars.sandbox: true`.
 - Raport Data Studio (do kwietnia 2026 Looker Studio) `https://datastudio.google.com/reporting/c45c9272-2566-4ebf-a257-d2ed7ba516c0`, link w README: rejestr testów i `fct_wyniki_testow_ab` ze źródeł w Arkuszach Google (zrzut z 2026-11-09, nie odświeża się sam), teksty opisujące tabele i kolumny kontroli jakości, linki do kalkulatorów z UTM. Zmiana logiki albo nazw kolumn w dbt = sprawdź teksty w raporcie.
-- Publiczna kopia: `pmackowka/ga4-ab-testing-template` (szablon GitHub, MIT, portfolio) — bez komentarzy, bez danych syntetycznych i sandboxa, z opisami kolumn i dbt docs na GitHub Pages (`dbt docs generate --static --empty-catalog --no-compile`, bez poświadczeń GCP). Pracujesz tutaj; szablon nie synchronizuje się sam, zmiany przenosi się ręcznie na prośbę Piotra. `dbt schedule` i `dbt CI/CD` są tam wyłączone (brak sekretów).
+- Repo `pmackowka/ga4-ab-testing-template` jest jedynym repo projektu: publiczne, szablon GitHub, MIT. Do 2026-11-22 istniała osobna oczyszczona kopia — scalona tutaj, nie ma już czego synchronizować. README w korzeniu to pełna instrukcja dla osoby, która kopiuje szablon; README w `sql/`, `gtm/`, `dbt/` to szczegóły techniczne — zmiana w jednym = sprawdź drugie.
+- dbt docs na GitHub Pages (`dbt-docs.yml`: `dbt docs generate --static --empty-catalog --no-compile`, bez poświadczeń GCP): https://pmackowka.github.io/ga4-ab-testing-template/
+- Repo publiczne: GitHub wyłącza `dbt schedule` po 60 dniach bez aktywności w repo. Przypomnienie co 50 dni w Kalendarzu Piotra; włączenie: `gh workflow enable dbt-schedule.yml`.
+- WIF: warunek dostawcy OIDC i `principalSet` konta `dbt-prod` są przypięte do nazwy repo — zmiana nazwy repo = najpierw zmiana w GCP, inaczej CI/CD i harmonogram nie zalogują się do BigQuery.
 - Opisy z `.yml` trafiają do BigQuery przez `persist_docs`; strona startowa dbt docs to `dbt/models/overview.md` (jak czytać dane, bez kroków wdrożenia — te są w README). Zmiana kolumn = popraw opis w `.yml` i tabelę w overview.
 - Otwarte sprawy i pułapki z uruchomienia: lokalny `NOTATKI_AGENTA.md` (poza gitem).
 - Domyślne okna w `sql/01` i `02` (`window_start = '2026-08-24'`, 2 tygodnie) i tabela `ab-test-sandbox.ga4_syntetyczny.events_*` pasują do danych syntetycznych; przy prawdziwym eksporcie ustaw własne.
