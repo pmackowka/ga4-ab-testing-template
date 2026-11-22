@@ -4,6 +4,10 @@
 
 Testy A/B na eksporcie GA4 w BigQuery: tagi GTM losują wariant, SQL i dbt liczą liczby do kalkulatorów [Przed testem](https://pmdata.pl/kalkulatory/wielkosc-proby-test-ab/?utm_source=github&utm_medium=referral) i [Po teście](https://pmdata.pl/kalkulatory/istotnosc-testu-ab/?utm_source=github&utm_medium=referral).
 
+Demo w 2,5 minuty: od losowania wariantu do decyzji „wdrażaj B” (dane syntetyczne, napisy po polsku; materiały do nagrania: [`docs/demo/`](docs/demo/README.md)).
+
+https://github.com/user-attachments/assets/18cbf498-c2b9-46a5-b94e-f7b53ea2016e
+
 | Ścieżka | Co robisz | Dla kogo |
 |---|---|---|
 | Ręczna: GTM + SQL | przed testem `sql/01` i `02`, po teście `sql/03` z parametrami testu w `DECLARE`, wszystko w konsoli BigQuery | analityk, który zna SQL i BigQuery, a nie zna dbt ani gita |
