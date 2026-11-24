@@ -5,7 +5,8 @@ models:
     description: >
       Jeden wiersz na event i test: eventy z wariantem dowolnego testu (parametr slotu albo
       ab_assign) oraz eventy konwersji z seeda, bez użytkowników bez user_pseudo_id.
-      Partycje dzienne, ostatnie 3 dni nadpisywane przy każdym przebiegu.
+      Przy vars.sandbox = false partycje dzienne: każdy przebieg nadpisuje najnowszą partycję
+      i 3 dni przed nią. Przy vars.sandbox = true tabela bez partycji, odtwarzana w całości.
     columns:
       - name: data_zdarzenia
         description: Dzień z sufiksu tabeli eksportu (strefa czasowa usługi GA4).

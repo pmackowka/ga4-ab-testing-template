@@ -82,7 +82,7 @@ flowchart LR
 
 | Model | Ziarno | Materializacja | Rola |
 |---|---|---|---|
-| `stg_ga4__zdarzenia` | event × test | incremental, partycja dzienna | (slot, wariant) z `ab_assign` albo parametru `abN` + eventy konwersji |
+| `stg_ga4__zdarzenia` | event × test | incremental, partycja dzienna (w sandboxie table) | (slot, wariant) z `ab_assign` albo parametru `abN` + eventy konwersji |
 | `stg_seeds__rejestr_testow` | test | view | seed z `id_testu`, listami jako `ARRAY<STRING>` i flagą `czy_koncowy` |
 | `int_ab__ekspozycje` | test × użytkownik | view | pierwsza ekspozycja, jej wariant, `liczba_wariantow`, `liczba_przydzialow` |
 | `int_ab__konwersje` | test × użytkownik | view | pierwsza konwersja po ekspozycji w oknie testu, przychód osoby (`transaction_id` raz) |
@@ -92,7 +92,7 @@ flowchart LR
 
 ## Przyrost i pełny rebuild
 
-`stg_ga4__zdarzenia` (`insert_overwrite`) nadpisuje 3 dni od najnowszej partycji (GA4 dopisuje dane do 72 h), nie od dziś, więc przerwa w harmonogramie nie zostawia dziury; pusta tabela czyta od `ga4_data_startu`.
+`stg_ga4__zdarzenia` (`insert_overwrite`) nadpisuje najnowszą partycję i 3 dni przed nią (GA4 dopisuje dane do 72 h), nie od dziś, więc przerwa w harmonogramie nie zostawia dziury; pusta tabela czyta od `ga4_data_startu`.
 
 `merge` przyjmie złożony `unique_key` (np. `user_pseudo_id` + `ga_session_id` + `event_timestamp` + `event_name`), ale eksport GA4 nie gwarantuje unikalności zdarzenia:
 - zdarzenia z jednego żądania mogą mieć ten sam `event_timestamp`; pola `batch_page_id`, `batch_ordering_id`, `batch_event_index` ustalają kolejność, nie identyfikator, a starsze eksporty ich nie mają ([schemat](https://support.google.com/firebase/answer/7029846), [zapytania](https://developers.google.com/analytics/bigquery/basic-queries));
