@@ -21,7 +21,7 @@ Diagram sekwencji UML całego przepływu: [`uml-diagram.md`](uml-diagram.md). Sz
 
 Repo działa na żywo na danych syntetycznych w projekcie `ab-test-sandbox`: [`dane_syntetyczne/generuj_eksport_ga4.sql`](dane_syntetyczne/generuj_eksport_ga4.sql) tworzy tabele `events_YYYYMMDD` w schemacie eksportu GA4 ze znanym efektem każdego testu z rejestru, a `dbt schedule` codziennie dopisuje kolejny dzień i przelicza wyniki. Domyślne tabele w `sql/`, `vars` w `dbt_project.yml` i rejestr testów wskazują te dane ([opis generatora](dbt/README.md#dane-syntetyczne)).
 
-W swojej kopii podmieniasz je na własny eksport GA4 (rozdziały 3 i 5.2) i usuwasz generator: folder `dane_syntetyczne/` i krok „generator danych syntetycznych” w [`.github/workflows/dbt-schedule.yml`](.github/workflows/dbt-schedule.yml).
+W swojej kopii podmieniasz je na własny eksport GA4 (rozdziały 3 i 5.2) i usuwasz generator: folder `dane_syntetyczne/` i krok „generator danych syntetycznych” w [`.github/workflows/dbt-schedule.yml`](.github/workflows/dbt-schedule.yml). Folder `docs/demo/` (materiały do filmu z początku README) też możesz usunąć.
 
 ## Wymagania
 
