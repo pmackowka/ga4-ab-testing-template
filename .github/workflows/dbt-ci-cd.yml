@@ -2,10 +2,10 @@ name: dbt CI/CD
 
 on:
   pull_request:
-    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt-ci-cd.yml"]
+    paths: ["dbt/**", "!dbt/**/*.md", "dane_syntetyczne/**", ".github/workflows/dbt-ci-cd.yml"]
   push:
     branches: [main]
-    paths: ["dbt/**", "!dbt/**/*.md", ".github/workflows/dbt-ci-cd.yml"]
+    paths: ["dbt/**", "!dbt/**/*.md", "dane_syntetyczne/**", ".github/workflows/dbt-ci-cd.yml"]
 
 defaults:
   run:

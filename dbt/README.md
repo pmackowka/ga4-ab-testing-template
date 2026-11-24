@@ -265,7 +265,7 @@ Jednorazowo: GitHub Actions (CI, deploy, harmonogram) loguje się do BigQuery pr
 
 ## Dane syntetyczne
 
-[`dane_syntetyczne/generuj_eksport_ga4.sql`](../dane_syntetyczne/generuj_eksport_ga4.sql) tworzy w osobnym datasecie tabele `events_RRRRMMDD` w schemacie eksportu GA4, ze scenariuszem z seeda i znanym efektem każdego wariantu. Leży poza `dbt/`, więc jego zmiana nie odpala CI.
+[`dane_syntetyczne/generuj_eksport_ga4.sql`](../dane_syntetyczne/generuj_eksport_ga4.sql) tworzy w osobnym datasecie tabele `events_RRRRMMDD` w schemacie eksportu GA4, ze scenariuszem z seeda i znanym efektem każdego wariantu. Jego zmiana odpala CI, bo harmonogram uruchamia generator z ostatniego commita z zielonym CI; bez tego dalej biegłaby stara wersja.
 
 Działa w darmowym [sandboxie BigQuery](https://docs.cloud.google.com/bigquery/docs/sandbox) (bez karty): przy `vars.sandbox: true` w `dbt_project.yml` (każdy target, także `ci` i `prod_ci` w GitHub Actions) staging to zwykła tabela odtwarzana co build, bo sandbox nie ma `MERGE` (`insert_overwrite`) i od razu usuwa partycje starsze niż 60 dni. Limit 10 GiB zapisu na całe konto; tabele znikają 60 dni po utworzeniu — wtedy wygeneruj zbiór od nowa z `data_od = '2026-08-24'`.
 
