@@ -23,7 +23,7 @@ Tabela wynikowa to `fct_wyniki_testow_ab`: wiersz = test × wariant. Do kalkulat
 
 - Użytkownik wchodzi do testu przy pierwszym evencie ekspozycji z wariantem; liczy się wariant z tego eventu.
 - Konwersja liczy się tylko po pierwszej ekspozycji i w oknie testu.
-- Zamówienie liczy się raz na `transaction_id`.
+- Zamówienie liczy się raz na `transaction_id`, z pierwszą niepustą kwotą.
 - Przychód osoby jest przycięty do 99,9 percentyla przychodu konwertujących w teście (oba warianty razem).
 - `(not set)` i pusty tekst to NULL.
 - Osoby z 2+ wariantami wypadają z `uzytkownicy` i `konwertujacy`; ich liczbę pokazuje `wykluczeni_mieszani`.

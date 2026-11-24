@@ -4,7 +4,11 @@ WITH zakupy AS (
 		x.id_uzytkownika,
 		e.czas_zdarzenia,
 		e.data_zdarzenia,
-		e.przychod
+		FIRST_VALUE(e.przychod IGNORE NULLS) OVER (
+			PARTITION BY x.id_testu, x.id_uzytkownika, IFNULL(e.id_transakcji, CAST(e.czas_zdarzenia AS STRING))
+			ORDER BY e.czas_zdarzenia
+			ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+		) AS przychod
 
 	FROM {{ ref('int_ab__ekspozycje') }} AS x
 	JOIN {{ ref('stg_seeds__rejestr_testow') }} AS t

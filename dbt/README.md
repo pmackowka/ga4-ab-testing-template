@@ -141,9 +141,9 @@ singular — sprawdza dane, jeden plik .sql = jeden test
     └── sprawdz_srm.sql                                SRM (warn)
 unit — sprawdza logikę na mockach
 └── models/
-    ├── intermediate/int_ab__ekspozycje__unit_test.yml ekspozycje_* (1)
-    ├── intermediate/int_ab__konwersje__unit_test.yml  konwersje_* (2) — pierwszy najprostszy, wzór do nauki
-    └── marts/fct_wyniki_testow_ab__unit_test.yml      wyniki_* (1)
+    ├── intermediate/int_ab__ekspozycje__unit_test.yml ekspozycje_* (2)
+    ├── intermediate/int_ab__konwersje__unit_test.yml  konwersje_* (4) — pierwszy najprostszy, wzór do nauki
+    └── marts/fct_wyniki_testow_ab__unit_test.yml      wyniki_* (3)
 ```
 
 Każdy test danych zwraca wiersze z błędami; zero wierszy = zielony.
@@ -163,7 +163,7 @@ Wzór to `int_ab__konwersje__unit_test.yml`, pierwszy test: dwóch użytkownikó
 - `given` — sztuczne wejścia, po jednym bloku na każdy `ref()` w SQL modelu (brak któregoś = błąd kompilacji). W `rows` wystarczą kolumny, których model używa. Tu: rejestr testów (zdarzenie konwersji i koniec testu), ekspozycje (obaj użytkownicy zobaczyli test 10 września o 12:00) i zdarzenia GA4 (u1 kupił o 11:00, u2 o 13:00).
 - `expect` — wiersze, które model musi zwrócić. Tu tylko u2; gdyby model liczył zakupy sprzed ekspozycji, pojawiłby się u1 i test by padł.
 
-Kolejne testy w pliku mają tę samą budowę: zakup po `koniec_testu` się nie liczy, a przychód liczy każde zamówienie (`id_transakcji`) raz. Unit testy biegną w BigQuery, ale nie czytają GA4 — dbt wstawia wiersze z `given` jako CTE. W GitHub Actions biegną tylko w CI (job `unit-tests`); deploy i harmonogram je pomijają.
+Kolejne testy w pliku mają tę samą budowę: zakup po `koniec_testu` się nie liczy, a przychód liczy każde zamówienie (`id_transakcji`) raz, z pierwszą niepustą kwotą. Unit testy biegną w BigQuery, ale nie czytają GA4 — dbt wstawia wiersze z `given` jako CTE. W GitHub Actions biegną tylko w CI (job `unit-tests`); deploy i harmonogram je pomijają.
 
 Przy warn decyduje człowiek; parę wskaże `dbt test --select sprawdz_srm --store-failures`. Unit testy biorą typy kolumn z modeli nadrzędnych, więc najpierw zbuduj je puste, z seedem (`dbt run` go nie ładuje) i `--full-refresh` (inaczej staging zostaje pusty):
 

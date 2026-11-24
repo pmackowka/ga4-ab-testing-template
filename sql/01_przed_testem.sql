@@ -51,7 +51,7 @@ user_purchases AS (
     f.user_pseudo_id,
     IFNULL(p.transaction_id, CAST(p.event_timestamp AS STRING)) AS transaction_key,
     MIN(p.week_no) AS week_no,
-    ANY_VALUE(p.revenue) AS revenue
+    ARRAY_AGG(p.revenue IGNORE NULLS ORDER BY p.event_timestamp LIMIT 1)[SAFE_OFFSET(0)] AS revenue
   FROM first_view AS f
   JOIN events AS p
     ON p.user_pseudo_id = f.user_pseudo_id

@@ -69,3 +69,23 @@ unit_tests:
     expect:
       rows:
         - {id_testu: ab2_20260907, id_uzytkownika: u1, czas_pierwszej_konwersji: '2026-09-10 13:00:00', data_pierwszej_konwersji: 2026-09-10, przychod: 150}
+
+  - name: konwersje_przychod_pierwsza_niepusta_kwota
+    description: >
+      Pierwszy hit T1 przyszedł bez kwoty, odświeżenie strony podziękowania wysłało T1 ze 100.
+      Przychód = 100 (pierwsza niepusta kwota T1), a pierwsza konwersja to pierwszy hit T1.
+    model: int_ab__konwersje
+    given:
+      - input: ref('stg_seeds__rejestr_testow')
+        rows:
+          - {id_testu: ab2_20260907, zdarzenie_konwersji: purchase, koniec_testu: 2026-10-04}
+      - input: ref('int_ab__ekspozycje')
+        rows:
+          - {id_testu: ab2_20260907, id_uzytkownika: u1, czas_pierwszej_ekspozycji: '2026-09-10 12:00:00'}
+      - input: ref('stg_ga4__zdarzenia')
+        rows:
+          - {id_uzytkownika: u1, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-09-10 13:00:00', data_zdarzenia: 2026-09-10, przychod: null, id_transakcji: T1}
+          - {id_uzytkownika: u1, nazwa_zdarzenia: purchase, czas_zdarzenia: '2026-09-10 13:05:00', data_zdarzenia: 2026-09-10, przychod: 100, id_transakcji: T1}
+    expect:
+      rows:
+        - {id_testu: ab2_20260907, id_uzytkownika: u1, czas_pierwszej_konwersji: '2026-09-10 13:00:00', data_pierwszej_konwersji: 2026-09-10, przychod: 100}

@@ -77,7 +77,7 @@ user_revenue AS (
     SELECT
       u.user_pseudo_id,
       IFNULL(p.transaction_id, CAST(p.event_timestamp AS STRING)) AS transaction_key,
-      ANY_VALUE(p.revenue) AS revenue
+      ARRAY_AGG(p.revenue IGNORE NULLS ORDER BY p.event_timestamp LIMIT 1)[SAFE_OFFSET(0)] AS revenue
     FROM users_assigned AS u
     JOIN events AS p
       ON p.user_pseudo_id = u.user_pseudo_id
