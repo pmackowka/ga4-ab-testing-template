@@ -78,6 +78,8 @@ jobs:
           PREV="$RUNNER_TEMP/prev"
           if [ -z "$BASE" ]; then
             echo "::notice::Brak udanego deployu — pierwszy deploy buduje cały projekt."
+          elif ! git fetch --quiet origin "$BASE"; then
+            echo "::notice::Baza $BASE niedostępna w repo (przepisana historia?) — deploy buduje cały projekt."
           else
             echo "Baza porównania: $BASE"
             git worktree add "$PREV" "$BASE"
