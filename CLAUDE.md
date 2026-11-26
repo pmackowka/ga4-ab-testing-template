@@ -43,7 +43,7 @@ Projekt działa w darmowym BigQuery sandboxie (bez karty) w projekcie GCP `ab-te
 ## Git
 
 - Zmiany zostawiaj niezacommitowane, żeby Piotr przejrzał je w Cursorze; commit i push na `main` (bez PR) dopiero na jego prośbę.
-- Tytuł po polsku z prefiksem: `feat:`, `fix:`, `docs:`, `ci:`. Tylko zmiana techniczna, bez motywacji.
+- Tytuł: prefiks Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `ci:`, `build:`, `chore:`, `perf:`, `revert:`) + opis po polsku w trybie rozkazującym, ≤ 72 znaki. Tylko zmiana techniczna, bez motywacji.
 - Autor `pmackowka@gmail.com`. Bez stopek `Co-Authored-By` / `Claude-Session`.
 - Przed commitem: `git diff --cached | grep -i -E -f ~/.config/git/forbidden-patterns.txt` musi być pusty. Repo jest publiczne (szablon GitHub, MIT): ID własnego projektu `ab-test-sandbox` wolno wpisywać, ID klientów i dane klientów nigdy.
 - Bez przepisywania historii i force pusha bez zgody.
