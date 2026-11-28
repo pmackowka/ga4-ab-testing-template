@@ -8,6 +8,8 @@ Demo w 2,5 minuty: od losowania wariantu do decyzji „wdrażaj B” (dane synte
 
 https://github.com/user-attachments/assets/18cbf498-c2b9-46a5-b94e-f7b53ea2016e
 
+Przykład wyniku, test `ab2` na danych syntetycznych (2026-09-07 – 2026-09-20): kontrola ma 2 038 konwertujących na 64 266 użytkowników (CR 3,17%), wariant `v1` 2 313 na 64 070 (CR 3,61%). Kalkulator „Po teście” z metryką konwersji pokazuje „Wdrażaj B”: wzrost +13,84%, zakres od +7,60% do +20,09% (prawdziwy efekt w generatorze to +10%). Drogę tych liczb prześledzisz bez filmu: model [`fct_wyniki_testow_ab` w dbt Docs](https://pmackowka.github.io/ga4-ab-testing-template/#!/model/model.testy_ab.fct_wyniki_testow_ab) → [szablon raportu Data Studio](https://datastudio.google.com/reporting/c45c9272-2566-4ebf-a257-d2ed7ba516c0/page/U4ADG); kod wdrażają [przebiegi `dbt CI/CD`](https://github.com/pmackowka/ga4-ab-testing-template/actions/workflows/dbt-ci-cd.yml), a dane przeliczają [przebiegi `dbt schedule`](https://github.com/pmackowka/ga4-ab-testing-template/actions/workflows/dbt-schedule.yml).
+
 | Ścieżka | Co robisz | Dla kogo |
 |---|---|---|
 | Ręczna: GTM + SQL | przed testem `sql/01` i `02`, po teście `sql/03` z parametrami testu w `DECLARE`, wszystko w konsoli BigQuery | analityk, który zna SQL i BigQuery, a nie zna dbt ani gita |
