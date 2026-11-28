@@ -47,21 +47,18 @@ exposed AS (
   GROUP BY user_pseudo_id
 ),
 
-orders AS (
-  SELECT user_pseudo_id, event_timestamp, week_no, revenue
-  FROM events
-  WHERE event_name = 'purchase'
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY order_key ORDER BY event_timestamp) = 1
-),
-
 purchases AS (
   SELECT
-    p.week_no,
-    p.revenue
-  FROM orders AS p
+    e.user_pseudo_id,
+    p.order_key,
+    MIN(p.week_no) AS week_no,
+    ARRAY_AGG(p.revenue IGNORE NULLS ORDER BY p.event_timestamp LIMIT 1)[SAFE_OFFSET(0)] AS revenue
+  FROM events AS p
   JOIN exposed AS e
     ON e.user_pseudo_id = p.user_pseudo_id
     AND p.event_timestamp > e.first_view_ts
+  WHERE p.event_name = 'purchase'
+  GROUP BY e.user_pseudo_id, p.order_key
 ),
 
 weekly AS (

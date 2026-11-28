@@ -9,6 +9,7 @@ Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkula
 | `sql/01_przed_testem.sql` | ruch, konwertujący, przychód na użytkownika w oknach 1–8 tyg. → kalkulator „Przed testem” |
 | `sql/02_przychod_tygodniowy.sql` | przychód tygodniowy (średnia i mediana) → pole przychodu w obu kalkulatorach |
 | `sql/03_po_tescie_warianty.sql` | wynik jednego testu na wariant + kontrola jakości → kalkulator „Po teście” |
+| `sql/check_02_null_revenue.sql` | ręczna kontrola `02` (zamówienie NULL → 100 zł), uruchomienie w `sql/README.md` |
 | `dbt/` | to samo co `sql/03` dla wszystkich testów z seeda `seeds/rejestr_testow.csv`; staging → intermediate → `fct_wyniki_testow_ab` |
 | `dane_syntetyczne/generuj_eksport_ga4.sql` | skrypt BigQuery: syntetyczny eksport GA4 ze znanym efektem wariantów (prawda w `dbt/README.md`) |
 | `gtm/` | tagi Custom HTML losujące wariant w slotach `ab1`–`ab10` |

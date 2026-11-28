@@ -61,6 +61,21 @@ Test `ab2` na danych syntetycznych, domyślne parametry; prawdziwy efekt v1 to +
 
 Kontrola jakości nie idzie do kalkulatora. `excluded_mixed` to osoby z 2+ wariantami, wyjęte z `users`; różnica między wierszami większa niż 2 × √(suma obu) jest podejrzana (tu 17 < 25, w normie). `reassigned` to 2+ `ab_assign` (ciasteczko testu zniknęło, tag losował ponownie), `no_assignment` to wariant bez `ab_assign` (nowe `_ga` albo zgubiony hit).
 
+## Kontrola `02`: pierwsza niepusta kwota
+
+[`check_02_null_revenue.sql`](check_02_null_revenue.sql) tworzy zbiór `check_sql02` z siedmioma dziennymi tabelami (2026-08-31 – 2026-09-06): jeden użytkownik, `view_item`, a po nim zamówienie `T1` wysłane dwa razy, najpierw bez kwoty, potem ze 100 zł. Kontrola puszcza na nim plik `02` z repo, z podmienionym zbiorem i `window_weeks = 1`. W katalogu głównym repo, w swojej kopii z własnym projektem w miejscu `ab-test-sandbox`:
+
+```bash
+bq --project_id=ab-test-sandbox --location=EU query --use_legacy_sql=false < sql/check_02_null_revenue.sql
+sed -e 's/ga4_syntetyczny/check_sql02/g' -e 's/window_weeks INT64 DEFAULT 2/window_weeks INT64 DEFAULT 1/' sql/02_przychod_tygodniowy.sql |
+  bq --project_id=ab-test-sandbox --location=EU query --use_legacy_sql=false --format=csv
+bq --project_id=ab-test-sandbox rm -r -f -d check_sql02
+```
+
+Oczekiwany wynik: `weekly_revenue` 100, `weekly_revenue_median` 100. Zera oznaczają, że `02` zgubiło kwotę z drugiego zgłoszenia. Jeśli w `02` masz już swoją tabelę zamiast `ga4_syntetyczny`, `sed` jej nie podmieni.
+
+Kontrola jest ręczna: uruchamiaj ją po każdej zmianie `02`. Zmiana samego `sql/` nie odpala [`dbt-ci-cd.yml`](../.github/workflows/dbt-ci-cd.yml).
+
 ## Konwersja czy przychód na użytkownika
 
 Oba kalkulatory mają przełącznik „Metryka”: wybierasz ją w planie i tę samą bierzesz do oceny.
@@ -69,7 +84,7 @@ Oba kalkulatory mają przełącznik „Metryka”: wybierasz ją w planie i tę 
 - **Przychód na użytkownika (RPU)** = przychód wariantu / jego użytkownicy = CR × przychód na kupującego. Łapie obie zmiany, bliżej mu do sprzedaży. Mianownik to wszyscy użytkownicy, także z 0 zł.
 - **RPU potrzebuje więcej użytkowników**, bo przychód ma większy rozrzut niż „kupił / nie kupił”. Kohavi, Tang i Xu (*Trustworthy Online Controlled Experiments*) pokazują na kuponie, że wskaźnik zakupu (0/1) ma mniejszą wariancję niż przychód i szybciej wykrywa efekt; w rozdziale 18 (wariancja i czułość) zalecają przycinanie (capping) wartości skrajnych. Ile więcej, zależy od rozrzutu kwot: przy typowym nawet 2× przy tym samym MDE.
 - **Przykład (test `ab2` na danych syntetycznych):** ta sama strona i MDE +10% to przy CR 49 807 użytkowników na wariant (2 tygodnie), przy RPU 87 600 (3 tygodnie). Wynik `03` po 2 tygodniach, który przy CR daje „Wdrażaj B”, przy RPU daje „Wstrzymaj decyzję”: 64 070 użytkowników to za mało dla planu RPU.
-- **Jedno duże zamówienie** potrafi przesądzić średnią, więc `01`, `03` i dbt przycinają przychód osoby do 99,9 percentyla kupujących, a zamówienie liczą raz na `transaction_id`. Metrykę ustalasz przed startem: wybór po wyniku tej, która wyszła istotna, to dwa testy zamiast jednego i większa szansa na fałszywego zwycięzcę.
+- **Jedno duże zamówienie** potrafi przesądzić średnią, więc `01`, `03` i dbt przycinają przychód osoby do 99,9 percentyla kupujących, a zamówienie liczą raz na `transaction_id`. `02` też liczy zamówienie raz, z pierwszą niepustą kwotą po pierwszym `view_item`, ale niczego nie przycina. Metrykę ustalasz przed startem: wybór po wyniku tej, która wyszła istotna, to dwa testy zamiast jednego i większa szansa na fałszywego zwycięzcę.
 
 ## Kalkulator Przed testem
 
