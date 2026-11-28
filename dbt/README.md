@@ -250,6 +250,7 @@ Linia ciągła: kolejność i źródło kodu. Przerywana: zapis do BigQuery.
 | `dbt-ci-cd.yml` | `deploy` | CD | zielony `unit-tests` + push na `main` | `dbt build --select state:modified+`, bez zmienionego `stg_ga4__zdarzenia` |
 | `dbt-schedule.yml` | `build` | harmonogram | cron 3:17 czasu polskiego albo ręcznie (`full_refresh`) | `dbt build` bez unit testów |
 
+- Harmonogram i deploy pobierają do 100 przebiegów `dbt CI/CD` uruchomionych przez push na `main`. Biorą SHA z pierwszego na liście przebiegu o `status: completed` i `conclusion: success`, łącznie z jobem `deploy`. Harmonogram buduje z tego SHA, a deploy używa go do odtworzenia manifestu porównawczego. Gdy w tym oknie brakuje udanego przebiegu, harmonogram kończy się błędem, a deploy buduje cały projekt.
 - Czerwone CI: prod zostaje na ostatnim zielonym kodzie, dane są świeże.
 - `deploy` i `build` dzielą `concurrency: dbt-prod`: nigdy naraz, nowszy anuluje oczekujący.
 - Zmiana `stg_ga4__zdarzenia` czeka na Actions → dbt schedule → Run workflow → `full_refresh`.
