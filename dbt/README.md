@@ -2,6 +2,54 @@
 
 To samo co [`sql/03`](../sql/03_po_tescie_warianty.sql), ale dla wszystkich testów naraz: konfiguracja w seedzie zamiast `DECLARE`, testy danych zamiast `ASSERT`. Tagowanie: [`gtm/`](../gtm/README.md), kalkulatory: [`sql/`](../sql/README.md).
 
+## Od pustego projektu BigQuery do wyniku `ab2`
+
+Sprawdzisz model na własnym projekcie, bez dostępu do `ab-test-sandbox`, tagów GTM, eksportu GA4 i GitHub Actions. Potrzebujesz projektu GCP z BigQuery (wystarczy [sandbox](https://docs.cloud.google.com/bigquery/docs/sandbox) bez billingu; z billingiem zapytania są płatne wg cennika), [uv](https://docs.astral.sh/uv/) i [gcloud](https://cloud.google.com/sdk/docs/install) z `bq`. Komendy uruchamiasz po kolei w jednym terminalu, w katalogu głównym świeżego klona.
+
+1. Zaloguj `bq` i dbt, a potem podstaw swój projekt w trzech plikach: generatorze, `dbt_project.yml` i szablonie profilu.
+
+```bash
+gcloud auth login
+gcloud auth application-default login
+PROJECT=twoj-projekt
+perl -pi -e "s/ab-test-sandbox/$PROJECT/g" dane_syntetyczne/generuj_eksport_ga4.sql dbt/dbt_project.yml dbt/profiles.yml.example
+```
+
+2. Wygeneruj eksport w EU. Skrypt tworzy zbiór `ga4_syntetyczny` z tabelami `events_RRRRMMDD` od 2026-08-24 do wczoraj, dzień po dniu. Komunikat `bq` „Maximum statement results limit reached” skraca tylko wypisywany log.
+
+```bash
+bq --project_id=$PROJECT --location=EU query --use_legacy_sql=false < dane_syntetyczne/generuj_eksport_ga4.sql
+```
+
+3. Zbuduj projekt z przykładowym seedem. Na końcu zobaczysz `Completed successfully`; `sprawdz_srm` może tylko ostrzegać.
+
+```bash
+cd dbt
+uv sync
+cp profiles.yml.example profiles.yml
+uv run dbt deps
+uv run dbt build --target sandbox --profiles-dir .
+```
+
+4. Odczytaj wynik `ab2`.
+
+```bash
+bq --project_id=$PROJECT --location=EU query --use_legacy_sql=false \
+  "SELECT wariant, uzytkownicy, konwertujacy, przychod_na_uzytkownika, odchylenie_przychodu, czy_koncowy
+   FROM \`$PROJECT.dbt_dev_testy_ab.fct_wyniki_testow_ab\`
+   WHERE id_testu = 'ab2_20260907'
+   ORDER BY wariant"
+```
+
+Oczekiwany wynik przy niezmienionych parametrach generatora i seedzie:
+
+| wariant | uzytkownicy | konwertujacy | przychod_na_uzytkownika | odchylenie_przychodu | czy_koncowy |
+|---|---|---|---|---|---|
+| v0 | 64266 | 2038 | 8.78 | 67.3 | true |
+| v1 | 64070 | 2313 | 9.97 | 70.79 | true |
+
+Parametry generatora i prawdziwe efekty wariantów: [Dane syntetyczne](#dane-syntetyczne).
+
 ## Uruchomienie
 
 Wymaga [uv](https://docs.astral.sh/uv/), [gcloud](https://cloud.google.com/sdk/docs/install) i dostępu do projektu `ab-test-sandbox` (BigQuery sandbox, bez billingu). Logowanie kontem Google, bez klucza konta serwisowego.
