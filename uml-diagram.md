@@ -18,7 +18,7 @@ sequenceDiagram
     AN->>BQ: sql/01 i 02: ruch, konwersje, przychód tygodniowy
     AN->>KAL: „Przed testem”: ilu użytkowników i ile tygodni
     AN->>GH: wiersz w seeds/rejestr_testow.csv (push na main)
-    GH->>DBT: CI/CD: parse → unit testy → deploy zmienionych modeli
+    GH->>DBT: CI/CD: parse → unit testy → deploy zmienionych modeli i zależnych od nich
     U->>GTM: wejście na stronę testową
     Note over GTM,CK: tylko przy zgodzie analytics_storage
     GTM->>CK: losowanie wariantu raz, zapis na 60 dni

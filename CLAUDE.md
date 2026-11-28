@@ -14,7 +14,7 @@ Testy A/B na eksporcie GA4 w BigQuery: SQL i dbt liczą liczby do dwóch kalkula
 | `dane_syntetyczne/generuj_eksport_ga4.sql` | skrypt BigQuery: syntetyczny eksport GA4 ze znanym efektem wariantów (prawda w `dbt/README.md`) |
 | `gtm/` | tagi Custom HTML losujące wariant w slotach `ab1`–`ab10` |
 | `docs/demo/` | film demo z README: scenariusz, nagranie terminala (`demo.tape`, VHS), napisy `.srt`; wideo jako załącznik GitHuba, poza repo |
-| `.github/workflows/dbt-ci-cd.yml` | parse → unit testy → deploy zmienionych modeli (push na `main`) |
+| `.github/workflows/dbt-ci-cd.yml` | parse → unit testy → deploy zmienionych modeli i zależnych od nich (push na `main`) |
 | `.github/workflows/dbt-schedule.yml` | codzienny `dbt build` na prod z ostatniego zielonego commita CI |
 
 Nie ma dbt dla `sql/01` i `02`: plan testu to zapytanie jednorazowe z innymi parametrami za każdym razem, a staging trzyma tylko eventy z wariantem testu.
