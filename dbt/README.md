@@ -138,6 +138,7 @@ singular — sprawdza dane, jeden plik .sql = jeden test
 └── tests/
     ├── sprawdz_konfiguracje_testow.sql                konfiguracja seeda
     ├── sprawdz_komplet_dni_ga4.sql                    brakujące dni eksportu GA4
+    ├── sprawdz_ekspozycje_zakonczonych_testow.sql     zakończony test bez ekspozycji
     └── sprawdz_srm.sql                                SRM (warn)
 unit — sprawdza logikę na mockach
 └── models/
@@ -152,6 +153,7 @@ Każdy test danych zwraca wiersze z błędami; zero wierszy = zielony.
 |---|---|---|
 | `wariant_w_seedzie` (generic, przy kolumnie z `id_testu`) | wariant spoza `warianty` w seedzie: zły tag albo literówka w GTM | `ab2_20260907`, `V1` |
 | `sprawdz_komplet_dni_ga4` | brakująca dzienna tabela eksportu w dniach testu (do dziś minus 3); czyta tylko `_TABLE_SUFFIX`, więc kosztuje minimum | `ab2_20260907`, `2026-09-15` |
+| `sprawdz_ekspozycje_zakonczonych_testow` | zakończony test (`czy_koncowy = true`) bez ani jednej ekspozycji, choć `sprawdz_komplet_dni_ga4` i `sprawdz_srm` przechodzą: tag, parametr `abN` albo `zdarzenia_ekspozycji` nie działały; trwające i przyszłe testy pomija | `ab2_20260907` |
 | `sprawdz_konfiguracje_testow` | błąd konfiguracji w seedzie, reguły jak `ASSERT` w `sql/03` | `ab3_20261006`, `start_testu musi być poniedziałkiem` |
 | `sprawdz_srm` (warn) | podział kontrola–wariant odbiega od 50/50 bardziej niż przypadek: χ² = (a − b)² / (a + b) > 10,828 (p < 0,001), ta sama reguła co w kalkulatorze | `ab2_20260907`, v1, 10 850 vs 10 198, χ² 20,2 |
 
@@ -311,7 +313,7 @@ Oczekiwany `fct_wyniki_testow_ab` (ab2 z przebiegu w BigQuery 2026-11-08, ab3 z 
 
 ## Niesprawdzone
 
-Na żywo w BigQuery (sandbox, EU) biegły generator, `dbt build --target sandbox` (39 PASS: testy danych i unit testy) oraz GitHub Actions przez WIF: `unit-tests` i `deploy` w CI/CD i ręczny przebieg harmonogramu (po 31 PASS w `prod_ci`). Do potwierdzenia:
+Na żywo w BigQuery (sandbox, EU) biegły generator, `dbt build --target sandbox` (41 PASS: modele, seed, testy danych i unit testy) oraz GitHub Actions przez WIF: `unit-tests` i `deploy` w CI/CD i ręczny przebieg harmonogramu (po 31 PASS w `prod_ci`). Do potwierdzenia:
 - czy `_dbt_max_partition` w filtrze na `_TABLE_SUFFIX` ogranicza czytane tabele (`total_bytes_billed` w `INFORMATION_SCHEMA.JOBS`);
 - czy `flags.EMPTY` wyłącza filtry na `_TABLE_SUFFIX` pod `--empty`;
 - puste `user_pseudo_id` i `ga_session_id` przy `analytics_storage = denied` — potwierdzają tylko relacje praktyków; od kiedy eksport ma pola `batch_*` — dokumentacja nie podaje daty;

@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/18cbf498-c2b9-46a5-b94e-f7b53ea2016e
 | Ścieżka | Co robisz | Dla kogo |
 |---|---|---|
 | Ręczna: GTM + SQL | przed testem `sql/01` i `02`, po teście `sql/03` z parametrami testu w `DECLARE`, wszystko w konsoli BigQuery | analityk, który zna SQL i BigQuery, a nie zna dbt ani gita |
-| Automatyczna: GTM + SQL + dbt + GitHub Actions | przed testem `sql/01` i `02`, potem wiersz w `rejestr_testow.csv`; harmonogram codziennie przelicza `fct_wyniki_testow_ab` dla wszystkich testów | analytics engineer: 25 testów danych (klucze, SRM, komplet dziennych tabel GA4, konfiguracja testu), 9 unit testów logiki, CI/CD wdraża tylko zmienione modele, GitHub loguje się do GCP bez kluczy |
+| Automatyczna: GTM + SQL + dbt + GitHub Actions | przed testem `sql/01` i `02`, potem wiersz w `rejestr_testow.csv`; harmonogram codziennie przelicza `fct_wyniki_testow_ab` dla wszystkich testów | analytics engineer: 26 testów danych (klucze, SRM, komplet dziennych tabel GA4, ekspozycje zakończonych testów, konfiguracja testu), 9 unit testów logiki, CI/CD wdraża tylko zmienione modele, GitHub loguje się do GCP bez kluczy |
 
 Obie ścieżki liczą tak samo: użytkownik wchodzi do testu przy pierwszej ekspozycji, konwersja liczy się dopiero po niej, zamówienie raz na `transaction_id` z pierwszą niepustą kwotą, przychód osoby jest przycięty do 99,9 percentyla, a `(not set)` i pusty tekst to NULL.
 

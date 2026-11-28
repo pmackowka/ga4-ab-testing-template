@@ -34,6 +34,7 @@ Tabela wynikowa to `fct_wyniki_testow_ab`: wiersz = test × wariant. Do kalkulat
 |---|---|
 | `sprawdz_srm` | podział kontrola–wariant odbiega od 50/50 bardziej niż przypadek (p < 0,001); ostrzeżenie, nie błąd |
 | `sprawdz_komplet_dni_ga4` | brak dziennej tabeli eksportu w dniach testu |
+| `sprawdz_ekspozycje_zakonczonych_testow` | zakończony test bez ani jednej ekspozycji; zera w `fct_wyniki_testow_ab` to wtedy brak pomiaru, nie wynik |
 | `sprawdz_konfiguracje_testow` | błędy w rejestrze: nazwa slotu, pełne tygodnie, lista wariantów, okno nakładające się na poprzedni test w slocie albo zaczęte przed wygaśnięciem jego ciasteczek |
 | `wariant_w_seedzie` | wariant spoza rejestru — zły tag albo literówka w GTM |
 
